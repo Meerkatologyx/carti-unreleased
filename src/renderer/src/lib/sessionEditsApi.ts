@@ -1,4 +1,4 @@
-import { apiFetch, apiUrl, titleVariants, resolveSessionEditSource, OMIT_BULK, parseBrowseEntries, normalizeSongTitle, loadAllSongs, getSongById, searchFiles, buildStreamUrl, JWApiSong, JWApiBrowseResponse, JWApiFileEntry } from './juicewrldApi'
+import { apiFetch, apiUrl, titleVariants, resolveSessionEditSource, OMIT_BULK, parseBrowseEntries, normalizeSongTitle, loadAllSongs, getSongById, searchFiles, buildStreamUrl, CatalogSong, CatalogBrowseResponse, CatalogFileEntry } from './catalogApi'
 import { apiRequest } from './apiClient'
 import { createTtlCache } from './ttlCache'
 import { peekActiveChannel } from './activeChannelState'
@@ -15,10 +15,10 @@ export interface SessionEditFile {
 
 const SESSION_EDITS_ROOT = 'Session Edits'
 
-async function browse(path: string, channel: string): Promise<JWApiFileEntry[]> {
+async function browse(path: string, channel: string): Promise<CatalogFileEntry[]> {
   const params: Record<string, string> = { path }
   if (channel) params.channel = channel
-  const data = await apiFetch<JWApiBrowseResponse>('/files/browse/', params)
+  const data = await apiFetch<CatalogBrowseResponse>('/files/browse/', params)
   return parseBrowseEntries(data)
 }
 
@@ -68,8 +68,8 @@ function withoutVersionTag(title: string): string {
 }
 
 export interface SessionEditMatches {
-  primary: Map<string, JWApiSong>
-  alt: Map<string, JWApiSong>
+  primary: Map<string, CatalogSong>
+  alt: Map<string, CatalogSong>
 }
 
 // Only recording_session songs can have a session-edit link, and the API
@@ -78,7 +78,7 @@ export interface SessionEditMatches {
 // Deliberately not apiFetch - that would also persist the response to the
 // localStorage offline cache, a large synchronous write for data that's useless offline, since session edits only ever stream.
 const loadSessionSongs = createTtlCache(5 * 60_000, () =>
-  apiRequest<JWApiSong[]>(apiUrl('/songs/', { category: 'recording_session', all: 'true', omit: OMIT_BULK }), { cache: 'no-cache' }))
+  apiRequest<CatalogSong[]>(apiUrl('/songs/', { category: 'recording_session', all: 'true', omit: OMIT_BULK }), { cache: 'no-cache' }))
 
 /** Ids of every recording_session song - lets the versions table tell which
  *  group members are sessions without fetching each one. */
@@ -90,7 +90,7 @@ export const loadSessionSongIds = createTtlCache(5 * 60_000, async (): Promise<S
 async function fetchSessionEditMatches(): Promise<SessionEditMatches> {
   // Reuse the whole catalogue if someone else already paid for it.
   const allSongs = await (loadAllSongs.peek() ?? loadSessionSongs())
-  const songById = new Map<number, JWApiSong>()
+  const songById = new Map<number, CatalogSong>()
   const primaryBySongId = new Map<string, Set<number>>()
   const altBySongId = new Map<string, Set<number>>()
   for (const song of allSongs) {
@@ -111,11 +111,11 @@ async function fetchSessionEditMatches(): Promise<SessionEditMatches> {
       altBySongId.get(norm)!.add(song.id)
     }
   }
-  const primary = new Map<string, JWApiSong>()
+  const primary = new Map<string, CatalogSong>()
   for (const [norm, ids] of primaryBySongId) {
     if (ids.size === 1) primary.set(norm, songById.get([...ids][0])!)
   }
-  const alt = new Map<string, JWApiSong>()
+  const alt = new Map<string, CatalogSong>()
   for (const [norm, ids] of altBySongId) {
     // Any session named this keeps it from the others, even when it shares
     // the name with another session and so isn't in `primary` itself.

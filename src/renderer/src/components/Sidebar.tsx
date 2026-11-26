@@ -34,7 +34,7 @@ export default function Sidebar(): JSX.Element {
   const activeUploadCount = useStore((s) => s.uploads.reduce((n, u) => (u.state === 'downloading' ? n + 1 : n), 0))
   const { showNotifications, setShowNotifications } = useStorePick('showNotifications', 'setShowNotifications')
   const unreadNotifications = useUnreadNotificationCount()
-  // The 999 FM chat pop-up (FmChatPopup) shares the top-right corner with
+  // The Vamp FM chat pop-up (FmChatPopup) shares the top-right corner with
   // Notifications and Transfers, so opening it closes them.
   const fmChatOpen = useRadioChatStore((s) => s.popupOpen)
   const toggleFmChat = (): void => {
@@ -212,9 +212,9 @@ export default function Sidebar(): JSX.Element {
         )
       case 'fmchat':
         return (
-          <button key="fmchat" data-fmchat-toggle onClick={toggleFmChat} onContextMenu={openControlMenu('fmchat', '999 FM chat')} title={collapsed ? '999 FM chat' : undefined} aria-pressed={fmChatOpen} className={rowCls}>
+          <button key="fmchat" data-fmchat-toggle onClick={toggleFmChat} onContextMenu={openControlMenu('fmchat', 'Vamp FM chat')} title={collapsed ? 'Vamp FM chat' : undefined} aria-pressed={fmChatOpen} className={rowCls}>
             <span className={iconWrap}><MessagesSquare size={18} className={fmChatOpen ? 'text-accent' : ''} /></span>
-            <span aria-hidden={collapsed} className={labelCls}>999 FM chat</span>
+            <span aria-hidden={collapsed} className={labelCls}>Vamp FM chat</span>
           </button>
         )
       case 'notifications':
@@ -282,7 +282,7 @@ export default function Sidebar(): JSX.Element {
         )
       case 'fmchat':
         return (
-          <button key="fmchat" data-fmchat-toggle onClick={toggleFmChat} onContextMenu={openControlMenu('fmchat', '999 FM chat')} title="999 FM chat" aria-pressed={fmChatOpen} className={barIconBtn}>
+          <button key="fmchat" data-fmchat-toggle onClick={toggleFmChat} onContextMenu={openControlMenu('fmchat', 'Vamp FM chat')} title="Vamp FM chat" aria-pressed={fmChatOpen} className={barIconBtn}>
             <MessagesSquare size={18} className={fmChatOpen ? 'text-accent' : ''} />
           </button>
         )

@@ -25,12 +25,12 @@ const LIB = join(SRC, 'lib')
 // "module.function": why the terminal has no command for it. Keep this list
 // short and honest - a reason should say what is reachable instead.
 const NOT_APPLICABLE = {
-  'wrldExpand.expandToWrld': 'animates navigation to WRLD from the player bar and makes no API request (open wrld)',
+  'vampExpand.expandToVamp': 'animates navigation to VAMP from the player bar and makes no API request (open vamp)',
   // Live sockets: the terminal can't hold a streaming screen open as a command.
   'heardleMatchApi.connectMatchSocket': 'live websocket; the REST queue calls are covered',
   // Same request as another function that is covered.
   'userApi.setPlaylistCoverBase64': 'same PATCH as uploadPlaylistCover (drag-drop path)',
-  'juicewrldApi.fetchFileText': 'the terminal file tools (ignored module terminalFiles) read with it: nano',
+  'catalogApi.fetchFileText': 'the terminal file tools (ignored module terminalFiles) read with it: nano',
   'eraCoverFiles.findEraCoverFile': 'looks up an era cover with the same /files/list-all/ walk the terminal file tools make (ls, find); the path goes into a proposal as image_url',
   // Whole modules (`module.*`).
   'lastfm.*': 'Last.fm is a third-party service, not the site API',
@@ -50,16 +50,16 @@ const NOT_APPLICABLE = {
   'coverArtImages.*': 'caches coverArtApi.fetchCoverArtImage (coverart image)',
   'heardleMatchApi.*': 'live versus match runs over a websocket; the REST queue calls are covered by daily versus',
   'notificationSocket.*': 'live notification websocket, not a request/response call',
-  'radioChatSocket.*': 'live 999 FM chat websocket; `fmchat say` posts through it',
+  'radioChatSocket.*': 'live Vamp FM chat websocket; `fmchat say` posts through it',
   // Loaders and wrappers over endpoints that have their own command.
-  'juicewrldApi.listFilesRecursive': 'wrapper over /files/browse (ls, tree, find)',
-  'juicewrldApi.listSubtree': 'wrapper over /files/browse (ls, tree, find)',
-  'juicewrldApi.searchFiles': 'wrapper over /files/browse (ls, tree, find)',
-  'juicewrldApi.findSessionZips': 'wrapper over /files/browse (ls, tree, find)',
+  'catalogApi.listFilesRecursive': 'wrapper over /files/browse (ls, tree, find)',
+  'catalogApi.listSubtree': 'wrapper over /files/browse (ls, tree, find)',
+  'catalogApi.searchFiles': 'wrapper over /files/browse (ls, tree, find)',
+  'catalogApi.findSessionZips': 'wrapper over /files/browse (ls, tree, find)',
   'fileSearch.loadFileIndex': '/files/list-all index behind the Files search (shell `search`)',
   'fileSearch.runFileSearch': 'the Files search itself (shell `search`)',
-  'juicewrldApi.loadAllSongs': 'bulk /songs/ load behind song, find and lookup',
-  'juicewrldApi.matchLocalSongCover': 'client-side cover matching',
+  'catalogApi.loadAllSongs': 'bulk /songs/ load behind song, find and lookup',
+  'catalogApi.matchLocalSongCover': 'client-side cover matching',
   'appVersion.useCommitStatus': 'React hook over the /changelog data',
   'clientZip.*': 'client-side zipping behind get',
   'exactSeekAudio.*': 're-reads a stream URL the Synced lyrics tool already plays, to decode it for exact seeking (get downloads the same file)',

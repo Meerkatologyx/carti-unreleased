@@ -14,7 +14,7 @@ import { encodeLocalNotice, encodeSongInfoShare, encodeSongShare, encodeThemeSha
 import { chatCommandHelp, findChatCommand } from '../../lib/chatHelp'
 import { registerTerminalRunner, type TerminalRunner, type TerminalSink } from '../../lib/chatTerminalBridge'
 import { fetchGifFile, gifPickerConfigured, type GifResult } from '../../lib/gifApi'
-import { getSongsByIds, resolveTitleToSong, searchSongs, type JWApiSong } from '../../lib/juicewrldApi'
+import { getSongsByIds, resolveTitleToSong, searchSongs, type CatalogSong } from '../../lib/catalogApi'
 import { sortListeningPlays, type ListeningPlayEvent } from '../../lib/listeningPlays'
 import { allSkins, getSkin } from '../../lib/skins'
 import { displayName, roomKey, useChatStore, type RoomRef, type UiMessage } from '../../store/chatStore'
@@ -91,7 +91,7 @@ const Composer = forwardRef<ComposerHandle, {
   const [emojiQuery, setEmojiQuery] = useState<{ start: number; query: string; index: number } | null>(null)
   const [emojiAt, setEmojiAt] = useState<{ x: number; y: number } | null>(null)
   const [commandBusy, setCommandBusy] = useState<string | null>(null)
-  const [searchPick, setSearchPick] = useState<{ query: string; results: JWApiSong[]; index: number } | null>(null)
+  const [searchPick, setSearchPick] = useState<{ query: string; results: CatalogSong[]; index: number } | null>(null)
   const [slashQuery, setSlashQuery] = useState<{ query: string; index: number } | null>(null)
   const [gifAt, setGifAt] = useState<{ x: number; y: number } | null>(null)
   const textarea = useRef<HTMLTextAreaElement>(null)
@@ -374,9 +374,9 @@ const Composer = forwardRef<ComposerHandle, {
   }
 
   // "Now playing" card shares the exact Track the player has queued, so it
-  // only works for API-sourced tracks (id "jw-<n>") - a local file has
+  // only works for API-sourced tracks (id "pc-<n>") - a local file has
   // nothing a recipient's client could stream from, and encodeSongShare's
-  // decode side would reject it anyway (streamUrl isn't a JWAPI_BASE URL).
+  // decode side would reject it anyway (streamUrl isn't a CATALOG_API_BASE URL).
   //
   // In the terminal `np` only says what's playing - it never posts to the room.
   const shareNowPlayingCommand = async (): Promise<void> => {
@@ -961,7 +961,7 @@ const Composer = forwardRef<ComposerHandle, {
     return registerTerminalRunner(registerKey, (input, s) => terminalRun.current(input, s))
   }, [registerKey, parent])
 
-  const pickSearchResult = (song: JWApiSong): void => {
+  const pickSearchResult = (song: CatalogSong): void => {
     setSearchPick(null)
     send(room, { text: encodeSongShare(song.id), files: [] })
       .catch((err) => toast(errorText(err, 'Message failed to send')))

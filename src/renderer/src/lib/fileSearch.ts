@@ -1,5 +1,5 @@
 import { apiRequest } from './apiClient'
-import { apiUrl, normalizeForSearch, searchFiles, type JWApiFileEntry } from './juicewrldApi'
+import { apiUrl, normalizeForSearch, searchFiles, type CatalogFileEntry } from './catalogApi'
 import { getFileExt, getMediaType } from './fileTypes'
 import { maxEdits, withinEdits } from './lyricSearch'
 
@@ -19,7 +19,7 @@ import { maxEdits, withinEdits } from './lyricSearch'
 //   size:>10mb           also <, >=, <=; kb / mb / gb (bare numbers are MB)
 //
 // Any filter takes a leading "-" too. Matching ignores case, accents and
-// punctuation, and "juicewrld" finds "Playboi Carti". When nothing matches
+// punctuation, and "carti" finds "Playboi Carti". When nothing matches
 // exactly, words of 4+ letters get typo tolerance (the same budget lyric
 // search uses) and the result is flagged `fuzzy`.
 
@@ -120,7 +120,7 @@ export function hasQuery(q: FileQuery): boolean {
 // ─── Index ────────────────────────────────────────────────────────────────────
 
 interface Prepared {
-  entry: JWApiFileEntry
+  entry: CatalogFileEntry
   name: string
   nameCompact: string
   folder: string
@@ -136,7 +136,7 @@ export interface FileIndex {
   vocab: string[]
   /** Every folder's direct children, keyed by folder path ('' is the root).
    *  Same entries /files/browse/ lists, minus `modified`/`duration`. */
-  folders: Map<string, JWApiFileEntry[]>
+  folders: Map<string, CatalogFileEntry[]>
 }
 
 const INDEX_TTL_MS = 5 * 60_000
@@ -146,10 +146,10 @@ const indexes = new Map<string, { at: number; index: Promise<FileIndex | null> }
 // refreshes it.
 const readyIndexes = new Map<string, FileIndex>()
 
-export function prepareFileIndex(raw: JWApiFileEntry[]): FileIndex {
+export function prepareFileIndex(raw: CatalogFileEntry[]): FileIndex {
   const folderCache = new Map<string, { text: string; compact: string; parts: string[] }>()
   const vocab = new Set<string>()
-  const folders = new Map<string, JWApiFileEntry[]>([['', []]])
+  const folders = new Map<string, CatalogFileEntry[]>([['', []]])
   const items = raw.map((entry): Prepared => {
     const slash = entry.path.lastIndexOf('/')
     const folderPath = slash > 0 ? entry.path.slice(0, slash) : ''
@@ -183,7 +183,7 @@ export function loadFileIndex(channel: string): Promise<FileIndex | null> {
   // Straight through apiRequest, not apiFetch: the response is ~9 MB of JSON,
   // far past what the offline cache stores, and stringifying it just to
   // find that out costs a noticeable stall.
-  const index = apiRequest<{ items?: JWApiFileEntry[]; building?: boolean }>(apiUrl('/files/list-all/', { channel: channel || undefined }), { cache: 'no-cache' })
+  const index = apiRequest<{ items?: CatalogFileEntry[]; building?: boolean }>(apiUrl('/files/list-all/', { channel: channel || undefined }), { cache: 'no-cache' })
     .then((data) => (data.building && !data.items?.length ? null : prepareFileIndex(data.items ?? [])))
     .catch(() => null)
   index.then((r) => { if (r) readyIndexes.set(channel, r); else indexes.delete(channel) })
@@ -198,7 +198,7 @@ export function peekFileIndex(channel: string): FileIndex | null {
 
 /** A folder's listing straight from the loaded index, so a folder never opened
  *  before can show at once. Null when no index is in or the folder isn't in it. */
-export function folderFromIndex(channel: string, path: string): JWApiFileEntry[] | null {
+export function folderFromIndex(channel: string, path: string): CatalogFileEntry[] | null {
   return readyIndexes.get(channel)?.folders.get(path) ?? null
 }
 
@@ -206,7 +206,7 @@ export function folderFromIndex(channel: string, path: string): JWApiFileEntry[]
  *  syntax limited to folders, best matches first (every word in the folder's
  *  own name, then a name that starts with the first word, then shallower).
  *  A typed path that exists comes first. */
-export function findFolders(index: FileIndex, raw: string, limit = 50): JWApiFileEntry[] {
+export function findFolders(index: FileIndex, raw: string, limit = 50): CatalogFileEntry[] {
   const typed = raw.trim().replace(/^\/+|\/+$/g, '')
   const exact = typed.includes('/') ? index.items.find((p) => p.entry.type === 'directory' && p.entry.path.toLowerCase() === typed.toLowerCase())?.entry : undefined
   const q = parseFileQuery(raw)
@@ -215,7 +215,7 @@ export function findFolders(index: FileIndex, raw: string, limit = 50): JWApiFil
   const hits = searchFileIndex(index.items, { ...q, filters: [...q.filters, folderOnly] }, { vocab: index.vocab }).entries
   const positives = q.terms.filter((t) => !t.negate)
   const first = positives[0]
-  const rank = (e: JWApiFileEntry): number => {
+  const rank = (e: CatalogFileEntry): number => {
     const name = normalizeForSearch(e.name)
     const nameCompact = compact(name)
     let r = positives.every((t) => textHas(name, nameCompact, t)) ? 0 : 2
@@ -276,7 +276,7 @@ function closeWords(vocab: string[], term: string): Set<string> {
 }
 
 export interface FileSearchResult {
-  entries: JWApiFileEntry[]
+  entries: CatalogFileEntry[]
   /** Matches before the display cap. */
   total: number
   /** Nothing matched exactly; these are typo-tolerant matches. */
@@ -287,8 +287,8 @@ export const MAX_FILE_RESULTS = 1000
 
 /** Searches entries already in hand (an index, or a server search's results)
  *  with the full syntax. `within` limits it to one folder and below. */
-export function searchFileIndex(items: Prepared[] | JWApiFileEntry[], q: FileQuery, opts: { within?: string; vocab?: string[] } = {}): FileSearchResult {
-  const prepared = (items.length && 'entry' in items[0] ? items : prepareFileIndex(items as JWApiFileEntry[]).items) as Prepared[]
+export function searchFileIndex(items: Prepared[] | CatalogFileEntry[], q: FileQuery, opts: { within?: string; vocab?: string[] } = {}): FileSearchResult {
+  const prepared = (items.length && 'entry' in items[0] ? items : prepareFileIndex(items as CatalogFileEntry[]).items) as Prepared[]
   const prefix = opts.within ? `${opts.within.toLowerCase()}/` : ''
   const scoped = prefix ? prepared.filter((p) => p.entry.path.toLowerCase().startsWith(prefix)) : prepared
   const filtered = q.filters.length ? scoped.filter((p) => q.filters.every((f) => passesFilter(p, f))) : scoped

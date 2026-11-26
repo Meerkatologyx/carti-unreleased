@@ -17,7 +17,7 @@ const style = (): LightStyle => ({ ...DEFAULT_LIGHT, ...(live.settings?.light ??
 /** The Lyrics Ticker's line: the one being sung now, else the song's name and artist. */
 function ticker(): string {
   const track = live.state.track
-  const name = track ? `${track.title}${track.artist ? ` — ${track.artist}` : ''}` : 'Unreleased'
+  const name = track ? `${track.title}${track.artist ? ` — ${track.artist}` : ''}` : 'Carti Unreleased'
   const lines = live.state.lyrics?.lines
   const clock = live.state.clock
   if (!lines?.length || !clock || live.state.lyrics?.id !== track?.id) return name

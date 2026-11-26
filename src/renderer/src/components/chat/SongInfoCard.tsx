@@ -1,7 +1,7 @@
 import { Loader2, Music } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import type { SharedSongInfoPayload } from '../../lib/chatShare'
-import { buildImageUrl, CATEGORY_COLORS, CATEGORY_LABELS, getSongById, smallCoverUrl, type JWApiSong } from '../../lib/juicewrldApi'
+import { buildImageUrl, CATEGORY_COLORS, CATEGORY_LABELS, getSongById, smallCoverUrl, type CatalogSong } from '../../lib/catalogApi'
 import { useStore } from '../../store/useStore'
 import { clickable } from '../../lib/a11y'
 import { displayDate } from '../../lib/format'
@@ -10,7 +10,7 @@ import { displayDate } from '../../lib/format'
 // shown here comes from a fresh lookup, never from whatever text the
 // sender's message contained.
 export default function SongInfoCard({ info }: { info: SharedSongInfoPayload }): JSX.Element {
-  const [song, setSong] = useState<JWApiSong | null>(null)
+  const [song, setSong] = useState<CatalogSong | null>(null)
   const [failed, setFailed] = useState(false)
 
   useEffect(() => {

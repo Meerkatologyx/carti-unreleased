@@ -1,7 +1,7 @@
 import { Track, ViewType, DonorPlaylist } from '../types'
-import { routeUrl, buildStreamUrl, buildImageUrl, buildCoverArtUrl, parseDuration, overrideCoverUrl, resolveSessionEditSource, fileStem } from './juicewrldApi'
+import { routeUrl, buildStreamUrl, buildImageUrl, buildCoverArtUrl, parseDuration, overrideCoverUrl, resolveSessionEditSource, fileStem } from './catalogApi'
 import { isSessionEditPlaceholder } from './sessionEditLinksMirror'
-import type { JWApiSong } from './juicewrldApi'
+import type { CatalogSong } from './catalogApi'
 import { peekSongPref } from './songPrefs'
 import type { WireSongPreference } from './songPrefs'
 import type { ListeningPlayEvent } from './listeningPlays'
@@ -112,7 +112,7 @@ export interface UserSettings {
   full_era_names?: boolean
   gradients_enabled?: boolean
   surface_gradients_enabled?: boolean
-  wrld_theme_background?: boolean
+  vamp_theme_background?: boolean
   playlist_hero_enabled_dark?: boolean
   playlist_hero_enabled_light?: boolean
   sidebar_position?: string
@@ -420,7 +420,7 @@ export function liteSongToTrack(song: ApiSongLite): Track {
   // Sessions play their linked/looked-up session edit file, as in songToTrack.
   const { path: resolvedPath, length: resolvedLength, channel: streamChannel } = resolveSessionEditSource(song)
   return {
-    id: `jw-${song.id}`,
+    id: `pc-${song.id}`,
     path: resolvedPath,
     streamUrl: isSessionEditPlaceholder(resolvedPath) ? resolvedPath : buildStreamUrl(resolvedPath, streamChannel),
     imageUrl: coverUrl ?? apiImageUrl,
@@ -451,7 +451,7 @@ export function discordRedirectUri(): string {
   // In Electron (file:// protocol) always use the production callback URL,
   // which is the registered Discord redirect URI
   if (window.location.protocol === 'file:') {
-    return 'https://player.juicewrldapi.com/auth/discord/callback'
+    return 'https://meerkatologyx.github.io/carti-unreleased/auth/discord/callback'
   }
   return `${window.location.origin}/auth/discord/callback`
 }

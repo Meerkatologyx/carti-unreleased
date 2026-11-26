@@ -1,5 +1,5 @@
 import { getToken } from './userApi'
-import { baseFor, routeUrl } from './juicewrldApi'
+import { baseFor, routeUrl } from './catalogApi'
 import { apiRequest, authHeaders } from './apiClient'
 import type { Guess, GameStatus, HeardleSong } from './heardle'
 import { absoluteClipUrl, type PuzzleResponse } from './heardleApi'
@@ -33,9 +33,9 @@ export interface MatchEndPayload {
 }
 
 function wsOrigin(): string {
-  const env = import.meta.env.VITE_JWAPI_WS as string | undefined
+  const env = import.meta.env.VITE_CATALOG_API_WS as string | undefined
   if (env) return env.replace(/\/$/, '')
-  const apiRoot = baseFor('/heardle').replace(/\/juicewrld\/?$/, '')
+  const apiRoot = baseFor('/heardle').replace(/\/carti\/?$/, '')
   return apiRoot.replace(/^http/, 'ws')
 }
 
@@ -75,7 +75,7 @@ const RECONNECT_DELAYS_MS = [1000, 2000, 4000, 8000, 10000]
 
 function wsUrl(): string {
   const token = getToken()
-  const base = `${wsOrigin()}/juicewrld/ws/heardle/match/`
+  const base = `${wsOrigin()}/api/ws/heardle/match/`
   return token ? `${base}?token=${encodeURIComponent(token)}` : base
 }
 

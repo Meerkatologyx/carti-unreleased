@@ -5,11 +5,11 @@
 //
 // A code works while is_valid (active and not expired). A version only shows
 // up (and downloads) while is_active is true. Administrator + 2FA only.
-import { JWAPI_BASE } from './juicewrldApi'
+import { CATALOG_API_BASE } from './catalogApi'
 import { authedRequest, apiRequest, authHeaders } from './apiClient'
 import { getToken } from './userApi'
 
-const BETA_ADMIN_BASE = `${JWAPI_BASE.replace(/\/juicewrld$/, '')}/beta/admin`
+const BETA_ADMIN_BASE = `${CATALOG_API_BASE.replace(/\/carti$/, '')}/beta/admin`
 
 export interface BetaCode {
   id: number

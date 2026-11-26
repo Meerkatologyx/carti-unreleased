@@ -20,7 +20,7 @@ import { useCanEdit } from '../hooks/useChannelRoles'
 import { Track, LocalPlaylist, LibraryTrack, FollowedPlaylist } from '../types'
 import { AlbumArtThumbnail } from './AlbumArtThumbnail'
 import { ProgressiveCover } from './ProgressiveCover'
-import { apiFetch, JWApiSong, playlistCoverUrl, smallCoverUrl } from '../lib/juicewrldApi'
+import { apiFetch, CatalogSong, playlistCoverUrl, smallCoverUrl } from '../lib/catalogApi'
 import { getSkin } from '../lib/skins'
 import { libraryTrackToTrack as libTrackToTrack } from '../lib/fileTypes'
 import { formatDuration, formatTotalDuration } from '../lib/format'
@@ -475,7 +475,7 @@ export default function PlaylistsView(): JSX.Element {
   const { zipState, zipProgress, handleZipDownload } = usePlaylistZipDownload()
 
   // Song info modal
-  const [infoSong, setInfoSong] = useState<JWApiSong | null>(null)
+  const [infoSong, setInfoSong] = useState<CatalogSong | null>(null)
 
   // Cover upload
   const coverInputRef = useRef<HTMLInputElement>(null)
@@ -940,7 +940,7 @@ export default function PlaylistsView(): JSX.Element {
   const trackDrag = useDragReorder(tracks.length, moveTrack)
 
   const openSongInfo = useCallback(async (songId: number) => {
-    try { setInfoSong(await apiFetch<JWApiSong>(`/songs/${songId}/`)) } catch {}
+    try { setInfoSong(await apiFetch<CatalogSong>(`/songs/${songId}/`)) } catch {}
   }, [])
 
   const saveDescription = useCallback(async (value: string) => {
@@ -2201,7 +2201,7 @@ export default function PlaylistsView(): JSX.Element {
     setHeroBleedTop(heroActive)
     return () => setHeroBleedTop(false)
   }, [heroActive, setHeroBleedTop])
-  // Matches WRLD's own ownsTopInset. Always true: mobile's nav bar is
+  // Matches VAMP's own ownsTopInset. Always true: mobile's nav bar is
   // bottom-only now (see BottomNav), so the shell always reserves this inset
   // itself and the hero always has something to compensate for.
   const ownsTopInset = true

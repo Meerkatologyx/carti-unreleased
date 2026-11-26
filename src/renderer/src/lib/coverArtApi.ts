@@ -6,7 +6,7 @@
 //
 // Songs are picked by internal `id`, the same as edit proposals.
 import { routeUrl } from './apiServers'
-import { buildImageUrl } from './juicewrldApi'
+import { buildImageUrl } from './catalogApi'
 import { getToken } from './userApi'
 import { apiRequest, authHeaders, authedRequest, defaultParseError } from './apiClient'
 

@@ -1,5 +1,5 @@
 // Button the Equalizer popover should anchor to. Set by whichever on-screen
-// button is about to open it (Player bar, WRLD tab, a widget in the WRLD tab);
+// button is about to open it (Player bar, VAMP tab, a widget in the VAMP tab);
 // consumed once by Player when the panel opens, so hotkey opens don't reuse a
 // stale element.
 

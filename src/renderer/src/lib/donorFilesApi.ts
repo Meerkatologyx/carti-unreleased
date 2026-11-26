@@ -1,6 +1,6 @@
 // Donor personal file storage (1 GB, audio + images, optional share links).
 // Routes live under /accounts/donor/ - see docs/content.tsx "Donor File Storage".
-import { routeUrl } from './juicewrldApi'
+import { routeUrl } from './catalogApi'
 import { authedRequest, authHeaders } from './apiClient'
 import { getToken } from './userApi'
 

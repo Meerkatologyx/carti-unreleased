@@ -1,5 +1,5 @@
 // How big the player, the playlist and the clock stand, and where they first stand: the same sums the desktop's windows
-// are made by (electron/desktop/widgets.js and fit.js, which can't import this), for the widgets in the WRLD tab.
+// are made by (electron/desktop/widgets.js and fit.js, which can't import this), for the widgets in the VAMP tab.
 
 /** How big the widgets may be in an area designed for a 1440 × 900 screen: smaller with a smaller one, never larger. */
 export function fitOf(width: number, height: number): number {

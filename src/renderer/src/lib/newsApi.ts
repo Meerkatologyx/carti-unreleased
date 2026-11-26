@@ -1,7 +1,7 @@
 // News feed data layer. `/news/` is live on the backend - `NEWS_ENABLED` is
 // kept as a kill switch (reads fall back to an empty state and mutations
 // throw a clear "not available" error) rather than removed outright.
-import { routeUrl } from './juicewrldApi'
+import { routeUrl } from './catalogApi'
 import { apiRequest, authedRequest, authHeaders } from './apiClient'
 import { cacheGet } from './apiCache'
 import { getToken } from './userApi'
@@ -111,7 +111,7 @@ export function isAudioAttachment(a: { mime: string; name?: string }): boolean {
 
 export function ensureHttpsMediaUrl(url: string | null | undefined): string | null {
   if (!url) return null
-  if (url.startsWith('http://juicewrldapi.com')) {
+  if (url.startsWith('http://meerkatologyx.github.io')) {
     return `https://${url.slice('http://'.length)}`
   }
   return url
@@ -229,7 +229,7 @@ export async function fetchNews(params: FetchNewsParams = {}): Promise<NewsListR
 // params, or undefined. Lets NewsView render instantly on mount/channel
 // switch instead of flashing a spinner while the network round-trip that
 // fetchNews will do anyway is still in flight - stale-while-revalidate, same
-// pattern as apiPeek in juicewrldApi.ts.
+// pattern as apiPeek in catalogApi.ts.
 export function peekNews(params: FetchNewsParams = {}): NewsListResponse | undefined {
   if (!NEWS_ENABLED) return undefined
   return cacheGet<NewsListResponse>(`news:list:${newsListQuery(params)}`)

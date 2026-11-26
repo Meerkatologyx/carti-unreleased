@@ -18,9 +18,9 @@ import {
   buildCoverArtUrl,
   smallCoverUrl,
   apiFileTrackId,
-  JWApiFileEntry,
-  JWApiPaginatedResponse,
-} from '../lib/juicewrldApi'
+  CatalogFileEntry,
+  CatalogPaginatedResponse,
+} from '../lib/catalogApi'
 import { getFileExt, getMediaType, toFileUrl } from '../lib/fileTypes'
 import {
   breadcrumbs, parentFolder, fileToTrack, sortEntries, fileEntryLinkUrl, findSongByFilename, triggerDownload,
@@ -170,7 +170,7 @@ export default function ApiFilesView({ embedded = false, onMine }: {
   const [copiedPath, setCopiedPath] = useState<string | null>(null)
   const [copiedKind, setCopiedKind] = useState<'link' | 'path'>('link')
   const [boostToast, setBoostToast] = useState(false)
-  const [ctxMenu, setCtxMenu] = useState<{ entry: JWApiFileEntry; x: number; y: number } | null>(null)
+  const [ctxMenu, setCtxMenu] = useState<{ entry: CatalogFileEntry; x: number; y: number } | null>(null)
   // Right-click on empty listing space, rather than a specific entry.
   const [bgCtxMenu, setBgCtxMenu] = useState<{ x: number; y: number } | null>(null)
   const [newFolderPrompt, setNewFolderPrompt] = useState<string | null>(null)
@@ -189,7 +189,7 @@ export default function ApiFilesView({ embedded = false, onMine }: {
   // Resting the mouse on a folder for a moment fetches its listing ahead of
   // the click (prefetchFolder skips it once the file index has it anyway).
   const folderHoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const folderHoverProps = (entry: JWApiFileEntry): React.HTMLAttributes<HTMLDivElement> => entry.type !== 'directory' ? {} : {
+  const folderHoverProps = (entry: CatalogFileEntry): React.HTMLAttributes<HTMLDivElement> => entry.type !== 'directory' ? {} : {
     onPointerEnter: (e) => {
       if (e.pointerType !== 'mouse') return
       if (folderHoverTimer.current) clearTimeout(folderHoverTimer.current)
@@ -261,7 +261,7 @@ export default function ApiFilesView({ embedded = false, onMine }: {
     }
   }
 
-  const openSongInfo = async (entry: JWApiFileEntry): Promise<void> => {
+  const openSongInfo = async (entry: CatalogFileEntry): Promise<void> => {
     // The menu only offers this once the match is resolved; same lookup.
     const id = trackerMatches.get(entry.path) ?? (await findSongByFilename(entry.name))?.id
     // Global infoSongId (not local state) so the info panel survives
@@ -269,7 +269,7 @@ export default function ApiFilesView({ embedded = false, onMine }: {
     if (id != null) useStore.getState().setInfoSongId(id)
   }
 
-  const openContextMenu = (entry: JWApiFileEntry, x: number, y: number): void => {
+  const openContextMenu = (entry: CatalogFileEntry, x: number, y: number): void => {
     setCtxMenu({ entry, x, y })
     resolveTrackerMatch(entry)
   }
@@ -283,19 +283,19 @@ export default function ApiFilesView({ embedded = false, onMine }: {
     })
   }
 
-  const copyToClipboard = (entry: JWApiFileEntry, text: string, what: 'link' | 'path'): void =>
+  const copyToClipboard = (entry: CatalogFileEntry, text: string, what: 'link' | 'path'): void =>
     copyTextToClipboard(text, what, entry.path)
 
-  const copyLink = (entry: JWApiFileEntry): void => copyToClipboard(entry, fileEntryLinkUrl(entry, activeChannel), 'link')
+  const copyLink = (entry: CatalogFileEntry): void => copyToClipboard(entry, fileEntryLinkUrl(entry, activeChannel), 'link')
 
   // The API-relative path ("Compilation/Folder/song.mp3") - what every
   // /files/* endpoint takes as its `path` param, unlike Copy link's full URL.
-  const copyPath = (entry: JWApiFileEntry): void => copyToClipboard(entry, entry.path, 'path')
+  const copyPath = (entry: CatalogFileEntry): void => copyToClipboard(entry, entry.path, 'path')
 
   // Tries the P2P CDN first (primary channel only - /cdn/resolve/ has no
   // channel param, so a non-primary path could collide with a different
   // file of the same name) and falls back to the direct stream URL.
-  const handleDownload = (entry: JWApiFileEntry): void => {
+  const handleDownload = (entry: CatalogFileEntry): void => {
     const streamUrl = buildStreamUrl(entry.path, activeChannel)
     if (!isPrimary) { triggerDownload(streamUrl, entry.name); return }
     startCdnFileDownload(entry.path, entry.name, streamUrl).then((isDonor) => {
@@ -307,7 +307,7 @@ export default function ApiFilesView({ embedded = false, onMine }: {
 
   // Text viewer - API files come over HTTP from the same stream URL the
   // player uses, capped client-side to match the local reader's 2 MB limit.
-  const openApiText = (entry: JWApiFileEntry): void => {
+  const openApiText = (entry: CatalogFileEntry): void => {
     setTextFile({
       name: entry.name,
       onDownload: () => handleDownload(entry),
@@ -326,7 +326,7 @@ export default function ApiFilesView({ embedded = false, onMine }: {
   // closure only runs later, on an actual long-press, so referencing them
   // here before that point is fine.
 
-  const handleLongPressStart = (entry: JWApiFileEntry): void => {
+  const handleLongPressStart = (entry: CatalogFileEntry): void => {
     longPressTimer.current = setTimeout(() => enterSelectMode(entry), 500)
   }
 
@@ -375,7 +375,7 @@ export default function ApiFilesView({ embedded = false, onMine }: {
       getAll: () => new Map(filteredEntries.map(e => [e.path, e.path])),
     },
   })
-  const enterSelectMode = (entry: JWApiFileEntry): void => {
+  const enterSelectMode = (entry: CatalogFileEntry): void => {
     selectManyPaths(new Map([[entry.path, entry.path]]))
     setCtxMenu(null)
   }
@@ -433,7 +433,7 @@ export default function ApiFilesView({ embedded = false, onMine }: {
     if (selectMode) exitSelectMode()
   }
 
-  const dragSourceProps = (entry: JWApiFileEntry): {
+  const dragSourceProps = (entry: CatalogFileEntry): {
     draggable: boolean
     onDragStart: (e: React.DragEvent) => void
     onDragEnd: () => void
@@ -455,7 +455,7 @@ export default function ApiFilesView({ embedded = false, onMine }: {
 
   /** Whether the current drag can land on `entry`: not onto itself, not a
    *  folder into its own subtree, and not into the folder it already sits in. */
-  const dropAllowed = (entry: JWApiFileEntry): boolean => {
+  const dropAllowed = (entry: CatalogFileEntry): boolean => {
     if (draggedItems.length === 0) return false
     if (draggedItems.some(d => d.path === entry.path)) return false
     if (entry.type !== 'directory') return true
@@ -513,7 +513,7 @@ export default function ApiFilesView({ embedded = false, onMine }: {
   const isExternalDrag = (e: React.DragEvent): boolean =>
     canPropose && draggedItems.length === 0 && isFileDrag(e.dataTransfer)
 
-  const dropTargetProps = (entry: JWApiFileEntry): {
+  const dropTargetProps = (entry: CatalogFileEntry): {
     onDragOver: (e: React.DragEvent) => void
     onDragLeave: () => void
     onDrop: (e: React.DragEvent) => void
@@ -1324,7 +1324,7 @@ export default function ApiFilesView({ embedded = false, onMine }: {
                 onSelect: async () => {
                   const title = entry.name.replace(/\.[^.]+$/, '')
                   try {
-                    const data = await apiFetch<JWApiPaginatedResponse>('/songs/', { search: title, page_size: 1 })
+                    const data = await apiFetch<CatalogPaginatedResponse>('/songs/', { search: title, page_size: 1 })
                     const id = data.results[0]?.id
                     if (id) useStore.getState().openSongEditor(id)
                   } catch {}

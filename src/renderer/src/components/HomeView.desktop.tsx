@@ -9,7 +9,7 @@ import { useHomeData, HOME_ALBUMS_SHOWN, type GameCard, type HomePlaylistCard, t
 import { useElementSize } from '../hooks/useElementSize'
 import { useStore, useStorePick } from '../store/useStore'
 import { useCanEdit } from '../hooks/useChannelRoles'
-import { sizedCoverUrl, smallCoverUrl } from '../lib/juicewrldApi'
+import { sizedCoverUrl, smallCoverUrl } from '../lib/catalogApi'
 import * as userApi from '../lib/userApi'
 import type { SongContextMenuState } from './SongContextMenu'
 import type { PlaylistContextMenuState } from './PlaylistContextMenu'
@@ -35,7 +35,7 @@ const ShareNewsModal = lazyOverlay(() => import('./chat/ShareNewsModal'))
 // that fills the window instead of a stack that scrolls out of it.
 //
 // Section ids map 1:1 to one place on screen, so hiding a section in
-// Settings removes exactly one thing. News, 999 FM and Liked share one
+// Settings removes exactly one thing. News, Vamp FM and Liked share one
 // narrow right-hand rail (compact cards, News taking whatever height they
 // leave it) rather than each claiming a full-height column of their own, so
 // Recently played and Playlists - the two sections actually worth spending
@@ -490,7 +490,7 @@ export default function HomeView(): JSX.Element {
         <HomeHero on="home" />
 
         {/* ── Main: recently played, on this day, playlists, albums, tools as a bento ──
-            ── Side rail: news, 999 FM, liked, games - compact, narrow ── */}
+            ── Side rail: news, Vamp FM, liked, games - compact, narrow ── */}
         {(mainShown || sideShown) && (
           <div className="flex-1 min-h-0 flex gap-7">
             {mainShown && (
@@ -584,7 +584,7 @@ export default function HomeView(): JSX.Element {
                     icon={<Radio size={18} className={radioFmIsLive ? 'text-red-500 animate-pulse' : 'text-accent'} />}
                     title={
                       <>
-                        999 FM
+                        Vamp FM
                         {radioFmIsLive && <span className="text-red-500 text-[10px] font-bold uppercase tracking-widest">Live</span>}
                       </>
                     }

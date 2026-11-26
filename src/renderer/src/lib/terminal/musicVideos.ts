@@ -10,7 +10,7 @@ import { trackIdToSongId } from '../userApi'
 import { completeSongs, songFromArg } from './player'
 import { asJson, clock, fail, table, type TermCommand } from './types'
 
-// The official videos WRLD plays in place of the visualizer (Settings: `set wrld-videos`).
+// The official videos VAMP plays in place of the visualizer (Settings: `set vamp-videos`).
 const SUBS = ['show', 'list', 'resync', 'pick', 'default', 'defaults']
 
 async function target(arg: string): Promise<MusicVideoTarget> {
@@ -18,10 +18,10 @@ async function target(arg: string): Promise<MusicVideoTarget> {
     const song = await songFromArg(arg)
     return (await musicVideoTargetForSong(song.id)) ?? fail(`${song.name} isn’t a released song with a file, so it has no video`)
   }
-  // What WRLD and the cleared desk look a video up for: the playing song, or 999 FM's.
+  // What VAMP and the cleared desk look a video up for: the playing song, or Vamp FM's.
   const s = useStore.getState()
   if (!s.radioFmActive && !s.currentTrack) fail('nothing is playing - name a song: musicvideo <song>')
-  const name = s.radioFmActive ? (s.radioFmNowPlaying?.title ?? '999 FM’s song') : s.currentTrack!.title
+  const name = s.radioFmActive ? (s.radioFmNowPlaying?.title ?? 'Vamp FM’s song') : s.currentTrack!.title
   return (await musicVideoTargetFor({ track: s.currentTrack, fmActive: s.radioFmActive, fmSong: s.radioFmMatchedSong }))
     ?? fail(`${name} isn’t a released song with a file, so it has no video`)
 }
@@ -32,9 +32,9 @@ const spanLines = (sync: VideoSync): string[][] => sync.spans.map((s, i) => {
   return [range, s.lag === null ? 'not in the video' : `video at ${clock(s.at + s.lag)} (${s.lag >= 0 ? '+' : ''}${s.lag.toFixed(2)} s)`]
 })
 
-/** The song's pick for WRLD as `musicvideo pick` takes it: auto, none, or the video's number. */
+/** The song's pick for VAMP as `musicvideo pick` takes it: auto, none, or the video's number. */
 function pickWord(t: MusicVideoTarget, videos: MusicVideo[]): string {
-  const picked = useVizStore.getState().wrldVideoPicks[t.path] ?? null
+  const picked = useVizStore.getState().vampVideoPicks[t.path] ?? null
   if (picked === null) return 'auto'
   if (picked === 'none') return 'none'
   const n = videos.findIndex((v) => v.path === picked)
@@ -45,7 +45,7 @@ export const MUSIC_VIDEO_COMMANDS: TermCommand[] = [
   {
     name: 'musicvideo', aliases: ['mvideo'], group: 'Player',
     usage: 'musicvideo [show] [<song>] [--all] · list [text] · resync [<song>] · pick <N|auto|none> · default <N|auto|none> [-- <song>] · defaults',
-    description: 'The song’s official video from Files that WRLD plays in place of the visualizer, and where each part of the song is in it. The playing song unless one is named; visualizers stand in when no music video lines up, and --all also looks at lyric videos. resync works the timing out again. pick chooses the playing song’s video in WRLD by its number from musicvideo (auto: the best that lines up; none: the visualizer). default sets it for every player (administrators), defaults lists them',
+    description: 'The song’s official video from Files that VAMP plays in place of the visualizer, and where each part of the song is in it. The playing song unless one is named; visualizers stand in when no music video lines up, and --all also looks at lyric videos. resync works the timing out again. pick chooses the playing song’s video in VAMP by its number from musicvideo (auto: the best that lines up; none: the visualizer). default sets it for every player (administrators), defaults lists them',
     covers: ['musicVideoDefaultsApi.getMusicVideoDefaults', 'musicVideoDefaultsApi.getMusicVideoDefaultsAdmin', 'musicVideoDefaultsApi.setMusicVideoDefault', 'musicVideoDefaultsApi.clearMusicVideoDefault', 'musicVideos.loadMusicVideoIndex', 'musicVideos.findMusicVideo', 'musicVideos.chooseMusicVideo', 'musicVideos.musicVideoTargetFor', 'musicVideos.musicVideoTargetForSong', 'musicVideos.musicVideoTargetForTrack', 'videoSync.alignMusicVideo'],
     complete: (before, partial) => (before.length === 0 ? SUBS.filter((s) => s.startsWith(partial.toLowerCase()))
       : before[0] === 'pick' || before[0] === 'default' ? ['auto', 'none'].filter((w) => w.startsWith(partial.toLowerCase()))
@@ -105,22 +105,22 @@ export const MUSIC_VIDEO_COMMANDS: TermCommand[] = [
         const n = Number(word)
         const chosen = Number.isInteger(n) && n >= 1 && n <= videos.length ? videos[n - 1] : null
         if (word !== 'auto' && word !== 'none' && !chosen) fail(`usage: musicvideo pick <1-${videos.length}|auto|none>`)
-        useVizStore.getState().setWrldVideoPick(t.path, word === 'auto' ? null : word === 'none' ? 'none' : chosen!.path)
-        ctx.print(`${t.name}: ${word === 'auto' ? 'the best video that lines up' : word === 'none' ? 'the visualizer, no video' : videoLabel(chosen!)} in WRLD`, 'ok')
+        useVizStore.getState().setVampVideoPick(t.path, word === 'auto' ? null : word === 'none' ? 'none' : chosen!.path)
+        ctx.print(`${t.name}: ${word === 'auto' ? 'the best video that lines up' : word === 'none' ? 'the visualizer, no video' : videoLabel(chosen!)} in VAMP`, 'ok')
         return
       }
 
       const t = await target(tail)
-      const choice: MusicVideoChoice = all ? 'all' : useVizStore.getState().wrldVideos === 'all' ? 'all' : 'music'
+      const choice: MusicVideoChoice = all ? 'all' : useVizStore.getState().vampVideos === 'all' ? 'all' : 'music'
       const every = videosFor(await loadMusicVideoIndex(), t.name, 'all')
       const serverDefault = (await getMusicVideoDefaults().catch(() => new Map<string, string>())).get(t.path) ?? null
       if (sub === 'resync') for (const v of every) forgetVideoSync(v.path, t.path)
       ctx.print(`Looking for a video of ${t.name}… (the first time takes a few seconds)`, 'dim')
-      // What WRLD shows: the song's pick, then the administrators' default, then the best that lines up. resync looks
+      // What VAMP shows: the song's pick, then the administrators' default, then the best that lines up. resync looks
       // again for the best.
       const match = sub === 'resync'
         ? await findMusicVideo(t, choice, { force: true })
-        : (await chooseMusicVideo(t, { choice, pick: useVizStore.getState().wrldVideoPicks[t.path] ?? null })).match
+        : (await chooseMusicVideo(t, { choice, pick: useVizStore.getState().vampVideoPicks[t.path] ?? null })).match
       if (asJson(ctx, json, { song: t, match, videos: every, pick: pickWord(t, every) })) return
       const listing = every.length > 1
         ? ['', `All of its videos (musicvideo pick <N|auto|none>, now ${pickWord(t, every)}):`, table(every.map((v, i) => [String(i + 1), videoLabel(v), v.path, serverDefault === v.path ? 'default for everyone' : '']))]
@@ -132,7 +132,7 @@ export const MUSIC_VIDEO_COMMANDS: TermCommand[] = [
         return
       }
       const off = [
-        ...(useVizStore.getState().wrldVideos === 'off' ? ['(WRLD shows none while videos are off: set wrld-videos music)'] : []),
+        ...(useVizStore.getState().vampVideos === 'off' ? ['(VAMP shows none while videos are off: set vamp-videos music)'] : []),
         ...(serverDefault === '' ? ['(an administrator turned the video off for everyone: musicvideo default auto)'] : []),
       ]
       ctx.print([

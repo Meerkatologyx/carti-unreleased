@@ -76,7 +76,7 @@ export function useAudioClock(src: string | null): { clock: SyncClock; element: 
   const played = src && exact?.from === src ? exact.url : src
   useEffect(() => { setPlaying(false) }, [src])
   useEffect(() => { if (ref.current) ref.current.playbackRate = rate }, [rate, played])
-  // One song at a time: the app's player (or 999 FM) starting pauses this one.
+  // One song at a time: the app's player (or Vamp FM) starting pauses this one.
   useEffect(() => useStore.subscribe((s, prev) => {
     if ((s.isPlaying && !prev.isPlaying) || (s.radioFmActive && !prev.radioFmActive)) ref.current?.pause()
   }), [])

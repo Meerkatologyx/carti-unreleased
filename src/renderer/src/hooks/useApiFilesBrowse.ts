@@ -3,17 +3,17 @@
 // URL sync were byte-identical between the two views before this extraction.
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
-  apiFetch, apiPeek, searchFiles, JWApiBrowseResponse, JWApiFileEntry, parseBrowseEntries as parseEntries,
-} from '../lib/juicewrldApi'
+  apiFetch, apiPeek, searchFiles, CatalogBrowseResponse, CatalogFileEntry, parseBrowseEntries as parseEntries,
+} from '../lib/catalogApi'
 import { parentFolder, pathToUrl, urlToPath } from '../lib/apiFilesShared'
 import { folderFromIndex, hasQuery, loadFileIndex, parseFileQuery, peekFileIndex, searchFileIndex, type FileSearchResult } from '../lib/fileSearch'
-import type { JWApiChannel } from '../lib/juicewrldApi'
+import type { CatalogChannel } from '../lib/catalogApi'
 import { errorMessage } from '../lib/format'
 
 export function useApiFilesBrowse(opts: {
   activeChannel: string
   setActiveChannel: (slug: string) => void
-  channels: JWApiChannel[]
+  channels: CatalogChannel[]
   loadChannels: () => Promise<void>
   apiFilesPath: string
   setApiFilesPath: (path: string) => void
@@ -27,7 +27,7 @@ export function useApiFilesBrowse(opts: {
   embedded?: boolean
 }): {
   currentPath: string
-  entries: JWApiFileEntry[]
+  entries: CatalogFileEntry[]
   loading: boolean
   error: string | null
   history: string[]
@@ -42,7 +42,7 @@ export function useApiFilesBrowse(opts: {
   setSearch: (v: string) => void
   debouncedSearch: string
   setDebouncedSearch: (v: string) => void
-  searchResults: JWApiFileEntry[]
+  searchResults: CatalogFileEntry[]
   /** Matches before the display cap (MAX_FILE_RESULTS). */
   searchTotal: number
   /** No exact matches; the results are typo-tolerant ones. */
@@ -57,14 +57,14 @@ export function useApiFilesBrowse(opts: {
   const { activeChannel, setActiveChannel, channels, loadChannels, apiFilesPath, setApiFilesPath, apiFilesLastPath, setApiFilesLastPath, onNavigateStart, embedded = false } = opts
 
   const [currentPath, setCurrentPath] = useState('')
-  const [entries, setEntries] = useState<JWApiFileEntry[]>([])
+  const [entries, setEntries] = useState<CatalogFileEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [history, setHistory] = useState<string[]>([])
 
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
-  const [searchResults, setSearchResults] = useState<JWApiFileEntry[]>([])
+  const [searchResults, setSearchResults] = useState<CatalogFileEntry[]>([])
   const [searchTotal, setSearchTotal] = useState(0)
   const [searchFuzzy, setSearchFuzzy] = useState(false)
   const [searchLoading, setSearchLoading] = useState(false)
@@ -93,7 +93,7 @@ export function useApiFilesBrowse(opts: {
     // refresh silently in the background. Only show the loading state when
     // there's nothing to fall back on.
     let painted = false
-    const paint = (items: JWApiFileEntry[]): void => {
+    const paint = (items: CatalogFileEntry[]): void => {
       if (!painted && pushHistory) {
         setHistory((h) => [...h, currentPath])
         if (!embedded) window.history.pushState({ view: 'api-files', folderPath: path }, '', pathToUrl(path))
@@ -104,7 +104,7 @@ export function useApiFilesBrowse(opts: {
       setError(null)
       setLoading(false)
     }
-    const cached = apiPeek<JWApiBrowseResponse>('/files/browse/', browseParams(path))
+    const cached = apiPeek<CatalogBrowseResponse>('/files/browse/', browseParams(path))
     const instant = cached ? parseEntries(cached) : folderFromIndex(activeChannel, path)
     if (instant) paint(instant)
     else {
@@ -119,7 +119,7 @@ export function useApiFilesBrowse(opts: {
     }
     onNavigateStart?.()
     try {
-      const data = await apiFetch<JWApiBrowseResponse>('/files/browse/', browseParams(path))
+      const data = await apiFetch<CatalogBrowseResponse>('/files/browse/', browseParams(path))
       if (requestId !== navigateRequestId.current) return
       paint(parseEntries(data))
     } catch (err) {
@@ -136,7 +136,7 @@ export function useApiFilesBrowse(opts: {
   // on a cached one. Not needed once the index is in: that already has it.
   const prefetchFolder = useCallback((path: string): void => {
     if (folderFromIndex(activeChannel, path) || apiPeek('/files/browse/', browseParams(path))) return
-    apiFetch<JWApiBrowseResponse>('/files/browse/', browseParams(path)).catch(() => {})
+    apiFetch<CatalogBrowseResponse>('/files/browse/', browseParams(path)).catch(() => {})
   }, [activeChannel, browseParams])
 
   // Pull the channel's full file index in once the tab is idle, so every
@@ -178,7 +178,7 @@ export function useApiFilesBrowse(opts: {
     const extra: Record<string, string> = {}
     if (activeChannel) extra.channel = activeChannel
     if (within) extra.path = within
-    const server = q.serverTerm ? searchFiles(q.serverTerm, extra).catch(() => [] as JWApiFileEntry[]) : Promise.resolve(null)
+    const server = q.serverTerm ? searchFiles(q.serverTerm, extra).catch(() => [] as CatalogFileEntry[]) : Promise.resolve(null)
     server.then((entries) => {
       if (cancelled || fromIndex || !entries) return
       const r = searchFileIndex(entries, q)

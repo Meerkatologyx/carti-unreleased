@@ -1,5 +1,5 @@
 import { Loader2, Star, Ban } from 'lucide-react'
-import type { JWApiSong } from '../lib/juicewrldApi'
+import type { CatalogSong } from '../lib/catalogApi'
 import { useVersionPrefToggles } from '../hooks/useVersionPrefToggles'
 import { useSongVersions, type SongVersionOption } from '../hooks/useSongVersions'
 
@@ -10,7 +10,7 @@ import { useSongVersions, type SongVersionOption } from '../hooks/useSongVersion
  *  the row is opened - not eagerly whenever the menu opens. Doing that for
  *  every song regardless of whether the user ever clicks the item is exactly
  *  the needless-fetch pattern that made compact view laggy before. The list
- *  itself comes from useSongVersions, shared with WRLD's version notch.
+ *  itself comes from useSongVersions, shared with VAMP's version notch.
  *
  *  Clicking a sibling's name plays it now (a one-off). The star marks it as a
  *  *preferred* version (lib/versionPrefs) so any version of this song the app
@@ -21,7 +21,7 @@ import { useSongVersions, type SongVersionOption } from '../hooks/useSongVersion
  *  current, so its own version can be starred or banned from here too. */
 export default function ChangeVersionPanel({ songId, onChangeVersion, mobile }: {
   songId: number
-  onChangeVersion: (song: JWApiSong) => void
+  onChangeVersion: (song: CatalogSong) => void
   mobile: boolean
 }): JSX.Element {
   const { versions, current, loading, members } = useSongVersions(songId)

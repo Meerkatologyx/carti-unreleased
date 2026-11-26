@@ -1,4 +1,4 @@
-import { routeUrl, apiFetch, apiPeek, buildImageUrl, resolvePrefCoverUrl, type JWApiSong } from './juicewrldApi'
+import { routeUrl, apiFetch, apiPeek, buildImageUrl, resolvePrefCoverUrl, type CatalogSong } from './catalogApi'
 import type { SongPrefMap } from './songPrefs'
 import { apiRequest, authedRequest } from './apiClient'
 import { getToken } from './userApi'
@@ -47,11 +47,11 @@ export const albumTracks = (album: Album): AlbumSongEntry[] => [...album.songs].
 /** Album entries carry track paths, not full song metadata - this path→song
  *  lookup, built from the whole catalogue (loadAllSongs), resolves them. */
 // Kept per catalogue array: loadAllSongs hands every caller the same array
-// until its TTL runs out, so Home, WRLD and Albums share one index, and a view
+// until its TTL runs out, so Home, VAMP and Albums share one index, and a view
 // that remounts gets the very Map it already holds (its setState bails out
 // instead of re-rendering the whole page).
-const songIndexByList = new WeakMap<JWApiSong[], Map<string, JWApiSong>>()
-export const indexSongsByPath = (songs: JWApiSong[]): Map<string, JWApiSong> => {
+const songIndexByList = new WeakMap<CatalogSong[], Map<string, CatalogSong>>()
+export const indexSongsByPath = (songs: CatalogSong[]): Map<string, CatalogSong> => {
   let index = songIndexByList.get(songs)
   if (!index) {
     index = new Map(songs.filter(s => s.path).map(s => [s.path as string, s]))
@@ -63,7 +63,7 @@ export const indexSongsByPath = (songs: JWApiSong[]): Map<string, JWApiSong> => 
 /** The lead track's personalized cover wins, then the album's own cover, then
  *  the lead track's API art. The raw `image_url` alone skipped both of the
  *  first two - and comes back "null" for most unreleased songs. */
-export function albumCoverUrl(album: Album, songIndex: Map<string, JWApiSong>, songPrefs: SongPrefMap): string | undefined {
+export function albumCoverUrl(album: Album, songIndex: Map<string, CatalogSong>, songPrefs: SongPrefMap): string | undefined {
   const lead = songIndex.get(albumTracks(album)[0]?.path ?? '')
   return (lead ? resolvePrefCoverUrl(songPrefs[lead.id]?.cover_url) : undefined)
     ?? buildImageUrl(album.cover_url)
@@ -106,7 +106,7 @@ export async function fetchArtists(): Promise<Artist[]> {
 }
 
 // The last list fetchAlbums returned. An unchanged list comes back as this very
-// array, so a view refreshing on mount (Home, WRLD) doesn't re-render for it.
+// array, so a view refreshing on mount (Home, VAMP) doesn't re-render for it.
 let lastAlbums: { list: Album[]; json: string } | null = null
 
 export async function fetchAlbums(): Promise<Album[]> {

@@ -3,8 +3,8 @@
 import { useEffect, useState } from 'react'
 import * as reportsApi from '../lib/reportsApi'
 import type { SongReportRow, SongReportStatus } from '../lib/reportsApi'
-import { loadAllSongs } from '../lib/juicewrldApi'
-import type { JWApiSong } from '../lib/juicewrldApi'
+import { loadAllSongs } from '../lib/catalogApi'
+import type { CatalogSong } from '../lib/catalogApi'
 import { showAppToast } from '../lib/appToast'
 
 export const REPORT_FILTERS: { id: SongReportStatus | ''; label: string }[] = [
@@ -26,7 +26,7 @@ export function useReportsTabState(reports: SongReportRow[], onChanged: () => vo
   songLabel: (r: SongReportRow) => string
   doReview: (r: SongReportRow, newStatus: SongReportStatus) => Promise<void>
   r: SongReportRow | null
-  rSong: JWApiSong | undefined
+  rSong: CatalogSong | undefined
 } {
   const [actionId, setActionId] = useState<number | null>(null)
   const [notes,    setNotes]    = useState<Record<number, string>>({})
@@ -41,7 +41,7 @@ export function useReportsTabState(reports: SongReportRow[], onChanged: () => vo
 
   // Song names for rows that only carry an id - one bulk catalog fetch (the
   // shared loadAllSongs copy) instead of a request per report.
-  const [songsById, setSongsById] = useState<Map<number, JWApiSong>>(new Map())
+  const [songsById, setSongsById] = useState<Map<number, CatalogSong>>(new Map())
   useEffect(() => {
     loadAllSongs()
       .then(songs => setSongsById(new Map(songs.map(s => [s.id, s]))))

@@ -1,5 +1,5 @@
 // Draws the edge light into a canvas with WebGL2: the light's own program for the look, then its sparks, added on
-// top. Shared by the desktop's light windows, WRLD's Edge light and the light picker's previews.
+// top. Shared by the desktop's light windows, VAMP's Edge light and the light picker's previews.
 import { RIM_VERTEX, SPARK_VERTEX, SPARK_FRAGMENT, lookFragment } from './shader'
 import { LightEngine, type LightFrame, type LightStyle, type Meter } from './engine'
 import { lookOf, tickerHeight } from './looks'
@@ -207,7 +207,7 @@ export class EdgeRenderer {
   }
 
   /** Lets go of the context too: a browser keeps only so many (~16), and once another is asked for it drops the oldest -
-   *  which can be WRLD's visualizer's. */
+   *  which can be VAMP's visualizer's. */
   dispose(): void {
     const gl = this.gl
     for (const found of this.looks.values()) if (found) gl.deleteProgram(found.p)
@@ -246,7 +246,7 @@ export class EdgeLight {
   lastDraw = 0
   t0 = performance.now()
   disposed = false
-  /** Covered (a picker open over WRLD): still moving, at no more than 30 fps, so the picker's screens get the GPU. */
+  /** Covered (a picker open over VAMP): still moving, at no more than 30 fps, so the picker's screens get the GPU. */
   held = false
 
   constructor(canvas: HTMLCanvasElement, feed: LightFeed) {
@@ -295,7 +295,7 @@ export class EdgeLight {
     const fit = this.feed.fit?.() ?? 1
     const size: [number, number] = [this.canvas.clientWidth / fit, this.canvas.clientHeight / fit]
     const words = !!lookOf(style.look).words
-    if (words) this.engine.tickerWidth = this.renderer.setWords(this.feed.ticker?.() || 'Unreleased', style.thickness)
+    if (words) this.engine.tickerWidth = this.renderer.setWords(this.feed.ticker?.() || 'Carti Unreleased', style.thickness)
     const u = this.engine.step(now, this.feed.meter(), this.feed.playing(), style, size, ratio * fit)
     if (this.renderer.draw(u, this.canvas.width, this.canvas.height, words)) this.lastDraw = now
   }

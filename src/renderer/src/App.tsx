@@ -70,7 +70,7 @@ function getViewFromPath(pathname: string): ViewType {
   if (pathname === '/playlists') return 'playlists'
   if (pathname === '/albums') return 'albums'
   if (pathname === '/docs') return 'docs'
-  if (pathname === '/wrld') return 'wrld'
+  if (pathname === '/vamp') return 'vamp'
   if (pathname === '/news' || pathname.startsWith('/news/')) return 'news'
   if (pathname === '/heardle') return 'heardle'
   if (pathname === '/wordle') return 'wordle'
@@ -123,7 +123,7 @@ import MoreNavSheet from './components/MoreNavSheet'
 // chunk on hover/tap without importing this file; preloadView is the warmer.
 import {
   ApiTrackerView, EditorPage, AdminPage, SharedPlaylistView, PublicProfileView, EditorProfileView, NotFoundView,
-  DocsPage, WrldView, AlbumsView, NewsView, HeardleView, WordleView, TierlistView,
+  DocsPage, VampView, AlbumsView, NewsView, HeardleView, WordleView, TierlistView,
   StatsView, StatisticsView, DownloadAppView, ThankYouView, AlbumsAdminView, ContributorPage,
   ContributorProfileView, HomeView, Settings, PlaylistsView, ApiFilesView,
   LikedSongsView, DiagnosticsModal, ChatView, TerminalPage, TrackView, preloadView,
@@ -155,11 +155,11 @@ export default function App(): JSX.Element {
   const fmChatOpen = useRadioChatStore((s) => s.popupOpen)
   const { showNowPlaying, showQueue, showSettings, setShowSettings, showDiagnostics, setShowDiagnostics, showUploadManager, setShowUploadManager, showNotifications, setShowNotifications, activeView, previousView, sidebarPosition, navStyle, autoHideNav, loadAccount, completeDiscordLogin, showUserAuth, setShowUserAuth, prefetchApiData, refreshPlaylists, heroBleedTop, navOrder, navVisibility, activeChannel, bulkEdit, infoSongId } = useStorePick(
     'showNowPlaying', 'showQueue', 'showSettings', 'setShowSettings', 'showDiagnostics', 'setShowDiagnostics', 'showUploadManager', 'setShowUploadManager', 'showNotifications', 'setShowNotifications', 'activeView', 'previousView', 'sidebarPosition', 'navStyle', 'autoHideNav', 'loadAccount', 'completeDiscordLogin', 'showUserAuth', 'setShowUserAuth', 'prefetchApiData', 'refreshPlaylists', 'heroBleedTop', 'navOrder', 'navVisibility', 'activeChannel', 'bulkEdit', 'infoSongId')
-  // What renders behind WRLD - WRLD is a full-screen overlay on top of
+  // What renders behind VAMP - VAMP is a full-screen overlay on top of
   // wherever you were (Spotify-style "now playing" sheet), not a real nav
   // destination, so dragging it down should reveal that page like a curtain
   // instead of empty space. Everywhere else this is just activeView itself.
-  const bgView = activeView === 'wrld' ? (previousView ?? 'api-tracker') : activeView
+  const bgView = activeView === 'vamp' ? (previousView ?? 'api-tracker') : activeView
   // Opening the terminal from a view that holds unsaved local state (the song
   // editor's draft, a half-filled submission, an open playlist...) must not
   // unmount it - the terminal would otherwise swap it out of the ternary below,
@@ -387,12 +387,12 @@ export default function App(): JSX.Element {
           // (Playlists' detail screens) raises heroBleedTop and paints that
           // strip itself instead - see the store field's doc comment.
           //
-          // Deliberately NOT conditioned on `activeView === 'wrld'`: bgView
-          // (below) stays mounted and visible the whole time WRLD is open -
-          // through the curtain-drag reveal, and permanently once WRLD closes
+          // Deliberately NOT conditioned on `activeView === 'vamp'`: bgView
+          // (below) stays mounted and visible the whole time VAMP is open -
+          // through the curtain-drag reveal, and permanently once VAMP closes
           // - so it needs this padding applied consistently regardless of
-          // WRLD's state, or it visibly "nudges" into place the instant WRLD
-          // finishes closing and this padding would otherwise reappear. WRLD
+          // VAMP's state, or it visibly "nudges" into place the instant VAMP
+          // finishes closing and this padding would otherwise reappear. VAMP
           // still gets its own full-bleed for free - its overlay below is
           // absolutely positioned, and an absolutely positioned element's
           // offsets resolve against the containing block's padding edge,
@@ -471,19 +471,19 @@ export default function App(): JSX.Element {
             </Suspense>
           </ErrorBoundary>
             </div>
-            {/* WRLD is a full-screen overlay on top of bgView above, not a
+            {/* VAMP is a full-screen overlay on top of bgView above, not a
                 slot in that ternary - so bgView (whatever you had open before)
-                stays mounted and visible underneath while WRLD drags down,
+                stays mounted and visible underneath while VAMP drags down,
                 curtain-style, instead of revealing empty space. */}
-            {activeView === 'wrld' && (
+            {activeView === 'vamp' && (
               <ErrorBoundary>
                 <Suspense fallback={null}>
                   <div
                     // Mobile: pinned over the whole shell, not just `main`,
                     // so it covers the mini player and BottomNav too - both
                     // stay mounted underneath instead of being hidden while
-                    // WRLD is open. Hiding them made `main` grow to full
-                    // height for WRLD, so the curtain-drag revealed the page
+                    // VAMP is open. Hiding them made `main` grow to full
+                    // height for VAMP, so the curtain-drag revealed the page
                     // with no nav bar, and the bar (and the page reflowing to
                     // make room for it) only came back once collapse() ran
                     // after the slide-out. Sized off --app-height, same as
@@ -497,17 +497,17 @@ export default function App(): JSX.Element {
                     // whatever padding-top `main` itself has. (An earlier
                     // version of this added a negative top offset to
                     // "compensate," which was wrong and clipped the top of
-                    // WRLD - including its header row - behind `main`'s own
+                    // VAMP - including its header row - behind `main`'s own
                     // overflow-hidden.)
                     className={isMobile ? 'fixed inset-x-0 top-0 z-30' : 'absolute inset-0 z-30'}
                     style={isMobile ? { height: 'var(--app-height)' } : undefined}
                   >
-                    <WrldView />
+                    <VampView />
                   </div>
                 </Suspense>
               </ErrorBoundary>
             )}
-            <SidePanels nowPlaying={!isMobile && showNowPlaying && activeView !== 'wrld'} queue={showQueue && activeView !== 'wrld'} />
+            <SidePanels nowPlaying={!isMobile && showNowPlaying && activeView !== 'vamp'} queue={showQueue && activeView !== 'vamp'} />
           </div>
           {/* Inside <main>: the desktop bar floats over the bottom of this
               area (views and side panels), clear of the sidebar. The phone
@@ -559,8 +559,8 @@ export default function App(): JSX.Element {
           <NotificationCenter />
         </ErrorBoundary>
       )}
-      {/* WRLD has the same chat in its FM panel, so the pop-up waits there. */}
-      {fmChatOpen && activeView !== 'wrld' && (
+      {/* VAMP has the same chat in its FM panel, so the pop-up waits there. */}
+      {fmChatOpen && activeView !== 'vamp' && (
         <ErrorBoundary variant="overlay" onDismiss={() => useRadioChatStore.getState().setPopupOpen(false)}>
           <FmChatPopup />
         </ErrorBoundary>

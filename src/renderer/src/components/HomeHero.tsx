@@ -5,7 +5,7 @@ import { dashboardSwap } from '../lib/dashboardSwap'
 import * as userApi from '../lib/userApi'
 import { filterListeningPlaysByDays } from '../lib/listeningPlays'
 import { allTimePrefs } from '../lib/listeningStats'
-import { apiFetch, apiPeek, type JWApiStats } from '../lib/juicewrldApi'
+import { apiFetch, apiPeek, type CatalogStats } from '../lib/catalogApi'
 import { isHomeSectionVisible } from '../lib/homeSections'
 import { orderedNavItems, isNavItemVisible } from '../lib/navItems'
 import { AnchoredContextMenu } from './ContextMenu'
@@ -64,7 +64,7 @@ const QUIRKY: Record<Period, string[]> = {
     'Winding down{n}?',
     'Dinner can wait{n}',
     'Main character hours{n}',
-    'Tonight\'s forecast: 100% Juice{n}',
+    'Tonight\'s forecast: 100% Carti{n}',
   ],
 }
 
@@ -73,9 +73,9 @@ const ANYTIME = [
   'What\'s good{n}',
   'Back in the vault{n}',
   'Pull up{n}',
-  '999{n}',
+  'Slatt{n}',
   'What are we playing{n}?',
-  'Legends never die{n}',
+  'Whole Lotta Red{n}',
   'Queue something up{n}',
   'Headphones on{n}',
   'Has it leaked yet{n}? Probably not',
@@ -87,13 +87,13 @@ const ANYTIME = [
   'The skip button is feeling lonely{n}',
   'Touch grass later{n}',
   'Certified vault dweller{n}',
-  'Running on 999% vibes{n}',
+  'Running on full vamp{n}',
   'Back again{n}? Respect',
   'Oh, it\'s you{n}! Good',
   'Volume up{n}. Sorry, neighbors',
   'Ears ready{n}?',
   'Someone hit shuffle{n}',
-  'Hackin your hood{n}',
+  'King Vamp is in{n}',
 ]
 
 function periodNow(): Period {
@@ -201,9 +201,9 @@ export default function HomeHero({ on }: { on: 'home' | 'staff' }): JSX.Element 
   // Site-wide catalog totals (GET /stats/). Stale-while-revalidate:
   // ApiTrackerView already warms this exact cache key, so most visits paint
   // it instantly from there.
-  const [siteStats, setSiteStats] = useState<JWApiStats | null>(() => apiPeek<JWApiStats>('/stats/') ?? null)
+  const [siteStats, setSiteStats] = useState<CatalogStats | null>(() => apiPeek<CatalogStats>('/stats/') ?? null)
   useEffect(() => {
-    apiFetch<JWApiStats>('/stats/').then(setSiteStats).catch(() => undefined)
+    apiFetch<CatalogStats>('/stats/').then(setSiteStats).catch(() => undefined)
   }, [])
 
   return (

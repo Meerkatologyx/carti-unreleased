@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type DragEvent, type PointerEvent
 import { AudioLines, Check, FileUp, Info, ListPlus, Loader2, Mic, MonitorSpeaker, Music2, Pause, Play, RefreshCw, RotateCcw, SearchX, X } from 'lucide-react'
 import { ModalOverlay } from './Modal'
 import { useStore } from '../store/useStore'
-import { apiFetch, buildImageUrl, songToTrack, type JWApiSong } from '../lib/juicewrldApi'
+import { apiFetch, buildImageUrl, songToTrack, type CatalogSong } from '../lib/catalogApi'
 import { checkRecognition, identifyClip } from '../lib/recognitionApi'
 import { canCaptureSystemAudio, recordRecognitionClip, type RecognitionSource } from '../lib/recognitionCapture'
 import { decodeRecognitionFile, sliceRecognitionClip, type DecodedRecognitionFile } from '../lib/recognitionFile'
@@ -282,7 +282,7 @@ export default function RecognitionModal(): JSX.Element {
     setError('')
     const timeout = setTimeout(() => next.abort(), 15_000)
     try {
-      const song = await apiFetch<JWApiSong>(`/songs/${match.song_id}/`, {}, next.signal)
+      const song = await apiFetch<CatalogSong>(`/songs/${match.song_id}/`, {}, next.signal)
       if (next.signal.aborted) return
       if (song.id !== match.song_id || !song.path) throw new Error('This recording is no longer available to play.')
       const track = songToTrack(song)

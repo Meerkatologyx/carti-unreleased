@@ -19,7 +19,7 @@ interface LyricsDisplayProps {
   onSeek?: (time: number) => void
   /** Tighter type sizes/padding for small surfaces like the mini player. */
   compact?: boolean
-  /** Show these lyrics instead of the current track's (e.g. 999 FM's matched
+  /** Show these lyrics instead of the current track's (e.g. Vamp FM's matched
    *  song, which never populates currentTrackFull). */
   override?: { lyrics: string | null; syncedLyrics: string | null } | null
 }
@@ -93,7 +93,7 @@ export default memo(function LyricsDisplay({ getTime, onSeek, compact, override 
   const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null)
   const isEditor = account?.is_editor || account?.is_administrator
   // Donors can have Whisper write them. Not in a pop-out (no dialog there) or
-  // over 999 FM's lyrics, which aren't the playing track's.
+  // over Vamp FM's lyrics, which aren't the playing track's.
   const canGenerate = !!account?.is_donor && !IS_FLOAT_WINDOW && !override && !!currentTrackFull && !currentTrackFull.lyricsPending
     && !!currentTrackFull.streamUrl && (!!currentTrackFull.path || isDonorStreamUrl(currentTrackFull.streamUrl))
 

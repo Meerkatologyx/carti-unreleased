@@ -3,7 +3,7 @@ import { useStore } from '../../store/useStore'
 import { fisherYates } from '../../store/queueSlice'
 import { EQ_PRESETS, type AudioFx } from '../audioEffects'
 import { runHotkeyAction } from '../hotkeys'
-import { getSongById, getSongsByIds, loadAllSongs, loadAllSongsWithLyricsAbortable, normalizeSongTitle, resolveTitleToSong, searchSongs, songToTrack, type JWApiSong } from '../juicewrldApi'
+import { getSongById, getSongsByIds, loadAllSongs, loadAllSongsWithLyricsAbortable, normalizeSongTitle, resolveTitleToSong, searchSongs, songToTrack, type CatalogSong } from '../catalogApi'
 import { displaySongName, renamedSongs } from '../songPrefs'
 import { parseSearchQuery, matchesFieldFilters, songsById, textMatches } from '../trackerSearch'
 import { trackIdToSongId } from '../userApi'
@@ -20,14 +20,14 @@ function currentTrack(): NonNullable<ReturnType<typeof st>['currentTrack']> {
 
 // The last `find` listing, so `play 3` / `queue add 3` can refer to a result by
 // number - the same shortcut a shell gives you with a numbered menu.
-let lastFind: JWApiSong[] = []
+let lastFind: CatalogSong[] = []
 
 /** Lets another command's numbered listing (onthisday) answer `play N` too. */
-export function rememberFind(songs: JWApiSong[]): void {
+export function rememberFind(songs: CatalogSong[]): void {
   lastFind = songs
 }
 
-export async function songFromArg(arg: string): Promise<JWApiSong> {
+export async function songFromArg(arg: string): Promise<CatalogSong> {
   const n = /^\d+$/.test(arg) ? Number(arg) : 0
   if (n && lastFind.length > 0) return lastFind[n - 1] ?? fail(`pick a number from 1 to ${lastFind.length}`)
   // The API only knows its own names, so a song's rename is checked first.
@@ -38,7 +38,7 @@ export async function songFromArg(arg: string): Promise<JWApiSong> {
 }
 
 /** Songs whose rename contains `q` - the API's search can't find them by it. */
-async function renamedSongsMatching(q: string, exclude: JWApiSong[]): Promise<JWApiSong[]> {
+async function renamedSongsMatching(q: string, exclude: CatalogSong[]): Promise<CatalogSong[]> {
   const have = new Set(exclude.map((s) => s.id))
   const ids = renamedSongs().filter(([id, name]) => !have.has(id) && textMatches(name, q)).map(([id]) => id)
   return ids.length ? getSongsByIds(ids).catch(() => []) : []
@@ -229,7 +229,7 @@ export const PLAYER_COMMANDS: TermCommand[] = [
     run: async (args, ctx) => {
       const arg = args.trim()
       const song = arg ? await songFromArg(arg) : null
-      const id = song ? `jw-${song.id}` : currentTrack().id
+      const id = song ? `pc-${song.id}` : currentTrack().id
       const title = song?.name ?? currentTrack().title
       if (!st().likedTrackIds.includes(id)) { ctx.print(`${title} isn’t in your liked songs`, 'dim'); return }
       st().toggleLike(id)
@@ -292,13 +292,13 @@ export const PLAYER_COMMANDS: TermCommand[] = [
       const hits = searchLyrics(await loadAllSongsWithLyricsAbortable(ctx.signal), q, fuzzy)
       if (hits.length === 0) { ctx.print(`no lyrics match "${q}"${fuzzy ? ' (even loosely)' : ' - drop --exact to loosen it'}`, 'dim'); return }
       lastFind = hits
-      const line = (s: JWApiSong): string => { const l = bestLyricLine(s.lyrics, q, fuzzy); return l ? `\n       “${l.length > 100 ? `${l.slice(0, 100)}…` : l}”` : '' }
+      const line = (s: CatalogSong): string => { const l = bestLyricLine(s.lyrics, q, fuzzy); return l ? `\n       “${l.length > 100 ? `${l.slice(0, 100)}…` : l}”` : '' }
       ctx.print(`${pageRows(hits.length, (i) => `${String(i + 1).padStart(3)}  ${displaySongName(hits[i])}  (${hits[i].era?.name ?? hits[i].category})${line(hits[i])}`, 15)}\nplay N · queue add N · queue next N`, 'plain')
     },
   },
   {
     name: 'queue', aliases: ['q'], group: 'Player', usage: 'queue [list [filter] | clear | add <song> | next <song> | remove N | jump N|title | history [N|title] | radio | random [on|off]]',
-    description: 'Show or change the play queue. <song> is a title or a number from find. list <filter> takes the Tracker search syntax (plain words, field:"value"). history lists what was played before this song (newest first); history N|title replays one; radio switches to random tracker songs now; random on keeps this song and plays random ones after it (Random in WRLD), random off stops it',
+    description: 'Show or change the play queue. <song> is a title or a number from find. list <filter> takes the Tracker search syntax (plain words, field:"value"). history lists what was played before this song (newest first); history N|title replays one; radio switches to random tracker songs now; random on keeps this song and plays random ones after it (Random in VAMP), random off stops it',
     complete: (before, partial) => {
       if (before.length === 0) return ['list', 'clear', 'add', 'next', 'remove', 'jump', 'history', 'radio', 'random'].filter((w) => w.startsWith(partial))
       if (before.length === 1 && before[0].toLowerCase() === 'random') return ['on', 'off'].filter((w) => w.startsWith(partial))

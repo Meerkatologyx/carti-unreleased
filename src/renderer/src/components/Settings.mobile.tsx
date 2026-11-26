@@ -35,7 +35,7 @@ import ChatKeyTransfer from './chat/ChatKeyTransfer'
 import { HOME_SECTIONS, DEFAULT_HOME_SECTION_VISIBILITY, isHomeSectionVisible } from '../lib/homeSections'
 import { getToken, CONTRIBUTOR_ENABLED, showStaffProfile, staffProfileLabel } from '../lib/userApi'
 import { APP_VERSION, COMMIT_HASH, useCommitStatus } from '../lib/appVersion'
-import { DEFAULT_JWAPI_BASE, JWAPI_BASE, getServerOverride, setServerOverride, getRouteRules, setRouteRules, cleanRouteRules, KNOWN_ROUTE_PREFIXES, type RouteRule } from '../lib/apiServers'
+import { DEFAULT_CATALOG_API_BASE, CATALOG_API_BASE, getServerOverride, setServerOverride, getRouteRules, setRouteRules, cleanRouteRules, KNOWN_ROUTE_PREFIXES, type RouteRule } from '../lib/apiServers'
 import { lastfmConfigured } from '../lib/lastfm'
 import cdnService from '../lib/cdn'
 import { cacheClearAll } from '../lib/apiCache'
@@ -56,7 +56,7 @@ import { useSettingsAppearance } from '../hooks/useSettingsAppearance'
 import { useLastfmConnect } from '../hooks/useLastfmConnect'
 
 const ACCENT_PRESETS = [
-  '#1db954', '#7c3aed', '#2563eb', '#dc2626',
+  '#e11d2e', '#7c3aed', '#2563eb', '#dc2626',
   '#ea580c', '#d97706', '#059669', '#db2777',
 ]
 
@@ -74,13 +74,13 @@ const LYRIC_TEXT_SIZES: { label: string; value: number }[] = [
   { label: 'Huge', value: 1.4 },
 ]
 
-const LYRIC_ACTIVE_PRESETS = ['#ffffff', '#1db954', '#a78bfa', '#60a5fa', '#f472b6', '#facc15']
+const LYRIC_ACTIVE_PRESETS = ['#ffffff', '#e11d2e', '#a78bfa', '#60a5fa', '#f472b6', '#facc15']
 const LYRIC_INACTIVE_PRESETS = ['#9ca3af', '#6b7280', '#94a3b8', '#c4b5fd', '#7dd3fc', '#fda4af']
 
 // One row of the "Lyric colors" setting: presets + a custom picker, with
 // "Auto" (value === null) meaning "leave it to the surface's own colors" -
 // the theme's text vars in the mini/now-playing lyrics, the cover-art-derived
-// ones in the WRLD tab. The native color input always needs a concrete hex,
+// ones in the VAMP tab. The native color input always needs a concrete hex,
 // so `fallback` is what it shows while the setting is on Auto.
 function LyricColorRow({ label, presets, value, fallback, onChange }: {
   label: string
@@ -143,7 +143,7 @@ const SETTINGS_SEARCH_INDEX: { tab: Tab; label: string; sub?: string; devOnly?: 
   { tab: 'appearance', label: 'Accent color' },
   { tab: 'appearance', label: 'App gradients', sub: 'Accent-tinted gradients behind the app and nav' },
   { tab: 'appearance', label: 'Control gradients', sub: 'Accent-tinted gradients on the player bar, toggle groups, search bars, badges, and menus' },
-  { tab: 'appearance', label: 'Theme background in WRLD', sub: "Use the app's theme behind the WRLD tab instead of the playing song's cover" },
+  { tab: 'appearance', label: 'Theme background in VAMP', sub: "Use the app's theme behind the VAMP tab instead of the playing song's cover" },
   { tab: 'appearance', label: 'Playlist header art', sub: "Blurred cover art behind a playlist's header" },
   { tab: 'appearance', label: 'App font' },
   { tab: 'appearance', label: 'Lyrics font' },
@@ -338,7 +338,7 @@ function ApiServerRow(): JSX.Element {
         type="text"
         value={value}
         onChange={(e) => setValue(e.target.value)}
-        placeholder={DEFAULT_JWAPI_BASE}
+        placeholder={DEFAULT_CATALOG_API_BASE}
         spellCheck={false}
         className={SERVER_INPUT_CLASS}
       />
@@ -402,7 +402,7 @@ function RouteRulesEditor(): JSX.Element {
               type="text"
               value={rule.base}
               onChange={(e) => update(i, { base: e.target.value })}
-              placeholder={JWAPI_BASE}
+              placeholder={CATALOG_API_BASE}
               spellCheck={false}
               className={SERVER_INPUT_CLASS}
             />
@@ -546,12 +546,12 @@ export default function Settings(): JSX.Element {
     lyricsFont, setLyricsFont,
     gradientsEnabled, setGradientsEnabled,
     surfaceGradientsEnabled, setSurfaceGradientsEnabled,
-    wrldThemeBackground, setWrldThemeBackground,
+    vampThemeBackground, setVampThemeBackground,
     playlistHeroEnabledDark, playlistHeroEnabledLight, setPlaylistHeroEnabled,
     fullEraNames, setFullEraNames,
     autoReportErrors, setAutoReportErrors,
     embedSongInfoOnDownload, setEmbedSongInfoOnDownload,
-  } = useStorePick('setShowSettings', 'setActiveView', 'openProfile', 'account', 'setShowUserAuth', 'logoutAccount', 'theme', 'setTheme', 'customSkins', 'saveCustomSkin', 'deleteCustomSkin', 'accentColor', 'setAccentColor', 'settingsTab', 'setSettingsTab', 'navOrder', 'setNavOrder', 'navVisibility', 'setNavItemVisible', 'homeSectionVisibility', 'setHomeSectionVisible', 'audioOutput', 'setAudioOutput', 'crossfadeEnabled', 'crossfadeDuration', 'setCrossfade', 'pauseFadeEnabled', 'setPauseFade', 'rememberQueue', 'setRememberQueue', 'preferOgVersion', 'setPreferOgVersion', 'rotateSuggestedCovers', 'setRotateSuggestedCovers', 'coversFromAllComps', 'setCoversFromAllComps', 'mediaOverlayEnabled', 'setMediaOverlayEnabled', 'lyricsOffset', 'setLyricsOffset', 'sleepTimerEnd', 'setSleepTimer', 'developerMode', 'setDeveloperMode', 'lastfmUser', 'setLastfmUser', 'lastfmEnabled', 'setLastfmEnabled', 'appTextScale', 'setAppTextScale', 'lyricsScale', 'setLyricsScale', 'lyricsAlign', 'setLyricsAlign', 'lyricsBlur', 'setLyricsBlur', 'lyricsBlurAmount', 'setLyricsBlurAmount', 'lyricsColorActive', 'setLyricsColorActive', 'lyricsColorInactive', 'setLyricsColorInactive', 'appFont', 'setAppFont', 'lyricsFont', 'setLyricsFont', 'gradientsEnabled', 'setGradientsEnabled', 'surfaceGradientsEnabled', 'setSurfaceGradientsEnabled', 'wrldThemeBackground', 'setWrldThemeBackground', 'playlistHeroEnabledDark', 'playlistHeroEnabledLight', 'setPlaylistHeroEnabled', 'fullEraNames', 'setFullEraNames', 'autoReportErrors', 'setAutoReportErrors', 'embedSongInfoOnDownload', 'setEmbedSongInfoOnDownload')
+  } = useStorePick('setShowSettings', 'setActiveView', 'openProfile', 'account', 'setShowUserAuth', 'logoutAccount', 'theme', 'setTheme', 'customSkins', 'saveCustomSkin', 'deleteCustomSkin', 'accentColor', 'setAccentColor', 'settingsTab', 'setSettingsTab', 'navOrder', 'setNavOrder', 'navVisibility', 'setNavItemVisible', 'homeSectionVisibility', 'setHomeSectionVisible', 'audioOutput', 'setAudioOutput', 'crossfadeEnabled', 'crossfadeDuration', 'setCrossfade', 'pauseFadeEnabled', 'setPauseFade', 'rememberQueue', 'setRememberQueue', 'preferOgVersion', 'setPreferOgVersion', 'rotateSuggestedCovers', 'setRotateSuggestedCovers', 'coversFromAllComps', 'setCoversFromAllComps', 'mediaOverlayEnabled', 'setMediaOverlayEnabled', 'lyricsOffset', 'setLyricsOffset', 'sleepTimerEnd', 'setSleepTimer', 'developerMode', 'setDeveloperMode', 'lastfmUser', 'setLastfmUser', 'lastfmEnabled', 'setLastfmEnabled', 'appTextScale', 'setAppTextScale', 'lyricsScale', 'setLyricsScale', 'lyricsAlign', 'setLyricsAlign', 'lyricsBlur', 'setLyricsBlur', 'lyricsBlurAmount', 'setLyricsBlurAmount', 'lyricsColorActive', 'setLyricsColorActive', 'lyricsColorInactive', 'setLyricsColorInactive', 'appFont', 'setAppFont', 'lyricsFont', 'setLyricsFont', 'gradientsEnabled', 'setGradientsEnabled', 'surfaceGradientsEnabled', 'setSurfaceGradientsEnabled', 'vampThemeBackground', 'setVampThemeBackground', 'playlistHeroEnabledDark', 'playlistHeroEnabledLight', 'setPlaylistHeroEnabled', 'fullEraNames', 'setFullEraNames', 'autoReportErrors', 'setAutoReportErrors', 'embedSongInfoOnDownload', 'setEmbedSongInfoOnDownload')
 
   const avatarInputRef = useRef<HTMLInputElement>(null)
   const {
@@ -1286,10 +1286,10 @@ export default function Settings(): JSX.Element {
                   <Row
                     icon={Disc}
                     iconColor="#8b5cf6"
-                    label="Theme background in WRLD"
-                    sub="Use the app's theme behind the WRLD tab instead of the playing song's cover"
+                    label="Theme background in VAMP"
+                    sub="Use the app's theme behind the VAMP tab instead of the playing song's cover"
                   >
-                    <Toggle on={wrldThemeBackground} onClick={() => setWrldThemeBackground(!wrldThemeBackground)} />
+                    <Toggle on={vampThemeBackground} onClick={() => setVampThemeBackground(!vampThemeBackground)} />
                   </Row>
                   <Row
                     icon={Images}
@@ -1330,7 +1330,7 @@ export default function Settings(): JSX.Element {
                       onClick={() => setPickerOpen('lyricsFont')}
                     />
                   </Block>
-                  <Block icon={FileText} iconColor="#db2777" label="Lyrics text size" sub="Synced and plain lyrics everywhere - WRLD tab, now playing, mini player">
+                  <Block icon={FileText} iconColor="#db2777" label="Lyrics text size" sub="Synced and plain lyrics everywhere - VAMP tab, now playing, mini player">
                     <Segmented value={lyricsScale} options={LYRIC_TEXT_SIZES.map(({ label, value }) => ({ value, label }))} onChange={setLyricsScale} />
                   </Block>
                   <Block icon={AlignCenter} iconColor="#0ea5e9" label="Lyrics alignment" sub="How lyric lines line up">
@@ -1362,7 +1362,7 @@ export default function Settings(): JSX.Element {
                       </div>
                     )}
                   </Row>
-                  <Block icon={Palette} iconColor="#9333ea" label="Lyric colors" sub="Color the line being sung and the ones that aren't - WRLD tab, now playing, mini player">
+                  <Block icon={Palette} iconColor="#9333ea" label="Lyric colors" sub="Color the line being sung and the ones that aren't - VAMP tab, now playing, mini player">
                     <div className="flex flex-col gap-3">
                       <LyricColorRow
                         label="Current line"
@@ -1392,7 +1392,7 @@ export default function Settings(): JSX.Element {
                     icon={BookOpen}
                     iconColor="#0891b2"
                     label="Full era names"
-                    sub='Show eras spelled out ("WRLD On Drugs") instead of abbreviated ("WOD")'
+                    sub='Show eras spelled out ("VAMP On Drugs") instead of abbreviated ("WOD")'
                     labelExtra={<Toggle on={fullEraNames} onClick={() => setFullEraNames(!fullEraNames)} />}
                   />
                   <Row
@@ -1784,7 +1784,7 @@ export default function Settings(): JSX.Element {
                   <span>
                     Last updated to commit{' '}
                     <a
-                      href={`https://github.com/Juice-WRLD-API/Unreleased/commit/${COMMIT_HASH}`}
+                      href={`https://github.com/Meerkatologyx/carti-unreleased/commit/${COMMIT_HASH}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-accent font-mono"
@@ -1796,8 +1796,8 @@ export default function Settings(): JSX.Element {
                 </p>
 
                 <SettingsCard title="Links">
-                  <LinkRow icon={Github} iconColor="#24292f" label="GitHub" href="https://github.com/Juice-WRLD-API/Unreleased" />
-                  <LinkRow icon={MessageCircle} iconColor="#5865F2" label="Discord" href="https://discord.gg/jwa" />
+                  <LinkRow icon={Github} iconColor="#24292f" label="GitHub" href="https://github.com/Meerkatologyx/carti-unreleased" />
+                  <LinkRow icon={MessageCircle} iconColor="#5865F2" label="GitHub" href="https://github.com/Meerkatologyx/carti-unreleased/issues" />
                   <LinkRow icon={Globe} iconColor="#0891b2" label="API" href="https://docs.google.com/spreadsheets/d/1Irtfvymu26CShYowLMMfD-rM0o9CJqE6-BBSlYsAaF4/htmlview" />
                   <ActionRow icon={BookOpen} iconColor="#6366f1" label="API Docs" onClick={() => openMainView('docs')} />
                   <ActionRow icon={MessageCircle} iconColor="#db2777" label="Send Feedback" sub="Report a bug or share an idea" onClick={() => useStore.getState().openReport({ kind: 'feedback' })} />

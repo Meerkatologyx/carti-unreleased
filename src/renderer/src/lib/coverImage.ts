@@ -14,7 +14,7 @@
 // silently dropped the cover for exactly those songs. `fetchImageBlob`
 // retries them through an image CORS proxy.
 
-import { JWAPI_HOST } from './juicewrldApi'
+import { CATALOG_API_HOST } from './catalogApi'
 
 const MIME_EXT: Record<string, string> = {
   'image/jpeg': 'jpg',
@@ -49,7 +49,7 @@ const PROXY_TIMEOUT_MS = 8000
 function isProxyableCoverUrl(url: string): boolean {
   try {
     const { protocol, hostname } = new URL(url)
-    return protocol === 'https:' && (hostname === JWAPI_HOST || hostname.endsWith(`.${JWAPI_HOST}`))
+    return protocol === 'https:' && (hostname === CATALOG_API_HOST || hostname.endsWith(`.${CATALOG_API_HOST}`))
   } catch {
     return false
   }

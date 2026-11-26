@@ -1,4 +1,4 @@
-import { routeUrl } from './juicewrldApi'
+import { routeUrl } from './catalogApi'
 import { authedRequest } from './apiClient'
 import { getToken } from './userApi'
 

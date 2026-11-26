@@ -27,7 +27,7 @@ import ApiKeys from './ApiKeys'
 import ChatKeyTransfer from './chat/ChatKeyTransfer'
 import { CONTRIBUTOR_ENABLED, staffProfileLabel, staffProfileView, showStaffProfile } from '../lib/userApi'
 import { APP_VERSION, COMMIT_HASH, useCommitStatus } from '../lib/appVersion'
-import { DEFAULT_JWAPI_BASE, JWAPI_BASE, getServerOverride, setServerOverride, getRouteRules, setRouteRules, cleanRouteRules, KNOWN_ROUTE_PREFIXES, type RouteRule } from '../lib/apiServers'
+import { DEFAULT_CATALOG_API_BASE, CATALOG_API_BASE, getServerOverride, setServerOverride, getRouteRules, setRouteRules, cleanRouteRules, KNOWN_ROUTE_PREFIXES, type RouteRule } from '../lib/apiServers'
 import { NOTIFICATION_SOUNDS, getNotificationSoundId, setNotificationSoundId, playNotificationSound } from '../lib/notifications'
 import { useLastfmConnect } from '../hooks/useLastfmConnect'
 import { lastfmConfigured } from '../lib/lastfm'
@@ -47,7 +47,7 @@ import { MotionDisclosure } from './MotionDisclosure'
 import { useSlidingIndicator } from '../hooks/useSlidingIndicator'
 
 const ACCENT_PRESETS = [
-  '#1db954', '#7c3aed', '#2563eb', '#dc2626',
+  '#e11d2e', '#7c3aed', '#2563eb', '#dc2626',
   '#ea580c', '#d97706', '#059669', '#db2777',
 ]
 
@@ -60,8 +60,8 @@ const APP_TEXT_SIZES: { label: string; value: number }[] = [
 
 // Swatches offered for the lyric line colors. The sung line wants bright,
 // high-contrast tones; the rest want dimmer ones that still read against the
-// WRLD tab's blurred cover art.
-const LYRIC_ACTIVE_PRESETS = ['#ffffff', '#1db954', '#a78bfa', '#60a5fa', '#f472b6', '#facc15']
+// VAMP tab's blurred cover art.
+const LYRIC_ACTIVE_PRESETS = ['#ffffff', '#e11d2e', '#a78bfa', '#60a5fa', '#f472b6', '#facc15']
 const LYRIC_INACTIVE_PRESETS = ['#9ca3af', '#6b7280', '#94a3b8', '#c4b5fd', '#7dd3fc', '#fda4af']
 
 const LYRIC_TEXT_SIZES: { label: string; value: number }[] = [
@@ -120,10 +120,10 @@ const SETTINGS_SEARCH_INDEX: { tab: Tab; label: string; sub?: string; electronOn
   { tab: 'appearance', label: 'App gradients', sub: 'Accent-tinted gradients behind the app and sidebar' },
   { tab: 'appearance', label: 'Control gradients', sub: 'Accent-tinted gradients on the player bar, toggle groups, search bars, badges, and menus' },
   { tab: 'appearance', label: 'Glass refraction', sub: 'The player bar and pill nav bend what passes under their edges, like real glass' },
-  { tab: 'lyrics', label: 'Theme background in WRLD', sub: "Use the app's theme behind the WRLD tab instead of the playing song's cover" },
-  { tab: 'lyrics', label: 'Old WRLD style', sub: "WRLD's own player and lyrics instead of the widgets" },
-  { tab: 'lyrics', label: '999 FM in WRLD', sub: "A 999 FM card in WRLD's widgets while it's on, or opened from WRLD's toolbar without tuning in: votes, suggestions and chat" },
-  { tab: 'lyrics', label: 'Sound for 999 FM chat and votes', sub: 'Play the notification sound for new chat lines and when a vote starts' },
+  { tab: 'lyrics', label: 'Theme background in VAMP', sub: "Use the app's theme behind the VAMP tab instead of the playing song's cover" },
+  { tab: 'lyrics', label: 'Old VAMP style', sub: "VAMP's own player and lyrics instead of the widgets" },
+  { tab: 'lyrics', label: 'Vamp FM in VAMP', sub: "A Vamp FM card in VAMP's widgets while it's on, or opened from VAMP's toolbar without tuning in: votes, suggestions and chat" },
+  { tab: 'lyrics', label: 'Sound for Vamp FM chat and votes', sub: 'Play the notification sound for new chat lines and when a vote starts' },
   { tab: 'appearance', label: 'Playlist header art', sub: "Blurred cover art behind a playlist's header" },
   { tab: 'appearance', label: 'App font' },
   { tab: 'lyrics', label: 'Lyrics font' },
@@ -133,7 +133,7 @@ const SETTINGS_SEARCH_INDEX: { tab: Tab; label: string; sub?: string; electronOn
   { tab: 'lyrics', label: 'Lyrics alignment' },
   { tab: 'lyrics', label: 'Blur inactive lyrics', sub: 'Soften every synced line except the one playing' },
   { tab: 'lyrics', label: 'Lyric colors', sub: 'Current line and other lines' },
-  { tab: 'lyrics', label: 'WRLD visualizer', sub: 'Visualizer, Edge light, quality, input boost, auto-switch, music videos, artwork colors' },
+  { tab: 'lyrics', label: 'VAMP visualizer', sub: 'Visualizer, Edge light, quality, input boost, auto-switch, music videos, artwork colors' },
   // General and Navigation
   { tab: 'general', label: 'Full era names', sub: 'Show eras spelled out instead of abbreviated' },
   { tab: 'general', label: 'Add song info to downloads', sub: "Write the song's name, artist, cover and lyrics into downloaded MP3s" },
@@ -159,8 +159,8 @@ const SETTINGS_SEARCH_INDEX: { tab: Tab; label: string; sub?: string; electronOn
   { tab: 'connections', label: 'Last.fm scrobbling' },
   { tab: 'connections', label: 'Distributed CDN downloads', sub: 'Use the peer-to-peer CDN network for faster downloads' },
   // Shortcuts
-  // Desktop: the lyric styles, WRLD's Edge light and the widgets' looks for WRLD's Widgets layout
-  { tab: 'desktop', label: 'Light', sub: 'Snake, Lava, Fireflies, Lyrics Ticker, Fire, Snow… and how WRLD’s Edge light looks' },
+  // Desktop: the lyric styles, VAMP's Edge light and the widgets' looks for VAMP's Widgets layout
+  { tab: 'desktop', label: 'Light', sub: 'Snake, Lava, Fireflies, Lyrics Ticker, Fire, Snow… and how VAMP’s Edge light looks' },
   { tab: 'desktop', label: 'Light place', sub: 'Everywhere, bottom, top or corners' },
   { tab: 'desktop', label: 'Light animation', sub: 'Flow, still or music sync' },
   { tab: 'desktop', label: 'Sensitivity', sub: 'How the light follows the music' },
@@ -168,10 +168,10 @@ const SETTINGS_SEARCH_INDEX: { tab: Tab; label: string; sub?: string; electronOn
   { tab: 'desktop', label: 'Light colors', sub: 'One or two colors, or the cover’s' },
   { tab: 'desktop', label: 'Lyric style', sub: 'Fisheye, Spread, Karaoke, Typewriter, Neon, Echo, Glitch, Cinema' },
   { tab: 'desktop', label: 'Lyric font', sub: 'A font for each lyric style' },
-  { tab: 'desktop', label: 'Player widget', sub: 'Your queue as glass cards, on the desktop or in WRLD’s Widgets layout' },
+  { tab: 'desktop', label: 'Player widget', sub: 'Your queue as glass cards, on the desktop or in VAMP’s Widgets layout' },
   { tab: 'desktop', label: 'Mini player widget' },
-  { tab: 'desktop', label: 'Playlist widget', sub: 'Queue, playlists or liked songs, on the desktop or in WRLD' },
-  { tab: 'desktop', label: 'Clock widget', sub: 'Tall glass digits, on the desktop or in WRLD' },
+  { tab: 'desktop', label: 'Playlist widget', sub: 'Queue, playlists or liked songs, on the desktop or in VAMP' },
+  { tab: 'desktop', label: 'Clock widget', sub: 'Tall glass digits, on the desktop or in VAMP' },
   // App
   { tab: 'general', label: 'Sandbox', sub: 'Dock modals into a collapsible pill instead of a centered popup' },
   { tab: 'general', label: 'Developer options', sub: 'Shows a Developer tab with API server settings' },
@@ -198,7 +198,7 @@ const SETTINGS_SEARCH_INDEX: { tab: Tab; label: string; sub?: string; electronOn
 // One line of the "Lyric colors" setting: presets + a custom picker, with
 // "Auto" (value === null) meaning "leave it to the surface's own colors" —
 // the theme's text vars in the mini/now-playing lyrics, the cover-art-derived
-// ones in the WRLD tab. The color picker always needs a concrete hex,
+// ones in the VAMP tab. The color picker always needs a concrete hex,
 // so `fallback` is what it shows while the setting is on Auto.
 function LyricColorRow({ label, presets, value, fallback, onChange }: {
   label: string
@@ -264,7 +264,7 @@ function ApiServerRow(): JSX.Element {
           type="text"
           value={value}
           onChange={(e) => setValue(e.target.value)}
-          placeholder={DEFAULT_JWAPI_BASE}
+          placeholder={DEFAULT_CATALOG_API_BASE}
           spellCheck={false}
           className={`flex-1 ${SERVER_INPUT_CLASS}`}
         />
@@ -318,7 +318,7 @@ function RouteRulesEditor(): JSX.Element {
               type="text"
               value={rule.base}
               onChange={(e) => update(i, { base: e.target.value })}
-              placeholder={JWAPI_BASE}
+              placeholder={CATALOG_API_BASE}
               spellCheck={false}
               className={`flex-1 ${SERVER_INPUT_CLASS}`}
             />
@@ -364,8 +364,8 @@ function VizSettings(): JSX.Element {
           <AudioLines size={13} className="text-white" strokeWidth={2.25} />
         </div>
         <div className="min-w-0 flex-1">
-          <span className="text-text-primary text-sm">WRLD visualizer</span>
-          <p className="text-text-muted text-[11px]">Plays behind the WRLD tab - ← → and V work in fullscreen: ← → switches visualizer, V toggles visualizer only</p>
+          <span className="text-text-primary text-sm">VAMP visualizer</span>
+          <p className="text-text-muted text-[11px]">Plays behind the VAMP tab - ← → and V work in fullscreen: ← → switches visualizer, V toggles visualizer only</p>
         </div>
         <ChevronDown size={14} className={`text-text-muted control-motion shrink-0 ${open ? 'rotate-180' : ''}`} />
       </button>
@@ -482,19 +482,19 @@ export default function Settings({ floating = false }: { floating?: boolean }): 
     gradientsEnabled, setGradientsEnabled,
     surfaceGradientsEnabled, setSurfaceGradientsEnabled,
     glassRefraction, setGlassRefraction,
-    wrldThemeBackground, setWrldThemeBackground,
+    vampThemeBackground, setVampThemeBackground,
     playlistHeroEnabledDark, playlistHeroEnabledLight, setPlaylistHeroEnabled,
     refreshPlaylists, fullEraNames, setFullEraNames,
     autoReportErrors, setAutoReportErrors,
     embedSongInfoOnDownload, setEmbedSongInfoOnDownload,
     uploads,
-  } = useStorePick('navStyle', 'setNavStyle', 'setShowSettings', 'setActiveView', 'account', 'logoutAccount', 'setShowUserAuth', 'theme', 'setTheme', 'customSkins', 'saveCustomSkin', 'deleteCustomSkin', 'accentColor', 'setAccentColor', 'settingsTab', 'setSettingsTab', 'sidebarPosition', 'setSidebarPosition', 'autoHideNav', 'setAutoHideNav', 'autoHideNavZone', 'setAutoHideNavZone', 'navOrder', 'setNavOrder', 'navVisibility', 'setNavItemVisible', 'navControlOrder', 'setNavControlOrder', 'navControlVisibility', 'setNavControlVisible', 'homeSectionVisibility', 'setHomeSectionVisible', 'audioOutput', 'setAudioOutput', 'crossfadeEnabled', 'crossfadeDuration', 'setCrossfade', 'pauseFadeEnabled', 'setPauseFade', 'rememberQueue', 'setRememberQueue', 'preferOgVersion', 'setPreferOgVersion', 'rotateSuggestedCovers', 'setRotateSuggestedCovers', 'coversFromAllComps', 'setCoversFromAllComps', 'mediaOverlayEnabled', 'setMediaOverlayEnabled', 'lyricsOffset', 'setLyricsOffset', 'sleepTimerEnd', 'setSleepTimer', 'hotkeyBindings', 'setHotkeyBinding', 'resetHotkeyBindings', 'hotkeySeekSeconds', 'setHotkeySeekSeconds', 'developerMode', 'setDeveloperMode', 'lastfmUser', 'setLastfmUser', 'lastfmEnabled', 'setLastfmEnabled', 'appTextScale', 'setAppTextScale', 'lyricsScale', 'setLyricsScale', 'lyricsAlign', 'setLyricsAlign', 'lyricsBlur', 'setLyricsBlur', 'lyricsBlurAmount', 'setLyricsBlurAmount', 'lyricsColorActive', 'setLyricsColorActive', 'lyricsColorInactive', 'setLyricsColorInactive', 'appFont', 'setAppFont', 'lyricsFont', 'setLyricsFont', 'gradientsEnabled', 'setGradientsEnabled', 'surfaceGradientsEnabled', 'setSurfaceGradientsEnabled', 'glassRefraction', 'setGlassRefraction', 'wrldThemeBackground', 'setWrldThemeBackground', 'playlistHeroEnabledDark', 'playlistHeroEnabledLight', 'setPlaylistHeroEnabled', 'refreshPlaylists', 'fullEraNames', 'setFullEraNames', 'autoReportErrors', 'setAutoReportErrors', 'embedSongInfoOnDownload', 'setEmbedSongInfoOnDownload', 'uploads')
-  const wrldWidgets = useVizStore(s => s.wrldWidgets)
-  const setWrldWidgets = useVizStore(s => s.setWrldWidgets)
-  const wrldFm = useVizStore(s => s.wrldFm)
-  const setWrldFm = useVizStore(s => s.setWrldFm)
-  const wrldFmSound = useVizStore(s => s.wrldFmSound)
-  const setWrldFmSound = useVizStore(s => s.setWrldFmSound)
+  } = useStorePick('navStyle', 'setNavStyle', 'setShowSettings', 'setActiveView', 'account', 'logoutAccount', 'setShowUserAuth', 'theme', 'setTheme', 'customSkins', 'saveCustomSkin', 'deleteCustomSkin', 'accentColor', 'setAccentColor', 'settingsTab', 'setSettingsTab', 'sidebarPosition', 'setSidebarPosition', 'autoHideNav', 'setAutoHideNav', 'autoHideNavZone', 'setAutoHideNavZone', 'navOrder', 'setNavOrder', 'navVisibility', 'setNavItemVisible', 'navControlOrder', 'setNavControlOrder', 'navControlVisibility', 'setNavControlVisible', 'homeSectionVisibility', 'setHomeSectionVisible', 'audioOutput', 'setAudioOutput', 'crossfadeEnabled', 'crossfadeDuration', 'setCrossfade', 'pauseFadeEnabled', 'setPauseFade', 'rememberQueue', 'setRememberQueue', 'preferOgVersion', 'setPreferOgVersion', 'rotateSuggestedCovers', 'setRotateSuggestedCovers', 'coversFromAllComps', 'setCoversFromAllComps', 'mediaOverlayEnabled', 'setMediaOverlayEnabled', 'lyricsOffset', 'setLyricsOffset', 'sleepTimerEnd', 'setSleepTimer', 'hotkeyBindings', 'setHotkeyBinding', 'resetHotkeyBindings', 'hotkeySeekSeconds', 'setHotkeySeekSeconds', 'developerMode', 'setDeveloperMode', 'lastfmUser', 'setLastfmUser', 'lastfmEnabled', 'setLastfmEnabled', 'appTextScale', 'setAppTextScale', 'lyricsScale', 'setLyricsScale', 'lyricsAlign', 'setLyricsAlign', 'lyricsBlur', 'setLyricsBlur', 'lyricsBlurAmount', 'setLyricsBlurAmount', 'lyricsColorActive', 'setLyricsColorActive', 'lyricsColorInactive', 'setLyricsColorInactive', 'appFont', 'setAppFont', 'lyricsFont', 'setLyricsFont', 'gradientsEnabled', 'setGradientsEnabled', 'surfaceGradientsEnabled', 'setSurfaceGradientsEnabled', 'glassRefraction', 'setGlassRefraction', 'vampThemeBackground', 'setVampThemeBackground', 'playlistHeroEnabledDark', 'playlistHeroEnabledLight', 'setPlaylistHeroEnabled', 'refreshPlaylists', 'fullEraNames', 'setFullEraNames', 'autoReportErrors', 'setAutoReportErrors', 'embedSongInfoOnDownload', 'setEmbedSongInfoOnDownload', 'uploads')
+  const vampWidgets = useVizStore(s => s.vampWidgets)
+  const setVampWidgets = useVizStore(s => s.setVampWidgets)
+  const vampFm = useVizStore(s => s.vampFm)
+  const setVampFm = useVizStore(s => s.setVampFm)
+  const vampFmSound = useVizStore(s => s.vampFmSound)
+  const setVampFmSound = useVizStore(s => s.setVampFmSound)
 
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([])
   const [customAccent, setCustomAccent] = useState(accentColor)
@@ -689,7 +689,7 @@ export default function Settings({ floating = false }: { floating?: boolean }): 
     { id: 'appearance', label: 'Appearance', icon: Palette, color: '#ec4899' },
     { id: 'navigation', label: 'Navigation', icon: PanelLeft, color: '#0d9488' },
     { id: 'playback', label: 'Playback', icon: Volume2, color: '#ef4444', gap: true },
-    { id: 'lyrics', label: 'Lyrics & WRLD', icon: AlignLeft, color: '#8b5cf6' },
+    { id: 'lyrics', label: 'Lyrics & VAMP', icon: AlignLeft, color: '#8b5cf6' },
     { id: 'connections', label: 'Connections', icon: Cloud, color: '#2563eb' },
     { id: 'desktop', label: 'Desktop', icon: Lightbulb, color: '#f59e0b', gap: true },
     { id: 'shortcuts', label: 'Shortcuts', icon: Keyboard, color: '#475569' },
@@ -877,7 +877,7 @@ export default function Settings({ floating = false }: { floating?: boolean }): 
                     icon={BookOpen}
                     iconColor="#0891b2"
                     label="Full era names"
-                    sub='Show eras spelled out ("WRLD On Drugs") instead of abbreviated ("WOD")'
+                    sub='Show eras spelled out ("VAMP On Drugs") instead of abbreviated ("WOD")'
                     labelExtra={<div className="ml-2 translate-y-[3px]"><Toggle on={fullEraNames} onClick={() => setFullEraNames(!fullEraNames)} /></div>}
                   />
                   <Row
@@ -1683,10 +1683,10 @@ export default function Settings({ floating = false }: { floating?: boolean }): 
               </div>
             )}
 
-            {/* ── Lyrics & WRLD ── */}
+            {/* ── Lyrics & VAMP ── */}
             {!settingsQueryTrimmed && tab === 'lyrics' && (
               <div>
-                <SettingsTitle>Lyrics &amp; WRLD</SettingsTitle>
+                <SettingsTitle>Lyrics &amp; VAMP</SettingsTitle>
                 <SettingsGroup title="Lyrics">
                   <Row icon={AlignLeft} iconColor="#0891b2" label="Lyrics sync">
                     <div className="flex items-center gap-2">
@@ -1763,7 +1763,7 @@ export default function Settings({ floating = false }: { floating?: boolean }): 
                       </div>
                       <div className="min-w-0">
                         <span className="text-text-primary text-sm">Lyrics text size</span>
-                        <p className="text-text-muted text-[11px]">Synced and plain lyrics everywhere — WRLD tab, now playing, mini player</p>
+                        <p className="text-text-muted text-[11px]">Synced and plain lyrics everywhere — VAMP tab, now playing, mini player</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2 flex-wrap pl-[34px]">
@@ -1844,7 +1844,7 @@ export default function Settings({ floating = false }: { floating?: boolean }): 
                       </div>
                       <div className="min-w-0">
                         <span className="text-text-primary text-sm">Lyric colors</span>
-                        <p className="text-text-muted text-[11px]">Color the line being sung and the ones that aren't — WRLD tab, now playing, mini player</p>
+                        <p className="text-text-muted text-[11px]">Color the line being sung and the ones that aren't — VAMP tab, now playing, mini player</p>
                       </div>
                     </div>
                     <div className="flex flex-col gap-2.5 pl-[34px]">
@@ -1865,41 +1865,41 @@ export default function Settings({ floating = false }: { floating?: boolean }): 
                     </div>
                   </div>
                 </SettingsGroup>
-                <SettingsGroup title="WRLD">
+                <SettingsGroup title="VAMP">
                   <Row
                     icon={Disc}
                     iconColor="#8b5cf6"
-                    label="Theme background in WRLD"
-                    sub="Use the app's theme behind the WRLD tab instead of the playing song's cover"
+                    label="Theme background in VAMP"
+                    sub="Use the app's theme behind the VAMP tab instead of the playing song's cover"
                   >
-                    <Toggle on={wrldThemeBackground} onClick={() => setWrldThemeBackground(!wrldThemeBackground)} />
+                    <Toggle on={vampThemeBackground} onClick={() => setVampThemeBackground(!vampThemeBackground)} />
                   </Row>
                   <Row
                     icon={Disc}
                     iconColor="#8b5cf6"
-                    label="Old WRLD style"
-                    sub="WRLD's own player and lyrics instead of the widgets"
+                    label="Old VAMP style"
+                    sub="VAMP's own player and lyrics instead of the widgets"
                   >
-                    <Toggle on={!wrldWidgets} onClick={() => setWrldWidgets(!wrldWidgets)} />
+                    <Toggle on={!vampWidgets} onClick={() => setVampWidgets(!vampWidgets)} />
                   </Row>
-                  {wrldWidgets && (
+                  {vampWidgets && (
                     <Row
                       icon={Disc}
                       iconColor="#8b5cf6"
-                      label="999 FM in WRLD"
-                      sub="A 999 FM card in WRLD's widgets while it's on, or opened from WRLD's toolbar without tuning in: votes, suggestions and chat"
+                      label="Vamp FM in VAMP"
+                      sub="A Vamp FM card in VAMP's widgets while it's on, or opened from VAMP's toolbar without tuning in: votes, suggestions and chat"
                     >
-                      <Toggle on={wrldFm} onClick={() => setWrldFm(!wrldFm)} />
+                      <Toggle on={vampFm} onClick={() => setVampFm(!vampFm)} />
                     </Row>
                   )}
-                  {wrldWidgets && wrldFm && (
+                  {vampWidgets && vampFm && (
                     <Row
                       icon={Bell}
                       iconColor="#8b5cf6"
-                      label="Sound for 999 FM chat and votes"
-                      sub="Play the notification sound for new chat lines and when a vote starts, while the 999 FM card is up"
+                      label="Sound for Vamp FM chat and votes"
+                      sub="Play the notification sound for new chat lines and when a vote starts, while the Vamp FM card is up"
                     >
-                      <Toggle on={wrldFmSound} onClick={() => setWrldFmSound(!wrldFmSound)} />
+                      <Toggle on={vampFmSound} onClick={() => setVampFmSound(!vampFmSound)} />
                     </Row>
                   )}
                   <VizSettings />
@@ -2085,7 +2085,7 @@ export default function Settings({ floating = false }: { floating?: boolean }): 
                     <Disc size={28} />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-text-primary text-lg font-bold leading-tight">Unreleased</p>
+                    <p className="text-text-primary text-lg font-bold leading-tight">Carti Unreleased</p>
                     <p className="text-text-muted text-xs mt-0.5">
                       Version {APP_VERSION} · powered by{' '}
                       <a href="https://docs.google.com/spreadsheets/d/1Irtfvymu26CShYowLMMfD-rM0o9CJqE6-BBSlYsAaF4/htmlview" target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">Carti Tracker sheet</a>
@@ -2094,7 +2094,7 @@ export default function Settings({ floating = false }: { floating?: boolean }): 
                       <span>
                         Commit{' '}
                         <a
-                          href={`https://github.com/Juice-WRLD-API/Unreleased/commit/${COMMIT_HASH}`}
+                          href={`https://github.com/Meerkatologyx/carti-unreleased/commit/${COMMIT_HASH}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-accent font-mono hover:underline"
@@ -2106,8 +2106,8 @@ export default function Settings({ floating = false }: { floating?: boolean }): 
                     </p>
                     <div className="flex flex-wrap gap-2 mt-3">
                       {([
-                        { href: 'https://github.com/Juice-WRLD-API/Unreleased', label: 'GitHub', icon: Github },
-                        { href: 'https://discord.gg/jwa', label: 'Discord', icon: MessageCircle },
+                        { href: 'https://github.com/Meerkatologyx/carti-unreleased', label: 'GitHub', icon: Github },
+                        { href: 'https://github.com/Meerkatologyx/carti-unreleased/issues', label: 'GitHub', icon: MessageCircle },
                         { href: 'https://docs.google.com/spreadsheets/d/1Irtfvymu26CShYowLMMfD-rM0o9CJqE6-BBSlYsAaF4/htmlview', label: 'API', icon: Globe },
                       ]).map(({ href, label, icon: LinkIcon }) => (
                         <a

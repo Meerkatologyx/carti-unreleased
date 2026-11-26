@@ -1,10 +1,10 @@
 // Admin side of the distributed CDN - the node roster, approvals and
 // CDN-wide stats under /cdn/admin/. The download side lives in cdn.ts.
 //
-// Nodes register anonymously from the node app (jwa-cdn-node) and serve
+// Nodes register anonymously from the node app (cdn-node) and serve
 // nothing until an admin approves them here. Disabling (is_active false)
 // takes a node out but keeps its history; deleting wipes it.
-import { routeUrl } from './juicewrldApi'
+import { routeUrl } from './catalogApi'
 import { authedRequest, apiRequest, authHeaders } from './apiClient'
 import { getToken } from './userApi'
 
@@ -185,7 +185,7 @@ export async function fetchProposalPropagation(proposalId: number): Promise<Prop
   return request(`${CDN_ADMIN_BASE}/proposals/${proposalId}/propagation/`, { method: 'GET' })
 }
 
-// Node binary distribution under /cdn/binary/ - the jwa-cdn-node builds
+// Node binary distribution under /cdn/binary/ - the cdn-node builds
 // volunteers download. Listing is public; uploading needs an admin token.
 const CDN_BINARY_BASE = routeUrl('/cdn/binary')
 

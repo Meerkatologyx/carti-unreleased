@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Clock, FolderOpen, Loader2, Music2, Play } from 'lucide-react'
 import { useStore } from '../store/useStore'
-import { buildImageUrl } from '../lib/juicewrldApi'
+import { buildImageUrl } from '../lib/catalogApi'
 import { fetchCommunityEditAudio, type CommunityEdit, type CommunityEditMatch } from '../lib/communityEditsApi'
 import { errorMessage } from '../lib/format'
 import { openInFiles } from './SongContextMenu'

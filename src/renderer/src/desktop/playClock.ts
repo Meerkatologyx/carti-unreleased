@@ -10,10 +10,10 @@ import { epochNow, type StageClock } from './lyrics/scene'
 const DRIFT = 0.25
 const CHECK_MS = 250
 
-/** 999 FM's position: the station's elapsed time at its last update, run on from there. */
+/** Vamp FM's position: the station's elapsed time at its last update, run on from there. */
 let fmBase: { elapsed: number; at: number } | null = null
 
-/** Where 999 FM's song is now, in seconds. `elapsed_ms` is already the heard position (RadioFmPlayer
+/** Where Vamp FM's song is now, in seconds. `elapsed_ms` is already the heard position (RadioFmPlayer
  *  corrects it for the stream's lag), so it only runs on from when it last changed. */
 export function radioFmSeconds(): number {
   const elapsed = useStore.getState().radioFmNowPlaying?.elapsed_ms ?? 0
@@ -29,7 +29,7 @@ useStore.subscribe((s, p) => {
   if (elapsed !== (p.radioFmNowPlaying?.elapsed_ms ?? 0)) fmBase = { elapsed, at: Date.now() }
 })
 
-/** The playing position: 999 FM's while it's on, otherwise the audio's. */
+/** The playing position: Vamp FM's while it's on, otherwise the audio's. */
 export function playingSeconds(): number {
   return useStore.getState().radioFmActive ? radioFmSeconds() : getAudioCurrentTime()
 }

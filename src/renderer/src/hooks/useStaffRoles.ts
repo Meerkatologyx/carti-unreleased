@@ -1,7 +1,7 @@
 import { isPrimaryChannelSlug } from './useChannelRoles'
 import { isChannelContributor, isChannelEditor, isChannelManager } from '../lib/userApi'
 import type { AccountUser } from '../lib/userApi'
-import type { JWApiChannel } from '../lib/juicewrldApi'
+import type { CatalogChannel } from '../lib/catalogApi'
 
 export interface StaffRoles {
   isPrimary: boolean
@@ -29,7 +29,7 @@ export interface StaffRoles {
 export function useStaffRoles(
   account: AccountUser | null,
   activeChannel: string | null | undefined,
-  channels: JWApiChannel[],
+  channels: CatalogChannel[],
 ): StaffRoles {
   const isPrimary = isPrimaryChannelSlug(channels, activeChannel)
   const isContributor = isChannelContributor(account, activeChannel, isPrimary)

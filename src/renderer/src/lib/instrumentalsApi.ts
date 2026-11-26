@@ -1,9 +1,9 @@
-import { apiFetch, cleanTitleForSearch, normalizeSongTitle, parseBrowseEntries, parseDuration, searchFiles, JWApiBrowseResponse, JWApiFileEntry } from './juicewrldApi'
+import { apiFetch, cleanTitleForSearch, normalizeSongTitle, parseBrowseEntries, parseDuration, searchFiles, CatalogBrowseResponse, CatalogFileEntry } from './catalogApi'
 import { getMediaType } from './fileTypes'
 import { createTtlCache, type TtlCache } from './ttlCache'
 
 // Instrumentals live in the file tree one folder per song, filed by era:
-// "Instrumentals/9. Death Race For Love/Arctic Tundra/JUUL MANGO 5 new one.wav"
+// "Instrumentals/9. Whole Lotta Red/Session/untitled 5.wav"
 // (a few sit one level deeper, under "Instrumentals/Others/<album>/<song>/").
 // The file names are whatever the producer called the beat, so the song is
 // only ever identified by the folder a file sits in.
@@ -14,7 +14,7 @@ export interface Instrumental {
   /** The song folder's own name, e.g. "Arctic Tundra (feat. Playboi Carti) [v6]". */
   folder: string
   /** The folders between the root and the song folder, numbering dropped -
-   *  "Death Race For Love", or "Others · Death Race For Love (TV Mix)". */
+   *  "Whole Lotta Red", or "Others · Whole Lotta Red (TV Mix)". */
   era: string
   duration: number
 }
@@ -46,8 +46,8 @@ export function instrumentalSongTitle(path: string): string | null {
   return segs.length >= 3 ? segs[segs.length - 2] : null
 }
 
-async function browse(path: string): Promise<JWApiFileEntry[]> {
-  return parseBrowseEntries(await apiFetch<JWApiBrowseResponse>('/files/browse/', { path }))
+async function browse(path: string): Promise<CatalogFileEntry[]> {
+  return parseBrowseEntries(await apiFetch<CatalogBrowseResponse>('/files/browse/', { path }))
 }
 
 async function fetchInstrumentals(title: string): Promise<Instrumental[]> {

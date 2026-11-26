@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Play, Loader2, Music2, ChevronLeft, Share2, Download, Check } from 'lucide-react'
 import { useStorePick } from '../store/useStore'
-import { getSongById, songToTrack, buildStreamUrl, CATEGORY_LABELS, JWApiSong } from '../lib/juicewrldApi'
+import { getSongById, songToTrack, buildStreamUrl, CATEGORY_LABELS, CatalogSong } from '../lib/catalogApi'
 import { isSessionEditPlaceholder } from '../lib/sessionEditLinksMirror'
 import { resolveTrackFile } from '../lib/sessionEditsApi'
 import { trackShareUrl } from '../lib/platform'
@@ -11,7 +11,7 @@ import { AlbumArtThumbnail } from './AlbumArtThumbnail'
 // Public track page - a real, shareable URL for a single song (unlike an
 // in-app chat share card, which only ever renders inside this app). Fetched
 // by internal song id, the same id every other surface already fetches
-// `/songs/{id}/` with (see juicewrldApi.ts) - no separate public identifier
+// `/songs/{id}/` with (see catalogApi.ts) - no separate public identifier
 // needed. See seo.ts (noindex - one URL per song is a lot of near-duplicate
 // pages, not worth it in Google) and server/social-preview.mjs (per-track
 // Discord/Twitter unfurl - that service re-fetches the same song server-side
@@ -23,11 +23,11 @@ function trackIdFromPath(pathname: string): number | null {
 
 export default function TrackView(): JSX.Element {
   const { playTrack, setActiveView } = useStorePick('playTrack', 'setActiveView')
-  // Read once on mount: TrackView stays mounted behind WRLD while the URL
-  // moves to /wrld, so re-deriving this per render would lose the id.
+  // Read once on mount: TrackView stays mounted behind VAMP while the URL
+  // moves to /vamp, so re-deriving this per render would lose the id.
   const [songId] = useState(() => trackIdFromPath(appPathname()))
 
-  const [song, setSong] = useState<JWApiSong | null>(null)
+  const [song, setSong] = useState<CatalogSong | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
   const [copied, setCopied] = useState(false)

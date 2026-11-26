@@ -3,7 +3,7 @@ import { fetchCompChangesPage, fetchTrackerChangesPage, type CompChange, type Tr
 import { COMP_CHUNK_THRESHOLD, createCompProposalChunked } from '../compChunkedUpload'
 import { existingCompPaths, proposeTagEdits } from '../compFileChanges'
 import { getMediaType } from '../fileTypes'
-import { apiFetch, getCompFileTags, listFilesRecursive, listSubtree, parseBrowseEntries, type JWApiBrowseResponse } from '../juicewrldApi'
+import { apiFetch, getCompFileTags, listFilesRecursive, listSubtree, parseBrowseEntries, type CatalogBrowseResponse } from '../catalogApi'
 import { loadLiveComp, localCompFiles, planCompReplace, runCompReplace } from '../compReplace'
 import { loadSessionEditFiles, loadSessionEditLinks } from '../sessionEditsApi'
 import { useStore } from '../../store/useStore'
@@ -136,7 +136,7 @@ async function compAudioAt(path: string, channel: string | undefined, recursive:
   if (isAudio(path)) return [path]
   const entries = recursive
     ? (await listSubtree(path, channel)) ?? await listFilesRecursive(path, channel)
-    : parseBrowseEntries(await apiFetch<JWApiBrowseResponse>('/files/browse/', { path: path || undefined, channel }))
+    : parseBrowseEntries(await apiFetch<CatalogBrowseResponse>('/files/browse/', { path: path || undefined, channel }))
   return entries.filter((e) => e.type === 'file' && isAudio(e.name)).map((e) => e.path)
 }
 
@@ -158,7 +158,7 @@ const compCommand: TermCommand = {
   covers: [
     'userApi.getMyCompProposals', 'userApi.createCompProposal', 'userApi.createCompProposalUpload', 'userApi.updateCompProposal', 'userApi.withdrawCompProposal',
     'userApi.adminFetchCompProposalStaging', 'userApi.adminCompFileHistory', 'compChunkedUpload.createCompProposalChunked',
-    'juicewrldApi.getCompFileTags', 'compFileChanges.proposeTagEdits', 'userApi.submitCompProposalBatch',
+    'catalogApi.getCompFileTags', 'compFileChanges.proposeTagEdits', 'userApi.submitCompProposalBatch',
   ],
   complete: (before, partial) => {
     const p = partial.toLowerCase()

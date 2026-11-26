@@ -24,7 +24,7 @@ export type BuiltinSkinId =
   | 'glass-light'
   | 'aurora'
   | 'neon'
-  | '999'
+  | 'wlr'
   | 'graphite'
   | 'retro'
   | 'paper'
@@ -289,8 +289,8 @@ export const SKINS: Skin[] = [
   },
   {
     // Near-black with red-tinted surfaces and a true red accent.
-    id: '999',
-    name: '999',
+    id: 'wlr',
+    name: 'Whole Lotta Red',
     dark: true,
     accent: '#e11d2e',
     vars: {
@@ -753,7 +753,7 @@ export function allSkins(): Skin[] {
 
 // The skin a new install starts on, and what unknown or deleted ids fall back
 // to. Its resting palette is classic dark, which matches the first paint.
-export const DEFAULT_SKIN_ID: BuiltinSkinId = 'song'
+export const DEFAULT_SKIN_ID: BuiltinSkinId = 'wlr'
 
 // Fallback to the default skin for unknown ids (e.g. a persisted value from a
 // build where a skin was renamed/removed, or a deleted custom skin).

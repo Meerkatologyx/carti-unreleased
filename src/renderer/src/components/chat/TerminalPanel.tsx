@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { findChatCommand } from '../../lib/chatHelp'
 import { hasChatAccess } from '../../lib/chatAccess'
-import { canRun, chatCommandsFor, moderationChatCommandsFor, plainChatCommandsFor, juicesayText, directory, findTermCommand, resolveHandles, termUserName, TERM_COMMANDS, TERM_GROUPS, type TermCommand, type TermScreen } from '../../lib/terminal'
+import { canRun, chatCommandsFor, moderationChatCommandsFor, plainChatCommandsFor, cartisayText, directory, findTermCommand, resolveHandles, termUserName, TERM_COMMANDS, TERM_GROUPS, type TermCommand, type TermScreen } from '../../lib/terminal'
 import { termThemeVars, useTermTheme } from '../../lib/terminal/themeStore'
 import { plainOutput, PROFILE_LINK_RE } from '../../lib/terminal/types'
 import { catFile, diskUsage, grepFiles, headTailFile, locateName, searchTree, treeView, wcFile } from '../../lib/terminalFileTools'
@@ -97,7 +97,7 @@ function expandBang(line: string): string | null {
 // `cmd | grep text | head 5`: output filters for any command. Only recognised
 // when every part after a pipe is one of these, so a message that happens to
 // contain " | " is left alone.
-const FILTERS = new Set(['grep', 'head', 'tail', 'wc', 'sort', 'uniq', 'juicesay'])
+const FILTERS = new Set(['grep', 'head', 'tail', 'wc', 'sort', 'uniq', 'cartisay'])
 
 // A pipe inside quotes belongs to the argument (`watch "queue | head 3"`). A
 // quote only opens at the start of a word, so an apostrophe in a message
@@ -154,7 +154,7 @@ function applyFilter(lines: string[], filter: string): string[] {
       return args.some((a) => a.startsWith('-') && a.includes('r')) ? sorted.reverse() : sorted
     }
     case 'uniq': return lines.filter((l, i) => i === 0 || l !== lines[i - 1])
-    case 'juicesay': return juicesayText(lines.join(' ')).split('\n')
+    case 'cartisay': return cartisayText(lines.join(' ')).split('\n')
     default: return lines
   }
 }
@@ -234,7 +234,7 @@ function helpText(): string {
     `help <command> explains one · help <group> lists a group in full (${topics.join(', ')})`,
     'Tab completes names and arguments · ↑ ↓ history · Ctrl+R search history · Ctrl+L clear · Ctrl+C cancel line',
     'Chat and moderation commands act on the current room’s server; add --server <name> to run one on another',
-    'cmd | grep text · cmd | head 5 · fortune | juicesay · click a → hint to put it on the prompt',
+    'cmd | grep text · cmd | head 5 · fortune | cartisay · click a → hint to put it on the prompt',
   ].join('\n')
 }
 

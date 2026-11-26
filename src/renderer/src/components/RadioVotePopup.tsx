@@ -4,18 +4,18 @@ import { useStore, useStorePick } from '../store/useStore'
 import { getActiveRadioClient } from '../lib/radioSocketService'
 import { useVizStore } from '../store/vizStore'
 
-// App-wide 999 FM vote popup. The WRLD view has its own inline vote panel, but
+// App-wide Vamp FM vote popup. The VAMP view has its own inline vote panel, but
 // a skip/queue vote is time-limited and listeners aren't always looking at that
 // page - this floats over every other view so people actually see when it's
-// time to vote. Suppressed on the WRLD view while WRLD shows the vote itself:
-// the old style's FM panel, or the Widgets layout's 999 FM card open on Radio.
-// With the Widgets layout's 999 FM card up, the card shows the vote itself:
-// inside the Radio side, or as a card directly under it (WrldFmWidget) when
+// time to vote. Suppressed on the VAMP view while VAMP shows the vote itself:
+// the old style's FM panel, or the Widgets layout's Vamp FM card open on Radio.
+// With the Widgets layout's Vamp FM card up, the card shows the vote itself:
+// inside the Radio side, or as a card directly under it (VampFmWidget) when
 // it's folded or on Chat. Only with that card turned off does this float.
 export default function RadioVotePopup(): JSX.Element | null {
   const activeView = useStore((s) => s.activeView)
-  const wrldShowsVote = useVizStore((s) => !s.wrldWidgets || s.wrldFm)
-  if (activeView === 'wrld' && wrldShowsVote) return null
+  const vampShowsVote = useVizStore((s) => !s.vampWidgets || s.vampFm)
+  if (activeView === 'vamp' && vampShowsVote) return null
   return (
     <RadioVoteCard
       className="fixed z-[60] bottom-24 right-4 w-[calc(100vw-2rem)] max-w-xs"
@@ -50,7 +50,7 @@ export function RadioVoteCard({ className = '', style }: { className?: string; s
     wasActiveRef.current = isActive
   }, [radioFmVote?.active])
 
-  // Time the warning out the way the WRLD panel times out its propose error.
+  // Time the warning out the way the VAMP panel times out its propose error.
   // The rising-edge reset above only fires when a brand new ballot arrives,
   // which can be a long way off - long enough for a stale "didn't send" to sit
   // under a vote the listener has since cast successfully.
@@ -104,7 +104,7 @@ export function RadioVoteCard({ className = '', style }: { className?: string; s
             {isSkip ? <SkipForward size={12} className="text-red-400" /> : <Radio size={12} className="text-red-400" />}
           </span>
           <p className="text-white/60 text-[11px] font-semibold uppercase tracking-widest">
-            {isSkip ? '999 FM · Vote to Skip' : '999 FM · Vote to Queue'}
+            {isSkip ? 'Vamp FM · Vote to Skip' : 'Vamp FM · Vote to Queue'}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -127,7 +127,7 @@ export function RadioVoteCard({ className = '', style }: { className?: string; s
       </p>
 
       {voteError && (
-        <p className="text-red-400 text-xs">Vote didn't send - tune in to 999 FM and try again.</p>
+        <p className="text-red-400 text-xs">Vote didn't send - tune in to Vamp FM and try again.</p>
       )}
 
       <div className="flex gap-2">

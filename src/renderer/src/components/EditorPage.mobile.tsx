@@ -6,7 +6,7 @@ import {
 import FilePickerModal from './FilePickerModal'
 import { useStore, useStorePick } from '../store/useStore'
 import { BackButton } from './mobile/NavBar'
-import { apiFetch, JWApiSong, JWApiEra, buildImageUrl, toSiteRelativeImageUrl, songToTrack, CATEGORY_LABELS } from '../lib/juicewrldApi'
+import { apiFetch, CatalogSong, CatalogEra, buildImageUrl, toSiteRelativeImageUrl, songToTrack, CATEGORY_LABELS } from '../lib/catalogApi'
 import * as userApi from '../lib/userApi'
 import { isPrimaryChannelSlug } from '../hooks/useChannelRoles'
 import { invalidateLyricsCache } from './Player'

@@ -7,8 +7,8 @@
 // answer (see pickDailySong), which is what makes the shared score grid mean
 // anything.
 import { apiRequest } from './apiClient'
-import { routeUrl, buildImageUrl, parseDuration } from './juicewrldApi'
-import type { JWApiSong, JWApiPaginatedResponse } from './juicewrldApi'
+import { routeUrl, buildImageUrl, parseDuration } from './catalogApi'
+import type { CatalogSong, CatalogPaginatedResponse } from './catalogApi'
 import { getVersionMetaForSongs } from './versionsApi'
 
 // How many guesses a round allows, and how much of the intro each one unlocks.
@@ -140,7 +140,7 @@ const EPOCH = Date.UTC(2026, 7, 1) // 2026-08-01
 
 // ─── Song shape ───────────────────────────────────────────────────────────────
 //
-// A trimmed-down JWApiSong. The full objects carry lyrics and every metadata
+// A trimmed-down CatalogSong. The full objects carry lyrics and every metadata
 // field, ~5 KB each - fine for a page of search results, far too heavy for a
 // whole-category pool we want to keep in localStorage between sessions.
 
@@ -183,7 +183,7 @@ export function revealCoverUrl(raw: unknown): string | undefined {
   return typeof candidate === 'string' && candidate ? buildImageUrl(candidate) : undefined
 }
 
-function slim(song: JWApiSong): HeardleSong | null {
+function slim(song: CatalogSong): HeardleSong | null {
   // No path means nothing to stream - a song that can't be played can't be
   // guessed, and it must not sit in the pool the daily answer is drawn from.
   if (!song.path) return null
@@ -194,7 +194,7 @@ function slim(song: JWApiSong): HeardleSong | null {
     // unordered alias list, and using its first entry as the display title
     // (once the pattern elsewhere in the app, since fixed) surfaced aliases in
     // place of the names people actually know: "Breakthrough" for Man Of The
-    // Year, "AGATS (Pt. 1)" for All Girls Are The Same, "GTA Love" for Wasted
+    // Year, "WLR (Pt. 1)" for Whole Lotta Red, "GTA Love" for Wasted
     // (20 of 321 released songs disagree). `name` also carries the "(1)"/"(2)"
     // suffixes that tell four identically-titled rows apart. Every alias
     // still counts as a guess - see `titles`.
@@ -297,7 +297,7 @@ export function searchPool(pool: HeardleSong[], query: string, limit = 50): Hear
 
 /** The alias a query hit, when it isn't the name being displayed - so the
  *  dropdown can explain why a row it doesn't obviously match is in the list
- *  (typing "agats" turning up "All Girls Are The Same"). */
+ *  (typing "wlr" turning up "Whole Lotta Red"). */
 export function matchedAlias(song: HeardleSong, query: string): string | null {
   const q = normalizeTitle(query)
   if (!q || normalizeTitle(song.name).includes(q)) return null
@@ -329,7 +329,7 @@ async function fetchPool(category: PoolId): Promise<HeardleSong[]> {
   const songs: HeardleSong[] = []
   for (let page = 1; page <= MAX_PAGES; page++) {
     const url = `${routeUrl('/songs/')}?category=${category}&page=${page}&page_size=${PAGE_SIZE}`
-    const data = await apiRequest<JWApiPaginatedResponse>(url)
+    const data = await apiRequest<CatalogPaginatedResponse>(url)
     for (const song of data.results ?? []) {
       const s = slim(song)
       if (s) songs.push(s)

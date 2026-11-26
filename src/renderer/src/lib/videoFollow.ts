@@ -1,5 +1,5 @@
 // A muted video kept in time with the song, by the sync lib/videoSync works out: where in the video each part of the
-// song is, so an intro or a skit cut into the video is stepped over. Used by WRLD (components/WrldMusicVideo.tsx) and by
+// song is, so an intro or a skit cut into the video is stepped over. Used by VAMP (components/VampMusicVideo.tsx) and by
 // the cleared desk's curtain (desktop/pages/curtain.ts), which has no store of its own: so nothing here imports one.
 
 /** From `at` seconds into the song (until the next span), the video is `lag` seconds ahead of it; null: not in the video. */

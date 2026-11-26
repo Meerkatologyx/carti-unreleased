@@ -8,7 +8,7 @@ import {
 import { dropCoverArtImage } from '../coverArtImages'
 import { deleteArtistCover, getArtistFolder, uploadArtistCover } from '../artistCoversApi'
 import { searchCoverImages } from '../coverSuggestions'
-import { coverSearchQueries } from '../juicewrldApi'
+import { coverSearchQueries } from '../catalogApi'
 import { formatBytes } from '../format'
 import { pickLocalFile, saveBlob } from './pick'
 import { completeSongs, songFromArg } from './player'

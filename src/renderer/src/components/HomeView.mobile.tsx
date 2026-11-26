@@ -294,7 +294,7 @@ export default function HomeViewMobile(): JSX.Element {
                 icon={Radio}
                 iconColor={radioFmIsLive ? RED : PINK}
                 label={<span className="flex items-center gap-2">
-                  999 FM
+                  Vamp FM
                   {radioFmIsLive && <span className="px-1.5 rounded bg-[#ff3b30] text-white text-caption2 font-bold">LIVE</span>}
                 </span>}
                 sub={radioFmIsLive && radioFmNowPlaying

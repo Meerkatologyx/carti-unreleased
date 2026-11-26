@@ -10,7 +10,7 @@ import {
 } from 'lucide-react'
 import { useStorePick } from '../store/useStore'
 import type { HeardleSong } from '../lib/heardle'
-import { smallCoverUrl } from '../lib/juicewrldApi'
+import { smallCoverUrl } from '../lib/catalogApi'
 import { TIER_COLOR_PRESETS } from '../lib/tierlist'
 import type { Tier, DropPosition } from '../lib/tierlist'
 import { GameSwitcher, GameBackdrop } from './gameShell'
@@ -273,7 +273,7 @@ export default function TierlistView(): JSX.Element {
 
       <div className="absolute top-4 left-4 z-20">
         <button
-          onClick={() => setActiveView(previousView && previousView !== 'tierlist' ? previousView : 'wrld')}
+          onClick={() => setActiveView(previousView && previousView !== 'tierlist' ? previousView : 'vamp')}
           title="Back"
           className="p-2.5 rounded-xl text-text-muted hover:text-text-primary hover:bg-surface-overlay transition-colors"
         >

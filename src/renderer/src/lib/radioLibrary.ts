@@ -1,4 +1,4 @@
-import { apiFetch, loadAllSongs, normalizeSongTitle } from './juicewrldApi'
+import { apiFetch, loadAllSongs, normalizeSongTitle } from './catalogApi'
 import { parseSearchQuery, matchesFieldFilters, textMatches } from './trackerSearch'
 import type { FieldFilter } from './trackerSearch'
 
@@ -61,8 +61,8 @@ const DIRECT_FIELDS: Record<string, (t: RadioLibraryTrack) => string> = {
   era: (t) => t.era,
 }
 
-// Strict and bracket-stripped forms, so "Lucid Dreams (v2)" on one side still
-// meets "Lucid Dreams" on the other.
+// Strict and bracket-stripped forms, so "Magnolia (v2)" on one side still
+// meets "Magnolia" on the other.
 function titleKeys(title: string): string[] {
   const strict = normalizeSongTitle(title)
   const loose = normalizeSongTitle(title.replace(/[[(][^)\]]*[)\]]/g, ' '))

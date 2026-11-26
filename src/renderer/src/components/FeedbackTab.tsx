@@ -5,7 +5,7 @@ import type { FeedbackFilter } from '../hooks/useAdminQueue'
 import { Empty, AppSection, CopyButton, relativeTime, shortDate } from './adminShared'
 import { useBackToClose } from '../hooks/useBackToClose'
 
-// Read-only view of GET /juicewrld/feedback/ - what people sent from Settings >
+// Read-only view of GET /api/feedback/ - what people sent from Settings >
 // Feedback, the chat /feedback command, `devfeedback send`, and the automated
 // crash reports ErrorBoundary files on its own. The endpoint has no status or
 // review fields, so unlike ReportsTab there's nothing to resolve here.

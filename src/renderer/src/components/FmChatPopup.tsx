@@ -7,9 +7,9 @@ import { useBackToClose } from '../hooks/useBackToClose'
 import { PopLayer } from './PopLayer'
 import RadioChatPanel from './RadioChatPanel'
 
-// The 999 FM chat as a pop-up over any page, opened from the side menu's
-// 999 FM chat control (Sidebar). Same panel as WRLD's FM tab, on a dark
-// glass card since that panel is styled for WRLD's dark backdrop. It stays
+// The Vamp FM chat as a pop-up over any page, opened from the side menu's
+// Vamp FM chat control (Sidebar). Same panel as VAMP's FM tab, on a dark
+// glass card since that panel is styled for VAMP's dark backdrop. It stays
 // open while you browse (closing on outside clicks would also close it from
 // its own emoji picker and menus, which portal out): X, Escape or the
 // button again close it. Anchored top-right like Notifications and Transfers,
@@ -36,7 +36,7 @@ export default function FmChatPopup(): JSX.Element {
   return (
     <PopLayer
       role="dialog"
-      aria-label="999 FM chat"
+      aria-label="Vamp FM chat"
       style={{
         top: TOP,
         height: `min(580px, calc(100svh - ${TOP} - var(--player-dock, 0px) - 0.75rem))`,
@@ -46,15 +46,15 @@ export default function FmChatPopup(): JSX.Element {
     >
       <div className="flex items-center gap-2 px-4 py-3 border-b border-white/10 shrink-0">
         <MessagesSquare size={14} className="text-white/70 shrink-0" />
-        <span className="text-white/90 text-sm font-semibold">999 FM chat</span>
+        <span className="text-white/90 text-sm font-semibold">Vamp FM chat</span>
         <span className={`flex items-center gap-1.5 text-[11px] ${live ? 'text-green-400/80' : 'text-white/35'}`}>
           <span className={`w-1.5 h-1.5 rounded-full ${live ? 'bg-green-400' : 'bg-white/30'}`} />
           {enabled === false ? 'Off' : live ? 'Live' : 'Connecting'}
         </span>
         <button
-          onClick={() => { close(); setActiveView('wrld') }}
-          title="Open in WRLD"
-          aria-label="Open in WRLD"
+          onClick={() => { close(); setActiveView('vamp') }}
+          title="Open in VAMP"
+          aria-label="Open in VAMP"
           className="ml-auto p-1.5 rounded-lg text-white/45 hover:text-white/85 hover:bg-white/10 transition-colors"
         >
           <Maximize2 size={13} />

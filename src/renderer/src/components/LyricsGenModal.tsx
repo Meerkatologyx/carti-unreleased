@@ -14,7 +14,7 @@ import {
 } from '../lib/lyricsGenApi'
 import { jobTiming, timingOutput } from '../lib/lyricsTiming'
 import { hasWordTiming, linesFromPlain, parseSyncedLyrics, plainOf, serializeSyncedLyrics, syncProgress } from '../lib/syncedLyrics'
-import { getSongById } from '../lib/juicewrldApi'
+import { getSongById } from '../lib/catalogApi'
 import { trackIdToSongId } from '../lib/userApi'
 import { extensionOf } from '../lib/donorFilesApi'
 import { isAbortError } from '../lib/apiClient'
@@ -94,7 +94,7 @@ const audioName = (a: AudioChoice): string => (a.file ? a.file.name : baseName(a
 function jobAudio(job: Pick<LyricsGenJob, 'filename' | 'source'>): { server: LyricsServerAudio; track: SourceTrack } | null {
   const server = jobServerAudio(job)
   if (!server) return null
-  const id = server.songId ? `jw-${server.songId}` : `comp:${server.channel ?? ''}:${server.path}`
+  const id = server.songId ? `pc-${server.songId}` : `comp:${server.channel ?? ''}:${server.path}`
   return { server, track: { id, title: jobTitle(job) || baseName(server.path), artist: '', path: server.path, streamUrl: serverAudioUrl(server) } }
 }
 

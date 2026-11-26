@@ -1,6 +1,6 @@
 import { useMemo, useRef } from 'react'
-import { CATEGORY_LABELS, parseDuration, OMIT_BULK } from './juicewrldApi'
-import type { JWApiSong } from './juicewrldApi'
+import { CATEGORY_LABELS, parseDuration, OMIT_BULK } from './catalogApi'
+import type { CatalogSong } from './catalogApi'
 import { eraLabel } from './eras'
 import { formatDuration, displayDate } from './format'
 
@@ -24,7 +24,7 @@ export interface TrackerField {
   key: TrackerFieldKey
   label: string
   /** Plain-text value for a song ('' when the song has none). */
-  get: (song: JWApiSong, fullEraNames: boolean) => string
+  get: (song: CatalogSong, fullEraNames: boolean) => string
 }
 
 const str = (v: string | number | null | undefined): string => (v == null ? '' : String(v).trim())

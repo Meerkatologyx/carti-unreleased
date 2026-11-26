@@ -1,4 +1,4 @@
-import { apiFetch } from './juicewrldApi'
+import { apiFetch } from './catalogApi'
 import { createTtlCache } from './ttlCache'
 
 export interface TrackerChange {

@@ -1,11 +1,11 @@
-// Per-era cover overrides. JWA shows one shared placeholder cover across every
+// Per-era cover overrides. the API shows one shared placeholder cover across every
 // unreleased song in an era, so instead of personalizing covers one song at a
 // time, a user can swap that placeholder for a cover of their own choosing and
 // have it apply to every unreleased song in the era at once.
 //
 // Like coverRotation.ts, this module holds only data and synchronous
 // accessors and deliberately imports nothing but the storage helper -
-// juicewrldApi's songToTrack reads it on every song → Track conversion, so
+// catalogApi's songToTrack reads it on every song → Track conversion, so
 // importing the API layer here would make it a cycle.
 //
 // The "unreleased only" and "personal cover wins" rules aren't enforced here -

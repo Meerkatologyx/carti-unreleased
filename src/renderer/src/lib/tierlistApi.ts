@@ -8,7 +8,7 @@
 // Errors carry the HTTP status (unlike apiClient's, which flatten it into a
 // message): sync needs to tell "these routes don't exist on this server yet"
 // (404/405) apart from a real failure, and stay local-only in the first case.
-import { routeUrl } from './juicewrldApi'
+import { routeUrl } from './catalogApi'
 import { authHeaders } from './apiClient'
 import { getToken } from './userApi'
 import type { Tier, TierlistFilters } from './tierlist'

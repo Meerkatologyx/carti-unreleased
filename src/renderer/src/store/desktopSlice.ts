@@ -9,7 +9,7 @@ import { ls } from '../lib/persist'
 import { DEFAULT_LIGHT, type LightStyle } from '../desktop/light/engine'
 
 export interface DesktopLight extends LightStyle {
-  /** The light round the screens' edges (Windows). Its tuning and colors also drive WRLD's Edge light. */
+  /** The light round the screens' edges (Windows). Its tuning and colors also drive VAMP's Edge light. */
   isOn: boolean
   /** Shown only while the desktop (or one of Unreleased's own windows) is in front. */
   onlyOnDesktop: boolean
@@ -17,15 +17,15 @@ export interface DesktopLight extends LightStyle {
 
 /** Where a widget stands: its center as fractions of its display's work area, and that display's label. */
 export interface WidgetPlace { x: number; y: number; display: string }
-/** Where a widget stands in the WRLD tab's Widgets layout: its center as fractions of the tab. */
+/** Where a widget stands in the VAMP tab's Widgets layout: its center as fractions of the tab. */
 export interface TabPlace { x: number; y: number }
 
-/** What every widget has besides its own look: whether it's out, and where it stands on the desktop and in WRLD. */
+/** What every widget has besides its own look: whether it's out, and where it stands on the desktop and in VAMP. */
 interface WidgetCommon {
   /** Out on the desktop (Windows). */
   isOn: boolean
-  /** Shown in the WRLD tab's Widgets layout. */
-  inWrld: boolean
+  /** Shown in the VAMP tab's Widgets layout. */
+  inVamp: boolean
   locked: boolean
   place: WidgetPlace | null
   tabPlace: TabPlace | null
@@ -102,12 +102,12 @@ const GROUPS = ['light', 'player', 'playlist', 'clock', 'lyrics'] as const
 export const DESKTOP_DEFAULTS: DesktopSettings = {
   light: { ...DEFAULT_LIGHT, isOn: false, onlyOnDesktop: false },
   player: {
-    isOn: false, inWrld: true, size: 0.45, tilt: 0.5, sideCards: 2, glassBrightness: 0.6, frost: 0.35,
+    isOn: false, inVamp: true, size: 0.45, tilt: 0.5, sideCards: 2, glassBrightness: 0.6, frost: 0.35,
     locked: false, mini: false, hidesLyricsCard: false, lyricsOpen: false, place: null, tabPlace: null,
   },
-  playlist: { isOn: false, inWrld: true, side: 'left', tilt: 1.0, size: 0.4, rows: 8, locked: false, source: 'queue', place: null, tabPlace: null },
+  playlist: { isOn: false, inVamp: true, side: 'left', tilt: 1.0, size: 0.4, rows: 8, locked: false, source: 'queue', place: null, tabPlace: null },
   clock: {
-    isOn: false, inWrld: true, size: 0.5, stretch: 0.55, weight: 0.3, tint: 0.45, useArtworkColor: true, showDate: true,
+    isOn: false, inVamp: true, size: 0.5, stretch: 0.55, weight: 0.3, tint: 0.45, useArtworkColor: true, showDate: true,
     locked: false, place: null, tabPlace: null,
   },
   lyrics: { look: 'karaoke', fonts: {} },
@@ -129,7 +129,7 @@ export function mergeDesktop(base: DesktopSettings, patch: DesktopPatch | null |
 export interface DesktopSlice {
   desktop: DesktopSettings
   setDesktop: (patch: DesktopPatch) => void
-  /** Puts one widget back where it first stood, on the desktop and in WRLD. */
+  /** Puts one widget back where it first stood, on the desktop and in VAMP. */
   resetDesktopPlace: (which: 'player' | 'playlist' | 'clock') => void
 }
 

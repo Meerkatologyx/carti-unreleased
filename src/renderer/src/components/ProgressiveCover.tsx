@@ -1,5 +1,5 @@
 import { CSSProperties, ReactEventHandler, SyntheticEvent, useEffect, useState } from 'react'
-import { fullCoverUrl, hasSmallCoverVariant, smallCoverUrl } from '../lib/juicewrldApi'
+import { fullCoverUrl, hasSmallCoverVariant, smallCoverUrl } from '../lib/catalogApi'
 import { imageLoadAttrs, markImageLoaded } from '../lib/loadedImages'
 
 interface Props {
@@ -22,9 +22,9 @@ interface Props {
 // is just an <img> - one load, no placeholder step.
 //
 // Module-level (not component state) so it survives the component unmounting
-// and remounting - e.g. leaving and reentering the WRLD tab, which tears down
+// and remounting - e.g. leaving and reentering the VAMP tab, which tears down
 // this component entirely. Without it, a cover that already loaded full-res
-// once would replay the low-res placeholder every time WRLD remounts, even
+// once would replay the low-res placeholder every time VAMP remounts, even
 // though the browser already has the full image cached.
 const fullyLoadedSrcs = new Set<string>()
 

@@ -1,11 +1,11 @@
-// Lines a music video's sound up with the song, so WRLD can show the video in
+// Lines a music video's sound up with the song, so VAMP can show the video in
 // time with the audio that's actually playing. Videos rarely run the song
 // straight: Lean Wit Me's plays 23 s of intro, the song, then a 33 s skit in the
 // middle before the song picks up again. So the match is made piece by piece:
 // every 6 s of the song is looked for anywhere in the video, by the rhythm of
 // its onsets (drums and syllables survive a different mix or a voice-over),
 // and the result is a list of spans, each with its own offset into the video.
-import { buildStreamUrl } from './juicewrldApi'
+import { buildStreamUrl } from './catalogApi'
 import { routeUrl } from './apiServers'
 import { ls } from './persist'
 import type { SyncSpan, VideoSync } from './videoFollow'

@@ -4,7 +4,7 @@ import { APP_VERSION } from '../appVersion'
 import { formatListeningTime, joinPlayedSongs, buildListeningStats, prefsForPeriod, type ListeningPeriod, type RankedEntry } from '../listeningStats'
 import { resolveStatsSongs, statsSongToTrack } from '../statsCatalog'
 import { fetchSongChart, chartRangePhrase, rankMovement, type ChartRange } from '../songChartsApi'
-import { loadAllSongsWithLyricsAbortable } from '../juicewrldApi'
+import { loadAllSongsWithLyricsAbortable } from '../catalogApi'
 import { termAccess, termUserName } from './access'
 import { asJson, fail, parseArgs, table, type TermCommand } from './types'
 import { getTermFullscreen, setTermFullscreen } from './fullscreenStore'
@@ -32,7 +32,7 @@ function wrap(text: string, width: number): string[] {
   return out.length ? out : ['']
 }
 
-export function juicesayText(text: string): string {
+export function cartisayText(text: string): string {
   const lines = wrap(text.trim() || '...', 40)
   const width = Math.max(...lines.map((l) => l.length))
   const body = lines.length === 1
@@ -47,7 +47,7 @@ export function juicesayText(text: string): string {
     ` ${'-'.repeat(width + 2)}`,
     '        \\   .-------.',
     '         \\  |_______|',
-    '            | JUICE |',
+    '            | CARTI |',
     '            |  (:)  |',
     '            |_______|',
   ].join('\n')
@@ -57,13 +57,13 @@ export function juicesayText(text: string): string {
 // already loads (5 minute cache) rather than shipped in the source.
 async function randomLyricLine(signal?: AbortSignal): Promise<string> {
   const songs = (await loadAllSongsWithLyricsAbortable(signal)).filter((s) => s.lyrics && s.lyrics.trim())
-  if (songs.length === 0) fail('juicesay: no lyrics in the catalogue')
+  if (songs.length === 0) fail('cartisay: no lyrics in the catalogue')
   for (let attempt = 0; attempt < 10; attempt++) {
     const song = songs[Math.floor(Math.random() * songs.length)]
     const lines = song.lyrics!.split(/\r?\n/).map((l) => l.trim()).filter((l) => l.length >= 8 && l.length <= 120 && !/^[[(].*[\])]$/.test(l))
     if (lines.length) return `${lines[Math.floor(Math.random() * lines.length)]}\n- ${song.name}`
   }
-  return fail('juicesay: could not find a lyric line')
+  return fail('cartisay: could not find a lyric line')
 }
 
 // ─── neofetch ─────────────────────────────────────────────────────────────────
@@ -140,12 +140,12 @@ export const FUN_COMMANDS: TermCommand[] = [
     run: (_a, ctx) => { ctx.print(fetchText()) },
   },
   {
-    name: 'fortune', group: 'Fun', usage: 'fortune  ·  fortune | juicesay', description: 'A random line from a random song (pipe it into juicesay)',
+    name: 'fortune', group: 'Fun', usage: 'fortune  ·  fortune | cartisay', description: 'A random line from a random song (pipe it into cartisay)',
     run: async (_a, ctx) => { ctx.print(await randomLyricLine(ctx.signal)) },
   },
   {
-    name: 'juicesay', group: 'Fun', usage: 'juicesay [text]  ·  <command> | juicesay', description: 'A juice box says things (a random lyric line when you give it nothing)',
-    run: async (args, ctx) => { ctx.print(juicesayText(args.trim() || await randomLyricLine(ctx.signal))) },
+    name: 'cartisay', group: 'Fun', usage: 'cartisay [text]  ·  <command> | cartisay', description: 'A carti box says things (a random lyric line when you give it nothing)',
+    run: async (args, ctx) => { ctx.print(cartisayText(args.trim() || await randomLyricLine(ctx.signal))) },
   },
   {
     name: 'termtheme', aliases: ['colors'], group: 'Fun', usage: 'termtheme [name]', description: 'List the terminal colour schemes, or switch to one',

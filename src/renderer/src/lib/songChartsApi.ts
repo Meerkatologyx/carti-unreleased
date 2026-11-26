@@ -2,7 +2,7 @@
 // The Statistics tab's "Most played songs" table and the terminal `charts`
 // command read it. An older server doesn't have the endpoint; callers fall
 // back to /plays/stats/'s all-time top_songs then.
-import { apiFetch, type JWApiSong } from './juicewrldApi'
+import { apiFetch, type CatalogSong } from './catalogApi'
 
 export type ChartRange = '7d' | '30d' | 'all'
 export type ChartSort = 'plays' | 'likes'
@@ -14,7 +14,7 @@ export interface ChartSong {
   public_id: number | null
   name: string
   era_name: string
-  category: JWApiSong['category']
+  category: CatalogSong['category']
   image_url: string | null
   length: string
   producers: string

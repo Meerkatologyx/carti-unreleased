@@ -1,7 +1,7 @@
 import { relativeTime } from '../../components/adminShared'
 import { APP_VERSION } from '../appVersion'
 import { fetchRecentBroadcasts } from '../broadcastApi'
-import { getSongsByIds } from '../juicewrldApi'
+import { getSongsByIds } from '../catalogApi'
 import { FEEDBACK_CATEGORIES, newReportId, REPORT_LYRICS_MAX, SONG_ISSUE_TYPES, type FeedbackCategory, type SongIssueType } from '../reports'
 import { dedupeAutomatedFeedback, listFeedback, listSongReports, reviewSongReport, submitFeedback, submitSongReport, type SongReportStatus } from '../reportsApi'
 import { createTierlist, deleteTierlist, getPublicTierlist, listTierlists, updateTierlist, type ServerTierlist, type TierlistData } from '../tierlistApi'

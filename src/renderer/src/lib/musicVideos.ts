@@ -1,9 +1,9 @@
-// Official videos for released songs, played in WRLD in place of the visualizer.
+// Official videos for released songs, played in VAMP in place of the visualizer.
 // They are the YouTube uploads filed under Footage/Youtube/<year>/<date>/ in the
-// primary channel, named like "Playboi Carti - Wishing Well (Official Music Video).mp4".
+// primary channel, named like "Playboi Carti - Sky (Official Music Video).mp4".
 // A video rarely runs the song straight through (intros, skits cut in, a shorter
 // edit), so lib/videoSync lines its sound up with the song before it's shown.
-import { apiFileIdToRef, getSongById, listSubtree, type JWApiFileEntry } from './juicewrldApi'
+import { apiFileIdToRef, getSongById, listSubtree, type CatalogFileEntry } from './catalogApi'
 import { isAbortError } from './apiClient'
 import { trackIdToSongId } from './userApi'
 import { alignMusicVideo, type VideoSync } from './videoSync'
@@ -33,7 +33,7 @@ export function videoLabel(v: MusicVideo): string {
   return day ? `${VIDEO_KIND_LABEL[v.kind]} · ${day}` : VIDEO_KIND_LABEL[v.kind]
 }
 
-/** What a setting lets WRLD show: none, music videos (or a visualizer when there's none), or lyric videos too. */
+/** What a setting lets VAMP show: none, music videos (or a visualizer when there's none), or lyric videos too. */
 export type MusicVideoChoice = 'off' | 'music' | 'all'
 
 const VIDEO_EXT = /\.(mp4|webm|mov|m4v)$/i
@@ -86,7 +86,7 @@ export function videoFromPath(path: string): MusicVideo {
   return { path, ...parsed, date: /\/(\d{4}-\d{2}-\d{2})\//.exec(path)?.[1] ?? '', size: 0 }
 }
 
-export function videosFromEntries(entries: JWApiFileEntry[]): MusicVideo[] {
+export function videosFromEntries(entries: CatalogFileEntry[]): MusicVideo[] {
   const out: MusicVideo[] = []
   for (const e of entries) {
     if (e.type !== 'file') continue
@@ -129,7 +129,7 @@ export function videosFor(map: Map<string, MusicVideo[]>, songName: string, choi
     .sort((a, b) => RANK[a.kind] - RANK[b.kind] || b.date.localeCompare(a.date))
 }
 
-/** Only released songs have official videos; an unreleased "Lucid Dreams (v2)" must not borrow one. */
+/** Only released songs have official videos; an unreleased "Magnolia (v2)" must not borrow one. */
 export function isReleasedPath(path: string | null | undefined): boolean {
   return !!path && /^Compilation\/1\. Released Discography\//.test(path)
 }
@@ -169,14 +169,14 @@ export async function findMusicVideo(target: MusicVideoTarget, choice: MusicVide
   return null
 }
 
-/** What's playing as a video target, whether a song or 999 FM: what WRLD and the cleared desk look a video up for. */
+/** What's playing as a video target, whether a song or Vamp FM: what VAMP and the cleared desk look a video up for. */
 export interface PlayingForVideo {
   track: Track | null
   fmActive: boolean
   fmSong: { songId?: number | null; path?: string | null } | null
 }
 
-/** Changes exactly when the video target may: a new song, or 999 FM's next. */
+/** Changes exactly when the video target may: a new song, or Vamp FM's next. */
 export const videoTargetKey = (p: PlayingForVideo): string =>
   (p.fmActive ? `fm:${p.fmSong?.songId ?? ''}:${p.fmSong?.path ?? ''}` : `t:${p.track?.id ?? ''}`)
 

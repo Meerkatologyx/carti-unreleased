@@ -2,12 +2,12 @@
 // a song can rotate through, and stepping to the next one.
 //
 // Split from coverRotation.ts because that module must stay import-free to be
-// readable from juicewrldApi's songToTrack without a cycle; everything here
+// readable from catalogApi's songToTrack without a cycle; everything here
 // runs at play time, well away from that path, so it can import freely.
 import {
   getSongById, buildStreamUrl, searchFiles, coverSearchQueries, filterSearchResults, fetchChannels,
-  JWApiSong, JWApiChannel,
-} from './juicewrldApi'
+  CatalogSong, CatalogChannel,
+} from './catalogApi'
 import { getMediaType } from './fileTypes'
 import { peekRotatedCover, rememberRotatedCover, clearRotatedCovers } from './coverRotation'
 
@@ -18,7 +18,7 @@ const _candidates = new Map<number, string[]>()
 /** In-flight searches, so two surfaces asking at once share one request. */
 const _pending = new Map<number, Promise<string[]>>()
 
-let _channels: Promise<JWApiChannel[]> | null = null
+let _channels: Promise<CatalogChannel[]> | null = null
 
 /** The comps to look for covers in: the primary one only, or every comp
  *  (primary first) when "Covers from every comp" is on. `undefined` is the

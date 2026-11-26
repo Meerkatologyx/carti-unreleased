@@ -1,7 +1,7 @@
 // The main window's side of Desktop (electron/desktop, Windows): it sends the Desktop settings and what's playing to
 // the light round the screens and the desktop widgets, and does what they press or ask for with the app's own code -
 // the same hotkey actions, store actions and API calls the app's buttons use. Only the main window runs this: it owns
-// the audio and the queue. The widgets in the WRLD tab (components/WrldWidgets.tsx) hear and are answered by the same
+// the audio and the queue. The widgets in the VAMP tab (components/VampWidgets.tsx) hear and are answered by the same
 // code, without the main process in between.
 import { useStore, type AppStore } from '../store/useStore'
 import { desktopApi, desktopWindowsSupported } from '../desktop/api'
@@ -12,7 +12,7 @@ import { timedFromLines, pacedFromText, type TimedLine } from '../desktop/lyrics
 import { downloadSyncedLyrics, isLrcFormat, parseLrc } from './lyrics'
 import { runHotkeyAction } from './hotkeys'
 import { seekAudio, getAudioDuration } from '../components/Player'
-import { apiFetch, apiFileIdToRef, apiFileRefToTrack, buildImageUrl, getSongById, playlistCoverUrl, searchSongs, sizedCoverUrl, smallCoverUrl, songToTrack, type JWApiPaginatedResponse } from './juicewrldApi'
+import { apiFetch, apiFileIdToRef, apiFileRefToTrack, buildImageUrl, getSongById, playlistCoverUrl, searchSongs, sizedCoverUrl, smallCoverUrl, songToTrack, type CatalogPaginatedResponse } from './catalogApi'
 import * as userApi from './userApi'
 import { playlistItemsToTracks } from './playlistItems'
 import { listEras } from './eras'
@@ -23,7 +23,7 @@ import { prefLabel } from './versionPrefs'
 import { showAppToast } from './appToast'
 import { trackShareUrl } from './platform'
 import { addSongsInBackground } from './optimisticPlaylist'
-import { toggleRadioFm } from '../hooks/useWrldCore'
+import { toggleRadioFm } from '../hooks/useVampCore'
 import { downloadTrack } from '../components/SongContextMenu'
 import type { DesktopPatch } from '../store/desktopSlice'
 import { widgetMenu, type WidgetPart, type WidgetWhich } from '../desktop/widgetMenu'
@@ -113,7 +113,7 @@ function desktopTrack(track: Track, key: string): DesktopTrack {
 
 // ---- what's playing ----
 
-/** The cover the desktop's light and widgets take their colors from; WRLD's Edge light takes them from it too. */
+/** The cover the desktop's light and widgets take their colors from; VAMP's Edge light takes them from it too. */
 export function nowCover(s: AppStore): string | null {
   return nowTrack(s)?.cover ?? null
 }
@@ -135,7 +135,7 @@ function nowTrack(s: AppStore): { id: string; title: string; artist: string; alb
 const eqInUse = (s: AppStore): boolean => s.eqEnabled || s.playbackSpeed !== 1 || s.eqBalance !== 0 || s.eqMono || s.eqBoost !== 1
   || s.skipSilence || s.reverbEnabled || fxInUse(s.audioFx, s.eqEnabled)
 
-/** The song the player's ⋯ menu is about: the one playing, or 999 FM's (which has no file of ours to save). */
+/** The song the player's ⋯ menu is about: the one playing, or Vamp FM's (which has no file of ours to save). */
 function menuSong(s: AppStore): { songId: number | null; track: Track | null } {
   if (s.radioFmActive) return { songId: s.radioFmNowPlaying?.song_id ?? s.radioFmMatchedSong?.songId ?? null, track: null }
   const track = s.currentTrack
@@ -157,14 +157,14 @@ function songMenu(s: AppStore): { title: string; info: boolean; link: boolean; d
   }
 }
 
-/** The song's other versions that can be played, as WRLD's version notch lists them (hooks/useSongVersions). */
+/** The song's other versions that can be played, as VAMP's version notch lists them (hooks/useSongVersions). */
 async function versionsOf(songId: number): Promise<{ songId: number; label: string | null }[]> {
   const entries = await loadVersionEntries(songId).catch(() => [])
   return entries.filter((e) => e.playable).map(({ song, meta }) => ({ songId: song.id, label: prefLabel(meta) ?? meta.versionTitle }))
 }
 
 function queueWindow(s: AppStore): { from: number; current: number; items: DesktopTrack[] } {
-  // 999 FM has no queue of ours: the card is the song on the air.
+  // Vamp FM has no queue of ours: the card is the song on the air.
   if (s.radioFmActive) {
     const t = nowTrack(s)
     if (!t) return { from: 0, current: -1, items: [] }
@@ -263,7 +263,7 @@ async function search(query: string): Promise<{ songs: DesktopTrack[]; eras: { n
 }
 
 async function era(name: string): Promise<{ name: string; about: string; cover: string | null; songs: DesktopTrack[] } | null> {
-  const data = await apiFetch<JWApiPaginatedResponse>('/songs/', { era: name, page_size: 100 }).catch(() => null)
+  const data = await apiFetch<CatalogPaginatedResponse>('/songs/', { era: name, page_size: 100 }).catch(() => null)
   if (!data) return null
   const tracks = data.results.filter((s) => !!s.path).map(songToTrack)
   const info = listEras().find((e) => e.name === name)
@@ -280,10 +280,10 @@ async function era(name: string): Promise<{ name: string; about: string; cover: 
 
 const isTrack = (v: unknown): v is Track => !!v && typeof v === 'object' && typeof (v as Track).id === 'string' && typeof (v as Track).title === 'string'
 
-/** Fired on window to open WRLD's lyric share card. */
-export const SHARE_LYRICS_EVENT = 'wrld:share-lyrics'
+/** Fired on window to open VAMP's lyric share card. */
+export const SHARE_LYRICS_EVENT = 'vamp:share-lyrics'
 
-/** A press on a widget - on the desktop or in the WRLD tab - done as the app's own buttons do it. */
+/** A press on a widget - on the desktop or in the VAMP tab - done as the app's own buttons do it. */
 export async function runDesktopCommand(cmd: string, arg: unknown): Promise<void> {
   const s = useStore.getState()
   switch (cmd) {
@@ -308,7 +308,7 @@ export async function runDesktopCommand(cmd: string, arg: unknown): Promise<void
       } catch { showAppToast("Couldn't copy the lyrics", { tone: 'error' }) }
       break
     }
-    // WRLD's lyric share card, opened by the tab (the widgets' stand-in for the hidden song menu's row).
+    // VAMP's lyric share card, opened by the tab (the widgets' stand-in for the hidden song menu's row).
     case 'share-lyrics': window.dispatchEvent(new Event(SHARE_LYRICS_EVENT)); break
     case 'download-lyrics': {
       const raw = rawLyrics(s)
@@ -317,7 +317,7 @@ export async function runDesktopCommand(cmd: string, arg: unknown): Promise<void
       break
     }
     // The equalizer from a widget on the desktop: its own window, since the main one is likely hidden behind (the
-    // WRLD tab's widgets open the app's own, beside the button). On the web there's only the app's.
+    // VAMP tab's widgets open the app's own, beside the button). On the web there's only the app's.
     case 'equalizer': {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const el = (window as any).electron
@@ -375,7 +375,7 @@ export async function runDesktopCommand(cmd: string, arg: unknown): Promise<void
       if (track?.path) downloadTrack(track, songId)
       break
     }
-    // Another version of the song playing, swapped in where it is so the queue is kept (as WRLD's version notch does).
+    // Another version of the song playing, swapped in where it is so the queue is kept (as VAMP's version notch does).
     case 'play-version': {
       const songId = Number(arg)
       if (!Number.isInteger(songId)) break
@@ -497,7 +497,7 @@ function watchLists(): void {
 }
 
 /** Tells `send` what's playing - all of it at first, then a patch of what changed each time something does - until
- *  stopped: for the desktop's windows, and for the widgets in the WRLD tab. */
+ *  stopped: for the desktop's windows, and for the widgets in the VAMP tab. */
 export function watchDesktopState(send: (patch: Record<string, unknown>) => void): () => void {
   watchLists()
   let stopped = false

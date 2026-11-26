@@ -1,11 +1,10 @@
 #!/usr/bin/env node
 // Builds the site's song catalogue from the Playboi Carti tracker spreadsheet.
 //
-// The original app reads everything from a live backend API. This fork has no
-// backend: instead this script pulls the public tracker sheet (Unreleased and
-// Released tabs) and writes it out in the exact shape that API served, to
-// src/renderer/public/carti/. lib/cartiApi.ts then answers the app's API
-// requests from those files in the browser.
+// The site has no backend: this script pulls the public tracker sheet
+// (Unreleased and Released tabs) and writes it out as the catalogue the app
+// reads, to src/renderer/public/carti/. lib/cartiApi.ts then answers the app's
+// API requests from those files in the browser.
 //
 // Run: node scripts/build-carti-data.mjs   (CI runs it before every build)
 
@@ -17,9 +16,18 @@ import { fileURLToPath } from 'node:url'
 
 const SHEET_ID = '1Irtfvymu26CShYowLMMfD-rM0o9CJqE6-BBSlYsAaF4'
 const TABS = { unreleased: '0', released: '245504108' }
+// Tabs searched (in this order) for audio of songs the two main tabs have no
+// file for. Fakes, AI Tracks and Instrumental Remakes are left out on purpose.
+const EXTRA_TABS = [
+  ['1962169030', 'Recent'], ['334149012', 'Best Of'], ['2032692991', 'Special'], ['2131545997', 'Grails'],
+  ['801413102', 'Wanted'], ['1033793988', 'Misc'], ['1864125989', 'OG Snippets'], ['711785744', 'Stems'],
+  ['29911022', 'Edits/Remasters'], ['411433870', 'Performances'], ['305356845', 'Worst Of'], ['575290721', 'Remixes'],
+]
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const OUT = path.join(ROOT, 'src/renderer/public/carti')
 const ERA_IMG_DIR = path.join(OUT, 'eras')
+// imgur.gg page → direct file URL, kept between builds so each page is fetched once.
+const IMGUR_CACHE = path.join(ROOT, 'scripts/imgur-cache.json')
 
 // ─── fetch ───────────────────────────────────────────────────────────────────
 
@@ -73,11 +81,68 @@ function parseName(raw) {
   return { title, feats, prods, alts }
 }
 
-/** First pillows.su link in the cell → its direct, CORS-enabled audio URL. */
-function audioUrl(links) {
-  const m = /pillows?\.su\/f\/([a-f0-9]{16,})/i.exec(links || '') || /pillowcase\.su\/f\/([a-f0-9]{16,})/i.exec(links || '')
-  return m ? `https://api.pillows.su/api/download/${m[1]}` : ''
+/** First audio-host link in the text: a pillows.su or imgur.gg file page. */
+function audioRef(text) {
+  const p = /(?:pillows?|pillowcase)\.su\/f\/([a-f0-9]{16,})/i.exec(text || '')
+  if (p) return { kind: 'pillows', id: p[1] }
+  const i = /(?<![\w.])imgur\.gg\/f\/([A-Za-z0-9]+)/i.exec(text || '')
+  if (i) return { kind: 'imgur', id: i[1] }
+  return null
 }
+
+/** imgur.gg file page → its direct (CORS-enabled) file URL on b.imgur.gg. Cached across builds. */
+async function imgurAudio(id, cache) {
+  if (cache[id]) return cache[id]
+  try {
+    const html = await getText(`https://imgur.gg/f/${id}`)
+    // Audio, or a video (snippets are often screen recordings) whose sound the player can play.
+    const src = /property="og:(?:audio|video)" content="(https:\/\/b\.imgur\.gg\/[^"]+)"/i.exec(html)?.[1]
+      ?? /(?:src|href)="(https:\/\/b\.imgur\.gg\/[^"]+\.(?:mp3|m4a|wav|flac|ogg|opus|aac|webm|mp4|mov|m4v))"/i.exec(html)?.[1]
+    if (src) cache[id] = decode(src)
+    return cache[id] ?? null
+  } catch {
+    return null
+  }
+}
+
+/** A YouTube / SoundCloud / Spotify link the app can play through that site's embedded player. */
+function embedFor(links) {
+  for (const l of links) {
+    let u
+    try { u = new URL(l) } catch { continue }
+    const host = u.hostname.replace(/^(www|m|music)\./, '')
+    if (host === 'youtube.com' || host === 'youtu.be') {
+      const id = host === 'youtu.be' ? u.pathname.slice(1).split('/')[0] : u.searchParams.get('v') ?? /\/(?:shorts|embed|live)\/([\w-]{11})/.exec(u.pathname)?.[1]
+      if (id && /^[\w-]{11}$/.test(id)) return { site: 'YouTube', path: `embed:youtube:${id}` }
+    } else if (host === 'soundcloud.com' && u.pathname.split('/').filter(Boolean).length >= 2) {
+      return { site: 'SoundCloud', path: `embed:soundcloud:${u.origin}${u.pathname}` }
+    } else if (host === 'open.spotify.com') {
+      const m = /\/(track|album)\/([A-Za-z0-9]{22})/.exec(u.pathname)
+      if (m) return { site: 'Spotify', path: `embed:spotify:${m[1]}/${m[2]}` }
+    }
+  }
+  return null
+}
+
+/** Song identity across tabs: its title (no tags, emoji or version brackets) plus its era. */
+function matchKey(name, eraName) {
+  const n = clean(name).split('\n')[0].toLowerCase()
+    .replace(/^[^\p{L}\p{N}]+/u, '').replace(/\[.*?\]|\(.*?\)|\*/g, '').replace(/[^\p{L}\p{N}]+/gu, ' ').trim()
+  return n && eraName ? `${n}|${eraName.trim().toLowerCase()}` : ''
+}
+
+/** "embed:youtube:ID" → "embed:<seconds>:youtube:ID" - the player needs the length up front (0 = unknown). */
+function withLength(embedPath, length) {
+  const m = /^(\d+):(\d{2})(?::(\d{2}))?$/.exec(length || '')
+  const secs = !m ? 0 : m[3] ? (+m[1] * 3600 + +m[2] * 60 + +m[3]) : (+m[1] * 60 + +m[2])
+  return embedPath.replace(/^embed:/, `embed:${secs}:`)
+}
+
+async function mapLimit(items, limit, fn) {
+  let i = 0
+  await Promise.all(Array.from({ length: limit }, async () => { while (i < items.length) await fn(items[i++]) }))
+}
+
 const allLinks = (s) => (clean(s).match(/https?:\/\/\S+/g) ?? [])
 
 // "Era" header rows carry an image in the HTML view; map era name → image src.
@@ -179,9 +244,11 @@ async function main() {
   function toSong(f) {
     const e = f.eraObj ?? era(f.eraName)
     const { title, feats, prods, alts } = parseName(f.name)
-    const path = audioUrl(f.links)
+    const own = audioRef(f.links)
     const unavailable = /not available|^lost$|rumou?red|confirmed/i.test(`${f.avail ?? ''}`) || /^(lost|rumou?red)$/i.test(f.type ?? '')
-    const category = f.category ?? (path ? 'unreleased' : unavailable ? 'unsurfaced' : 'unreleased')
+    // An imgur.gg link may be a proof screenshot rather than audio, so only a
+    // pillows.su file overrides the sheet's own "not available".
+    const category = f.category ?? (own?.kind === 'pillows' ? 'unreleased' : unavailable ? 'unsurfaced' : 'unreleased')
     const info = [
       f.type && `Type: ${f.type}`,
       f.avail && `Available length: ${f.avail}`,
@@ -190,13 +257,13 @@ async function main() {
       f.recEra && f.recEra !== f.eraName && `Recorded during: ${f.recEra}`,
     ].filter(Boolean).join('\n')
     const links = allLinks(f.links)
-    return {
+    const song = {
       id: idFor(`${category}|${f.eraName}|${f.name}`),
       public_id: null,
       name: title.replace(/\*+$/, '').trim() || title,
       original_key: null,
       track_titles: [title, ...alts].filter((v, i, a) => v && a.indexOf(v) === i),
-      path,
+      path: '',
       length: isNA(f.length) ? '' : f.length,
       credited_artists: ['Playboi Carti', ...feats].join(', '),
       producers: prods.join(', '),
@@ -226,7 +293,72 @@ async function main() {
       date_leaked: nn(f.leakDate),
       album: e?.name ?? null,
     }
+    // Build-time only (not enumerable, so never written out): where its audio comes from.
+    Object.defineProperty(song, '_src', { value: { own, links, recEra: f.recEra }, enumerable: false })
+    return song
   }
+
+  // ─── audio for every song that has any ──────────────────────────────────
+  // 1. the song's own pillows.su / imgur.gg link
+  // 2. the same song (name + era) in another tab of the sheet: Recent, OG
+  //    Snippets, Misc, Stems, Edits… - fakes, AI tracks and remakes excluded
+  // 3. its YouTube / SoundCloud / Spotify link, played through that site's
+  //    own embedded player (path "embed:<provider>:<id>", see EmbedDock.tsx)
+  console.log('Indexing the other tabs for audio…')
+  const otherTabs = await Promise.all(EXTRA_TABS.map(([gid, tab]) => getText(csvUrl(gid)).then((t) => [tab, t]).catch(() => [tab, ''])))
+  const byNameEra = new Map()
+  for (const [tab, text] of otherTabs) {
+    if (!text) continue
+    const rows = parseCsv(text)
+    const ni = rows[0].map((h) => clean(h).split('\n')[0].toLowerCase()).indexOf('name')
+    if (ni < 0) continue
+    for (const r of rows.slice(1)) {
+      const ref = audioRef(r.join(' '))
+      const key = matchKey(r[ni], clean(r[0]).split('\n')[0])
+      if (ref && key && !byNameEra.has(key)) byNameEra.set(key, { ...ref, tab })
+    }
+  }
+
+  const imgurCache = existsSync(IMGUR_CACHE) ? JSON.parse(await readFile(IMGUR_CACHE, 'utf8')) : {}
+  const counts = { own: 0, otherTab: 0, embed: 0, none: 0 }
+  const toResolve = []
+  for (const s of songs) {
+    const { own, links, recEra } = s._src
+    let ref = own
+    let note = null
+    if (ref) counts.own++
+    else {
+      const eraNames = [s.era?.name, recEra].filter(Boolean)
+      for (const n of s.track_titles.length ? s.track_titles : [s.name]) {
+        for (const en of eraNames) ref ??= byNameEra.get(matchKey(n, en))
+      }
+      if (ref) { counts.otherTab++; note = `Audio from the tracker's ${ref.tab} tab` }
+    }
+    if (ref) { toResolve.push([s, ref, note]); continue }
+    // Unsurfaced songs' links are proof (interviews, teasers), not the song itself.
+    const embed = s.category === 'unsurfaced' ? null : embedFor(links)
+    if (embed) {
+      counts.embed++
+      s.path = withLength(embed.path, s.length)
+      s.additional_information = [`Plays through the ${embed.site} player`, s.additional_information].filter(Boolean).join('\n')
+    } else {
+      counts.none++
+    }
+  }
+
+  console.log(`Resolving ${toResolve.length} audio links…`)
+  await mapLimit(toResolve, 8, async ([s, ref, note]) => {
+    const url = ref.kind === 'pillows' ? `https://api.pillows.su/api/download/${ref.id}` : await imgurAudio(ref.id, imgurCache)
+    if (!url) {
+      const embed = s.category === 'unsurfaced' ? null : embedFor(s._src.links)
+      if (embed) { counts.embed++; s.path = withLength(embed.path, s.length) } else counts.none++
+      return
+    }
+    s.path = url
+    if (note) s.additional_information = [note, s.additional_information].filter(Boolean).join('\n')
+  })
+  await writeFile(IMGUR_CACHE, JSON.stringify(imgurCache, null, 1))
+  console.log(`Audio: ${counts.own} own link, ${counts.otherTab} from other tabs, ${counts.embed} via embeds, ${counts.none} with none.`)
 
   console.log(`Saving ${Object.keys(eraImgSrc).length} era covers…`)
   for (const e of eras.values()) {
@@ -253,12 +385,11 @@ async function main() {
   console.log(`Wrote ${songs.length} songs across ${eraList.length} eras (${songs.filter((s) => s.path).length} playable).`)
 }
 
-main().catch(async (err) => {
+main().catch((err) => {
   console.error(err)
   // A sheet outage shouldn't break the deploy when a previous snapshot exists.
   if (existsSync(path.join(OUT, 'songs.json'))) {
     console.warn('Keeping the existing data snapshot.')
-    await readFile(path.join(OUT, 'songs.json'))
     process.exit(0)
   }
   process.exit(1)

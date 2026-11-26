@@ -1,8 +1,8 @@
 import { create } from 'zustand'
 import type { RadioChatLinks, RadioChatMessage, RadioChatRole } from '../lib/radioChatApi'
 
-// The 999 FM chat as the open socket last described it. One copy per window,
-// written only by lib/radioChatSocket.ts; WRLD's desktop and phone panels both
+// The Vamp FM chat as the open socket last described it. One copy per window,
+// written only by lib/radioChatSocket.ts; VAMP's desktop and phone panels both
 // read it.
 
 /** A line of ours the server hasn't confirmed yet, or refused. */
@@ -43,7 +43,7 @@ interface RadioChatStore {
   /** The guest name typed in the panel ('' = the server picks one). */
   name: string
   setName: (name: string) => void
-  /** The chat pop-up opened from the side menu (FmChatPopup), outside WRLD. */
+  /** The chat pop-up opened from the side menu (FmChatPopup), outside VAMP. */
   popupOpen: boolean
   setPopupOpen: (open: boolean) => void
 }

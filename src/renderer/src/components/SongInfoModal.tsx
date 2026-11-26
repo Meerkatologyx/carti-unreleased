@@ -10,7 +10,7 @@ import {
 import { useStore, useStorePick } from '../store/useStore'
 import { useDragToDismiss } from '../hooks/useDragToDismiss'
 import { useCanEdit } from '../hooks/useChannelRoles'
-import { JWApiSong, CATEGORY_LABELS, buildImageUrl, buildStreamUrl, parseDuration, getSongById, resolvePrefCoverUrl } from '../lib/juicewrldApi'
+import { CatalogSong, CATEGORY_LABELS, buildImageUrl, buildStreamUrl, parseDuration, getSongById, resolvePrefCoverUrl } from '../lib/catalogApi'
 import { isReleasedPath, loadMusicVideoIndex, videoFromPath, videosFor, VIDEO_KIND_LABEL, type MusicVideo } from '../lib/musicVideos'
 import { clearMusicVideoDefault, getMusicVideoDefaults, onMusicVideoDefaultsChange, setMusicVideoDefault } from '../lib/musicVideoDefaultsApi'
 import { openInFiles } from './SongContextMenu'
@@ -73,9 +73,9 @@ function SubVal({ label, value }: { label: string; value: string | null | undefi
   )
 }
 
-// The song's official videos in Files (Footage/Youtube): what WRLD plays in place of the visualizer. Listed by title,
-// so for a song WRLD hasn't played yet this doesn't say whether a video's sound lines up; it nearly always does.
-function MusicVideoSection({ song, onLeave }: { song: JWApiSong; onLeave: () => void }): JSX.Element | null {
+// The song's official videos in Files (Footage/Youtube): what VAMP plays in place of the visualizer. Listed by title,
+// so for a song VAMP hasn't played yet this doesn't say whether a video's sound lines up; it nearly always does.
+function MusicVideoSection({ song, onLeave }: { song: CatalogSong; onLeave: () => void }): JSX.Element | null {
   const [videos, setVideos] = useState<MusicVideo[]>([])
   const [watching, setWatching] = useState<number | null>(null)
   // The administrators' default for every player: a video's path, '' for no video, null for none set.
@@ -145,7 +145,7 @@ function MusicVideoSection({ song, onLeave }: { song: JWApiSong; onLeave: () => 
           </div>
         ))}
       </div>
-      {serverDefault === '' && <p className="mt-1.5 text-text-muted text-[11px]">No video in WRLD for everyone: an administrator turned it off for this song.</p>}
+      {serverDefault === '' && <p className="mt-1.5 text-text-muted text-[11px]">No video in VAMP for everyone: an administrator turned it off for this song.</p>}
       {isAdmin && (
         <div className="mt-1.5 flex flex-wrap gap-1.5">
           <button
@@ -176,7 +176,7 @@ function MusicVideoSection({ song, onLeave }: { song: JWApiSong; onLeave: () => 
 }
 
 interface Props {
-  song: JWApiSong | null
+  song: CatalogSong | null
   onClose: () => void
   onEdit?: (songId: number) => void
 }
@@ -189,12 +189,12 @@ export default function SongInfoModal({ song, onClose, onEdit }: Props): JSX.Ele
 
   // Clicking a linked version swaps the displayed song in place, without the
   // caller needing to manage that - falls back to the `song` prop otherwise.
-  const [overrideSong, setOverrideSong] = useState<JWApiSong | null>(null)
+  const [overrideSong, setOverrideSong] = useState<CatalogSong | null>(null)
   useEffect(() => { setOverrideSong(null) }, [song?.id])
   // Rows from bulk fetches come with `?omit=lyrics,...` (see OMIT_BULK), so
   // the fields are absent rather than null - fetch the full song for those so
   // the lyrics section still shows. Rows that carry the field are used as-is.
-  const [fullSong, setFullSong] = useState<JWApiSong | null>(null)
+  const [fullSong, setFullSong] = useState<CatalogSong | null>(null)
   useEffect(() => {
     setFullSong(null)
     if (!song || song.lyrics !== undefined) return
@@ -205,7 +205,7 @@ export default function SongInfoModal({ song, onClose, onEdit }: Props): JSX.Ele
   }, [song?.id])
   const displaySong = overrideSong ?? (fullSong && fullSong.id === song?.id ? fullSong : song)
 
-  // "Other versions" - a separate database from juicewrldapi.com (see
+  // "Other versions" - a separate database from meerkatologyx.github.io (see
   // lib/versionsApi.ts), since that API has no concept of grouping e.g.
   // "Song (v1)" / "(v2)" / "(TV Mix)" together as the same underlying song.
   // Linking/unlinking only happens from the editor (Edit song → Versions) -
@@ -228,7 +228,7 @@ export default function SongInfoModal({ song, onClose, onEdit }: Props): JSX.Ele
     } catch { showAppToast("Couldn't load that version") }
   }
 
-  // Swipe-down-to-dismiss on mobile, same curtain gesture as WRLD's full-
+  // Swipe-down-to-dismiss on mobile, same curtain gesture as VAMP's full-
   // screen player. Only armed from the hero (cover/header) area - same
   // region the desktop drag-handle uses - so it doesn't fight the scrollable
   // info list below. dragY/dragging get handed to ModalOverlay so it can
@@ -577,7 +577,7 @@ export default function SongInfoModal({ song, onClose, onEdit }: Props): JSX.Ele
 // something sets it, then fetches that song and shows the modal in-app.
 export function GlobalSongInfoHost(): JSX.Element | null {
   const { infoSongId, setInfoSongId } = useStorePick('infoSongId', 'setInfoSongId')
-  const [song, setSong] = useState<JWApiSong | null>(null)
+  const [song, setSong] = useState<CatalogSong | null>(null)
 
   useEffect(() => {
     if (infoSongId == null) { setSong(null); return }

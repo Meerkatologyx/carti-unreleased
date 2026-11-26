@@ -1,4 +1,4 @@
-import { getSongById, type JWApiSong } from '../juicewrldApi'
+import { getSongById, type CatalogSong } from '../catalogApi'
 import { loadVersionGroupEntries } from '../songVersions'
 import { memberVersionPrefs, prefLabel, versionPrefToggles, type VersionPrefMember } from '../versionPrefs'
 import {
@@ -17,7 +17,7 @@ const SUBS = ['show', 'all', 'search', 'link', 'set', 'title', 'grouptitle', 'jo
 const st = (): ReturnType<typeof useStore.getState> => useStore.getState()
 
 /** A song by title / find number, or `id:123` for an exact library id. */
-async function songRef(arg: string): Promise<JWApiSong> {
+async function songRef(arg: string): Promise<CatalogSong> {
   const id = /^id:(\d+)$/i.exec(arg.trim())
   if (id) return (await getSongById(Number(id[1]))) ?? fail(`no song with id ${id[1]}`)
   return songFromArg(arg.trim())
@@ -45,15 +45,15 @@ async function nameMap(ids: number[]): Promise<Map<number, string>> {
 const needEditor = (): void => { if (!st().account) fail('sign in first (login) - changing versions needs an editor account') }
 
 // ── Preferred / excluded versions (versionprefs) ────────────────────────────
-// The star and ban from Change version, compact view and WRLD's version notch:
+// The star and ban from Change version, compact view and VAMP's version notch:
 // personal, so no editor account needed. The toggle rules themselves live in
 // lib/versionPrefs (versionPrefToggles), shared with those menus.
 const PREF_SUBS = ['list', 'prefer', 'unprefer', 'exclude', 'unexclude', 'clear']
 
-interface PrefRow { song: JWApiSong; version: string | null; title: string | null }
+interface PrefRow { song: CatalogSong; version: string | null; title: string | null }
 
 /** The song named, or the one playing when `arg` is empty. */
-async function prefTarget(arg: string): Promise<JWApiSong> {
+async function prefTarget(arg: string): Promise<CatalogSong> {
   if (arg) return songRef(arg)
   const track = st().currentTrack ?? fail('nothing is playing - name a song: versionprefs <song>')
   const id = trackIdToSongId(track.id) ?? fail(`${track.title} isn’t a library song - name one: versionprefs <song>`)
@@ -63,7 +63,7 @@ async function prefTarget(arg: string): Promise<JWApiSong> {
 /** The song and its versions, as Change version lists them: members with
  *  nothing to play (no path, and not a session with a playable edit) are left
  *  out, since starring one would break playback. Empty = not in a group. */
-async function prefRows(song: JWApiSong): Promise<PrefRow[]> {
+async function prefRows(song: CatalogSong): Promise<PrefRow[]> {
   const { self, siblings } = await loadVersionGroupEntries(song.id)
   if (!self) return []
   return [self, ...siblings].filter((e) => e.playable).map((e) => ({ song: e.song, version: prefLabel(e.meta), title: e.meta.versionTitle }))
@@ -179,7 +179,7 @@ export const VERSION_COMMANDS: TermCommand[] = [
     name: 'versionprefs', aliases: ['vprefs', 'vpref'], group: 'Library',
     usage: 'versionprefs [list] [<song>] · prefer|unprefer|exclude|unexclude [<song> --] <label|N> · clear [<song>]',
     description: 'Your preferred (★) and excluded (⊘) versions of a song - the star and ban in Change version. <song> is a title, a number from find or id:123; left out, the song playing. <label> is a version label (v2, TV Mix, Session) or its number in the list. Several can be preferred; preferring un-excludes, excluding un-prefers; clear drops every star',
-    covers: ['songVersions.loadVersionGroupEntries', 'versionsApi.getOwnVersionMeta', 'versionsApi.getVersionGroup', 'juicewrldApi.getSongsByIds', 'sessionEditsApi.hasPlayableSessionEdit'],
+    covers: ['songVersions.loadVersionGroupEntries', 'versionsApi.getOwnVersionMeta', 'versionsApi.getVersionGroup', 'catalogApi.getSongsByIds', 'sessionEditsApi.hasPlayableSessionEdit'],
     complete: (before, partial) => (before.length === 0 ? PREF_SUBS.filter((s) => s.startsWith(partial.toLowerCase())) : before.includes('--') ? [] : completeSongs(before.slice(PREF_SUBS.includes(before[0]) ? 1 : 0), partial)),
     run: async (args, ctx) => {
       const json = /(^|\s)--json(?=\s|$)/.test(args)

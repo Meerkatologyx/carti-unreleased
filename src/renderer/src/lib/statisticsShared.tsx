@@ -1,5 +1,5 @@
 import { Play, Radio, Music2, MoreHorizontal } from 'lucide-react'
-import { CATEGORY_LABELS, CATEGORY_COLORS, type JWApiTopSong, type JWApiRecentPlay } from './juicewrldApi'
+import { CATEGORY_LABELS, CATEGORY_COLORS, type CatalogTopSong, type CatalogRecentPlay } from './catalogApi'
 import { statsSongToTrack, type StatsSong } from './statsCatalog'
 import { relativeTime } from '../components/adminShared'
 import { AlbumArtThumbnail } from '../components/AlbumArtThumbnail'
@@ -9,7 +9,7 @@ import { AlbumArtThumbnail } from '../components/AlbumArtThumbnail'
 // on how they're arranged on the page. See StatisticsView.tsx for the split
 // rationale and hooks/useStatisticsData for the data these are fed from.
 
-export const CATEGORY_ORDER: (keyof import('./juicewrldApi').JWApiStats['category_stats'])[] = [
+export const CATEGORY_ORDER: (keyof import('./catalogApi').CatalogStats['category_stats'])[] = [
   'released', 'unreleased', 'unsurfaced', 'recording_session',
 ]
 
@@ -102,16 +102,17 @@ const eraColorForIndex = (i: number): string => `hsl(${Math.round((i * 137.508) 
 // `name`, matching TimelineRow.key), overriding the generated golden-angle
 // hue above. Add entries here to recolor a particular era in the timeline.
 const ERA_COLOR_OVERRIDES: Record<string, string> = {
-  WOD: '#b2ff59',
-  'GB&GR': '#0a92fa',
-  POST: '#525252',
-  DRFL: '#f07229',
-  OUT: '#9122f2',
-  ND: '#2e0101',
-  bdm: '#171717',
-  afflictions: '#000000',
-  'HIH 999': '#ad0037',
-  'jw 999': '#d93434',
+  'Whole Lotta Red [V1]': '#b3121f',
+  'Whole Lotta Red [V2]': '#d01a2a',
+  'Whole Lotta Red [V3]': '#e11d2e',
+  'Whole Lotta Red [V4]': '#ff2a3d',
+  'Whole Lotta Red (Deluxe)': '#8a0e18',
+  'Die Lit': '#d81b60',
+  'Playboi Carti': '#d4a017',
+  'Narcissist': '#7b1fa2',
+  'MUSIC [V1]': '#6b6b6b',
+  'MUSIC [V2]': '#4a4a4a',
+  'MUSIC [V3]': '#2b2b2b',
 }
 
 const eraColor = (i: number, key: string): string => ERA_COLOR_OVERRIDES[key] ?? eraColorForIndex(i)
@@ -241,7 +242,7 @@ function RowThumb({ cover, fallback }: { cover?: StatsSong; fallback: React.Reac
 }
 
 export function TopSongRow({ song, cover, rank, max, onPlay, onContextMenu, isMobile }: {
-  song: JWApiTopSong
+  song: CatalogTopSong
   cover?: StatsSong
   rank: number
   max: number
@@ -295,7 +296,7 @@ export function TopSongRow({ song, cover, rank, max, onPlay, onContextMenu, isMo
 }
 
 export function RecentPlayRow({ play, cover, onPlay, onContextMenu, isMobile }: {
-  play: JWApiRecentPlay
+  play: CatalogRecentPlay
   cover?: StatsSong
   onPlay: (id: number) => void
   onContextMenu: (id: number, cover: StatsSong | undefined, e: React.MouseEvent) => void

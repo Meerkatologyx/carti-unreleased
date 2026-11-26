@@ -2,7 +2,7 @@ import { Loader2, Music, Play } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import type { SharedSongPayload } from '../../lib/chatShare'
 import { formatDuration } from '../../lib/format'
-import { getSongById, smallCoverUrl, songToTrack } from '../../lib/juicewrldApi'
+import { getSongById, smallCoverUrl, songToTrack } from '../../lib/catalogApi'
 import { useStore } from '../../store/useStore'
 import type { Track } from '../../types'
 

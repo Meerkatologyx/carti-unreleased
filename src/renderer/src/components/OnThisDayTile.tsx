@@ -7,7 +7,7 @@ import { MotionDisclosure } from './MotionDisclosure'
 import { useContentMotion } from '../hooks/useContentMotion'
 import { useOnThisDay } from '../hooks/useOnThisDay'
 import { useStorePick } from '../store/useStore'
-import { songToTrack, type JWApiSong } from '../lib/juicewrldApi'
+import { songToTrack, type CatalogSong } from '../lib/catalogApi'
 import { DAY_EVENT_LABELS, dayHeadline, dayNote, dayQueue, hasAudio, yearsSince, type DayEntry } from '../lib/onThisDay'
 import type { Track } from '../types'
 
@@ -22,9 +22,9 @@ const COLLAPSED = 8
 const ROW_WIDTH = 190
 const ROW_GAP = 16
 
-const isSession = (s: JWApiSong): boolean => s.category === 'recording_session'
+const isSession = (s: CatalogSong): boolean => s.category === 'recording_session'
 
-function versionsNote(songs: JWApiSong[]): string {
+function versionsNote(songs: CatalogSong[]): string {
   const sessions = songs.filter(isSession).length
   const versions = songs.length - sessions
   return [
@@ -62,7 +62,7 @@ export default function OnThisDayTile({ onContextMenu, span }: {
   const open = (entry: DayEntry): void => {
     const song = entry.songs[0]
     if (!hasAudio(song)) { setInfoSongId(song.id); return }
-    const track = queue.find((t) => t.id === `jw-${song.id}`) ?? songToTrack(song)
+    const track = queue.find((t) => t.id === `pc-${song.id}`) ?? songToTrack(song)
     playTrack(track, queue.includes(track) ? queue : undefined)
   }
 

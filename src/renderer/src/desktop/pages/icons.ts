@@ -13,7 +13,7 @@ export const icons: Record<string, string> = {
   shuffle: line('<path d="M3 7h3.2c1.9 0 3.1.9 4.1 2.5l2.9 5c1 1.6 2.2 2.5 4.1 2.5H20"/><path d="M3 17h3.2c1.4 0 2.4-.5 3.3-1.4M14.5 8.4c.9-.9 1.9-1.4 3.3-1.4H20"/><path d="M17.5 4.5 20 7l-2.5 2.5M17.5 14.5 20 17l-2.5 2.5"/>'),
   // SF Symbols' slider.vertical.3: the equalizer.
   equalizer: svg('<path d="M6 3.5v17M12 3.5v17M18 3.5v17" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><rect x="3.3" y="12.6" width="5.4" height="3.6" rx="1.5"/><rect x="9.3" y="6.4" width="5.4" height="3.6" rx="1.5"/><rect x="15.3" y="14.4" width="5.4" height="3.6" rx="1.5"/>'),
-  // SF Symbols' dot.radiowaves.left.and.right: 999 FM.
+  // SF Symbols' dot.radiowaves.left.and.right: Vamp FM.
   radio: line('<circle cx="12" cy="12" r="1.6"/><path d="M8.6 8.6a4.8 4.8 0 0 0 0 6.8M15.4 8.6a4.8 4.8 0 0 1 0 6.8M5.6 5.6a9 9 0 0 0 0 12.8M18.4 5.6a9 9 0 0 1 0 12.8"/>', 1.9),
   lyrics: line('<path d="M5.5 4h13A2.5 2.5 0 0 1 21 6.5v8a2.5 2.5 0 0 1-2.5 2.5H11l-4.5 3.5V17h-1A2.5 2.5 0 0 1 3 14.5v-8A2.5 2.5 0 0 1 5.5 4z"/><path d="M8.6 9.2c-.5.5-.8 1.2-.8 2.1M12.4 9.2c-.5.5-.8 1.2-.8 2.1" stroke-width="2.2"/>', 1.8),
   // SF Symbols' moon.fill: the desk cleared, as Focus clears a Mac or an iPhone.

@@ -1,7 +1,7 @@
 import type { RadioLiveState, RadioVote } from './radioLive'
 import { showAppToast } from './appToast'
 
-// Tells a tuned-in listener how a 999 FM vote ended. The station never says:
+// Tells a tuned-in listener how a Vamp FM vote ended. The station never says:
 // the vote just goes inactive. So the outcome is read from what follows. A
 // vote passed if its last tally reached the votes needed, or if, within a few
 // seconds of it ending, a skip vote's song changed or a queue vote's song
@@ -39,8 +39,8 @@ function report(vote: RadioVote, passed: boolean): void {
   const tally = `${vote.yes ?? 0} yes · ${vote.no ?? 0} no`
   const song = vote.track ? `“${vote.track}”` : 'the song'
   const text = vote.kind === 'skip'
-    ? passed ? `999 FM: skip passed (${tally})` : `999 FM: skip vote failed (${tally}${vote.votes_needed != null ? `, needed ${vote.votes_needed}` : ''})`
-    : passed ? `999 FM: ${song} is queued (${tally})` : `999 FM: vote to queue ${song} failed (${tally})`
+    ? passed ? `Vamp FM: skip passed (${tally})` : `Vamp FM: skip vote failed (${tally}${vote.votes_needed != null ? `, needed ${vote.votes_needed}` : ''})`
+    : passed ? `Vamp FM: ${song} is queued (${tally})` : `Vamp FM: vote to queue ${song} failed (${tally})`
   showAppToast(text, { tone: 'info' })
 }
 

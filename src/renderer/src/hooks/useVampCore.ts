@@ -1,0 +1,309 @@
+// Shared data/logic for VampView (the full-screen player). Desktop and
+// mobile wrap this in their own layouts - keep behavior here. Several pieces
+// of the original two files were NOT extracted here because they genuinely
+// diverge in behavior, not just layout - see each hook's own comment for
+// what's covered and what deliberately isn't.
+import { useEffect, useMemo, useRef, useState } from 'react'
+import type { AccountUser } from '../lib/userApi'
+import type { Track, FullTrack } from '../types'
+import type { RadioTrack, RadioVote } from '../lib/radioLive'
+import { buildImageUrl, getSongById, songToTrack, smallCoverUrl } from '../lib/catalogApi'
+import type { CatalogSong } from '../lib/catalogApi'
+import * as userApi from '../lib/userApi'
+import { getActiveRadioClient } from '../lib/radioSocketService'
+import { searchRadioLibrary } from '../lib/radioLibrary'
+import type { RadioLibraryTrack } from '../lib/radioLibrary'
+import { isLrcFormat, parseLrc } from '../lib/lyrics'
+import { resumeEffectsContext } from '../lib/audioEffects'
+import { useStore } from '../store/useStore'
+import { showAppToast } from '../lib/appToast'
+
+type RadioFmMatchedSong = {
+  songId: number | null
+  imageUrl: string | null
+  path: string | null
+  lyrics: string | null
+  syncedLyrics: string | null
+  era: string | null
+} | null
+
+/** `artSrc` - the FM-or-track cover URL - plus the `artError` fallback flag
+ * that resets whenever the source changes, and the song id a right-click
+ * (desktop) or long-press (mobile) "Change cover" picker should target.
+ * Byte-identical in both views. */
+export function useVampArt(
+  radioFmActive: boolean,
+  radioFmMatchedSong: RadioFmMatchedSong,
+  radioFmNowPlaying: RadioTrack | null,
+  currentTrackFull: FullTrack | null,
+  currentTrack: Track | null,
+): { artSrc: string | null; artError: boolean; setArtError: (v: boolean) => void; coverSongId: number | null } {
+  const artSrc = radioFmActive
+    ? (radioFmMatchedSong?.imageUrl ?? buildImageUrl(radioFmNowPlaying?.image_url) ?? null)
+    : (buildImageUrl(currentTrackFull?.albumArt ?? currentTrack?.imageUrl ?? null) ?? null)
+
+  const [artError, setArtError] = useState(false)
+  useEffect(() => { setArtError(false) }, [artSrc])
+
+  const coverSongId = radioFmActive
+    ? (radioFmNowPlaying?.song_id ?? radioFmMatchedSong?.songId ?? null)
+    : (currentTrack ? userApi.trackIdToSongId(currentTrack.id) : null)
+
+  return { artSrc, artError, setArtError, coverSongId }
+}
+
+/** Text/track-trough colors read off the cover art's brightness (dark image
+ * -> light text). `override` lets a caller skip the sampling entirely and
+ * force a value - VampView.desktop uses this for the "theme background"
+ * option, which has no art to sample from; mobile has no such option and
+ * always passes null. */
+/** Text contrast per cover (and skin darkness), as sampled. */
+const contrastCache = new Map<string, boolean>()
+
+export function useArtTextContrast(
+  artSrc: string | null,
+  artError: boolean,
+  isDarkSkin: boolean,
+  radioFmActive: boolean,
+  override: boolean | null,
+): boolean {
+  const sampleKey = artSrc && !artError && override == null ? `${isDarkSkin ? 1 : 0}|${artSrc}` : null
+  const [textIsDark, setTextIsDark] = useState(() => (
+    override != null ? override
+      : !artSrc || artError ? !isDarkSkin && !radioFmActive
+      : contrastCache.get(sampleKey!) ?? false
+  ))
+  useEffect(() => {
+    if (override != null) { setTextIsDark(override); return }
+    if (!artSrc || artError) {
+      setTextIsDark(!isDarkSkin && !radioFmActive)
+      return
+    }
+    // Sampled before: VAMP remounts on every visit, and reading the cover back
+    // each time cost an image load and a getImageData, then a second render.
+    const known = contrastCache.get(sampleKey!)
+    if (known !== undefined) { setTextIsDark(known); return }
+    // A quick skip leaves the last cover loading: its answer is dropped.
+    let live = true
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    img.onload = () => {
+      if (!live) return
+      try {
+        const canvas = document.createElement('canvas')
+        canvas.width = 50; canvas.height = 50
+        const ctx = canvas.getContext('2d')
+        if (!ctx) { setTextIsDark(false); return }
+        ctx.drawImage(img, 0, 0, 50, 50)
+        const data = ctx.getImageData(0, 0, 50, 50).data
+        let sum = 0
+        for (let i = 0; i < data.length; i += 4)
+          sum += 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]
+        const avg = sum / (data.length / 4)
+        const factor = isDarkSkin ? 0.22 : 0.45
+        const dark = avg * factor > 90
+        if (contrastCache.size >= 200) contrastCache.delete(contrastCache.keys().next().value as string)
+        contrastCache.set(sampleKey!, dark)
+        setTextIsDark(dark)
+      } catch { setTextIsDark(false) }
+    }
+    img.onerror = () => { if (live) setTextIsDark(false) }
+    // Averaged over 50x50, so the degraded copy reads the same as the original.
+    img.src = smallCoverUrl(artSrc) ?? artSrc
+    return () => { live = false }
+  }, [artSrc, artError, isDarkSkin, radioFmActive, override, sampleKey])
+  return textIsDark
+}
+
+/** Lyrics derived from whichever source is live (FM match vs local track),
+ * plus who's allowed to edit them. Byte-identical in both views. */
+export function useVampLyricsSource(
+  radioFmActive: boolean,
+  radioFmMatchedSong: RadioFmMatchedSong,
+  currentTrackFull: FullTrack | null,
+  account: AccountUser | null,
+): { rawLyrics: string | null; isSynced: boolean; isEditor: boolean; syncedLines: ReturnType<typeof parseLrc> } {
+  const rawLyrics = radioFmActive
+    ? (radioFmMatchedSong?.syncedLyrics || radioFmMatchedSong?.lyrics || null)
+    : (currentTrackFull?.syncedLyrics || currentTrackFull?.lyrics || null)
+  const isSynced = rawLyrics ? isLrcFormat(rawLyrics) : false
+  const isEditor = !!(account?.is_editor || account?.is_administrator)
+  // The same lines until the lyrics change: a new array every render set the lyric styles and the lyrics list going
+  // again each time VAMP re-rendered (every Vamp FM broadcast, among others).
+  const syncedLines = useMemo(() => (rawLyrics && isSynced ? parseLrc(rawLyrics) : []), [rawLyrics, isSynced])
+  return { rawLyrics, isSynced, isEditor, syncedLines }
+}
+
+/** Vamp FM on or off: tuning in pauses the song playing. VAMP's FM button and
+ * the desktop player's (lib/desktopBridge). */
+export function toggleRadioFm(): void {
+  const { radioFmActive, setRadioFmActive, setIsPlaying } = useStore.getState()
+  const next = !radioFmActive
+  if (next) {
+    setIsPlaying(false)
+    resumeEffectsContext()
+    void getActiveRadioClient()?.startListening()?.catch(() => setRadioFmActive(false))
+  } else {
+    getActiveRadioClient()?.stopListening()
+  }
+  setRadioFmActive(next)
+}
+
+/** Now-playing title/artist/album (FM-or-track), the transport-disabled
+ * flags, and the FM on/off toggle handler. Byte-identical in both views. */
+export function useVampNowPlaying(
+  radioFmActive: boolean,
+  radioFmIsLive: boolean | null,
+  radioFmNowPlaying: RadioTrack | null,
+  currentTrack: Track | null,
+): {
+  displayTitle: string | undefined
+  displayArtist: string | undefined
+  displayAlbum: string | undefined
+  fmDisabled: boolean
+  noTrack: boolean
+  toggleFm: () => void
+} {
+  const fmDisabled = radioFmIsLive === false && !radioFmActive
+  const displayTitle  = radioFmActive && radioFmNowPlaying ? radioFmNowPlaying.title  : currentTrack?.title
+  const displayArtist = radioFmActive && radioFmNowPlaying ? radioFmNowPlaying.artist : currentTrack?.artist
+  const displayAlbum  = radioFmActive && radioFmNowPlaying ? radioFmNowPlaying.album  : currentTrack?.album
+  // Nothing to control - gray out and disable the transport so it doesn't
+  // look interactive when there's no track loaded (and FM isn't filling in).
+  const noTrack = !radioFmActive && !currentTrack
+
+  return { displayTitle, displayArtist, displayAlbum, fmDisabled, noTrack, toggleFm: toggleRadioFm }
+}
+
+/** Play a sibling version of the current song from the version-notch menu.
+ * The list itself comes from useSongVersions (shared with Change version),
+ * which already fetched each song, so getSongById is normally a cache hit. */
+export function usePlayVersion(): (songId: number) => Promise<void> {
+  return async (songId: number): Promise<void> => {
+    try {
+      const song = await getSongById(songId)
+      const track = songToTrack(song)
+      // Swap in place so the rest of the queue survives the version change.
+      const { currentTrack, changeVersion, playTrack } = useStore.getState()
+      if (currentTrack) changeVersion(currentTrack, track)
+      else playTrack(track, [track])
+    } catch { showAppToast("Couldn't switch to that version") }
+  }
+}
+
+/** Vamp FM "suggest next song" search + propose flow: debounced library
+ * search, and the propose-queue handler with its confirm/error timers.
+ * `notConnectedMessage` is the only thing that differs between views (the
+ * copy shown when the socket rejects a proposal). */
+export function useRadioSuggest(notConnectedMessage: string): {
+  suggestQuery: string
+  setSuggestQuery: (v: string) => void
+  suggestResults: RadioLibraryTrack[]
+  suggestLoading: boolean
+  proposed: string | null
+  proposeError: string | null
+  handlePropose: (track: RadioLibraryTrack) => void
+  dismissProposed: () => void
+} {
+  const [suggestQuery, setSuggestQuery] = useState('')
+  const [suggestResults, setSuggestResults] = useState<RadioLibraryTrack[]>([])
+  const [suggestLoading, setSuggestLoading] = useState(false)
+  const [proposed, setProposed] = useState<string | null>(null)
+  const [proposeError, setProposeError] = useState<string | null>(null)
+  const suggestTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const proposeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    if (suggestTimer.current) clearTimeout(suggestTimer.current)
+    if (!suggestQuery.trim()) { setSuggestResults([]); setSuggestLoading(false); return }
+    setSuggestLoading(true)
+    // A search still out when the query changes (or is cleared by a proposal)
+    // is dropped, so it can't put old results back.
+    let live = true
+    suggestTimer.current = setTimeout(async () => {
+      // Search the DJ's published library, not /songs/ - only these ids can be
+      // resolved back to a playable file by propose_queue.
+      let results: RadioLibraryTrack[] = []
+      try { results = await searchRadioLibrary(suggestQuery) } catch { /* none */ }
+      if (!live) return
+      setSuggestResults(results)
+      setSuggestLoading(false)
+    }, 400)
+    return () => { live = false; if (suggestTimer.current) clearTimeout(suggestTimer.current) }
+  }, [suggestQuery])
+
+  const handlePropose = (track: RadioLibraryTrack): void => {
+    // Only confirm if the proposal actually went out over the socket - a
+    // closed/absent connection used to still flash "Proposed" while nothing
+    // was ever sent.
+    const sent = getActiveRadioClient()?.proposeQueue(track.id) ?? false
+    const name = track.title
+    setSuggestQuery('')
+    setSuggestResults([])
+    if (proposeTimer.current) clearTimeout(proposeTimer.current)
+    if (sent) {
+      setProposeError(null)
+      setProposed(name)
+      proposeTimer.current = setTimeout(() => setProposed(null), 4000)
+    } else {
+      setProposed(null)
+      setProposeError(notConnectedMessage)
+      proposeTimer.current = setTimeout(() => setProposeError(null), 4000)
+    }
+  }
+
+  const dismissProposed = (): void => {
+    setProposed(null)
+    if (proposeTimer.current) clearTimeout(proposeTimer.current)
+  }
+
+  return { suggestQuery, setSuggestQuery, suggestResults, suggestLoading, proposed, proposeError, handlePropose, dismissProposed }
+}
+
+/** Vamp FM vote-to-skip/queue countdown: resets the local vote selection on a
+ * new ballot (rising edge of `active`, not equality - see inline comment),
+ * then ticks a local 1s countdown kept in sync with (not recreated on) each
+ * server broadcast. `onNewVote` covers the one bit of extra reset state each
+ * view keeps beside `myVote` (desktop clears a vote-send error, mobile
+ * un-dismisses the vote card). */
+export function useRadioVoteCountdown(
+  voteActive: boolean | undefined,
+  secondsLeft: number | null | undefined,
+  onNewVote?: () => void,
+): { myVote: 'yes' | 'no' | null; setMyVote: (v: 'yes' | 'no' | null) => void; localSecondsLeft: number | null } {
+  const [myVote, setMyVote] = useState<'yes' | 'no' | null>(null)
+  const [localSecondsLeft, setLocalSecondsLeft] = useState<number | null>(null)
+  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const wasVoteActiveRef = useRef(false)
+
+  useEffect(() => {
+    const isActive = !!voteActive
+    if (isActive && !wasVoteActiveRef.current) {
+      setMyVote(null)
+      onNewVote?.()
+    }
+    wasVoteActiveRef.current = isActive
+    // onNewVote deliberately excluded - each caller passes a fresh closure
+    // every render, and it's only ever invoked from this rising-edge check.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [voteActive])
+
+  useEffect(() => {
+    if (!voteActive || secondsLeft == null) {
+      if (countdownRef.current) { clearInterval(countdownRef.current); countdownRef.current = null }
+      setLocalSecondsLeft(null)
+      return
+    }
+    setLocalSecondsLeft(secondsLeft)
+    if (!countdownRef.current) {
+      countdownRef.current = setInterval(() => {
+        setLocalSecondsLeft(s => (s != null && s > 0) ? s - 1 : 0)
+      }, 1000)
+    }
+  }, [voteActive, secondsLeft])
+
+  // Unmount-only cleanup for the countdown interval
+  useEffect(() => () => { if (countdownRef.current) clearInterval(countdownRef.current) }, [])
+
+  return { myVote, setMyVote, localSecondsLeft }
+}

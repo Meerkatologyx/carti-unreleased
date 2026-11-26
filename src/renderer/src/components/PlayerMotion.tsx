@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import { smallCoverUrl } from '../lib/juicewrldApi'
+import { smallCoverUrl } from '../lib/catalogApi'
 import { FallbackImg } from './ProgressiveCover'
 
 // Small motion pieces for the player controls. Each one animates on a change

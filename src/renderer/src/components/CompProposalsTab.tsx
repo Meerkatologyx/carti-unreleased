@@ -5,7 +5,7 @@ import {
 import * as userApi from '../lib/userApi'
 import type { CompFileProposal } from '../lib/userApi'
 import { relativeTime, shortDate, StatusChip, Empty, QueueSearch, buildHaystack, matchesHaystack, CopyButton } from './adminShared'
-import { buildStreamUrl } from '../lib/juicewrldApi'
+import { buildStreamUrl } from '../lib/catalogApi'
 import { useStore } from '../store/useStore'
 import { getMediaType } from '../lib/fileTypes'
 import { formatBytes, formatDuration } from '../lib/format'

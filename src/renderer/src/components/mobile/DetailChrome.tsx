@@ -1,6 +1,6 @@
 import React from 'react'
 import { Play, Shuffle } from 'lucide-react'
-import { smallCoverUrl } from '../../lib/juicewrldApi'
+import { smallCoverUrl } from '../../lib/catalogApi'
 
 // Shared pieces of the mobile "playlist detail" screen chrome, pulled out of
 // PlaylistsView.mobile.tsx so other playlist-like detail screens (e.g.

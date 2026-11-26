@@ -1,17 +1,15 @@
 {
-  "name": "unreleased",
+  "name": "carti-unreleased",
   "version": "2.3.3",
-  "description": "A music player for Juice WRLD",
+  "description": "A Playboi Carti music player and tracker",
   "scripts": {
     "dev": "vite --port 5173 --strictPort --host",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "docs:check-drift": "node scripts/check-docs-drift.mjs",
-    "terminal:check-coverage": "node scripts/check-terminal-coverage.mjs",
-    "social-preview": "node server/social-preview.mjs"
+    "terminal:check-coverage": "node scripts/check-terminal-coverage.mjs"
   },
   "keywords": [],
-  "author": "leanwrldd",
+  "author": "Meerkatologyx",
   "license": "MIT",
   "private": true,
   "dependencies": {

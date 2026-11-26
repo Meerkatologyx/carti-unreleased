@@ -16,7 +16,7 @@
 // It must never be the only thing a ranking is built from: on the server path
 // the round the server graded is the record, and a POST to /results/ that
 // disagrees with it should be rejected there, not trusted here.
-import { baseFor, routeUrl } from './juicewrldApi'
+import { baseFor, routeUrl } from './catalogApi'
 import { apiRequest, authedRequest, authHeaders } from './apiClient'
 import { getToken } from './userApi'
 import type { DailyMode, Guess, GameStatus, HeardleSong } from './heardle'
@@ -24,7 +24,7 @@ import type { DailyMode, Guess, GameStatus, HeardleSong } from './heardle'
 export const HEARDLE_LEADERBOARD_ENABLED = true
 
 const HEARDLE_BASE = routeUrl('/heardle')
-const API_ORIGIN = baseFor('/heardle').replace(/\/juicewrld\/?$/, '')
+const API_ORIGIN = baseFor('/heardle').replace(/\/carti\/?$/, '')
 
 export type LeaderboardBoard = 'today' | 'streak' | 'versus'
 

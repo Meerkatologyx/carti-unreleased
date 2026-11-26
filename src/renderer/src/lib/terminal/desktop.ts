@@ -1,5 +1,5 @@
 import { useStore } from '../../store/useStore'
-import { wrldEdgeLook } from '../../store/vizStore'
+import { vampEdgeLook } from '../../store/vizStore'
 import type { DesktopPatch } from '../../store/desktopSlice'
 import { LOOKS, PLACES, lookOf } from '../../desktop/light/looks'
 import { FACES, LYRIC_LOOKS, lyricLookOf, lyricFontFor } from '../../desktop/lyrics/looks'
@@ -57,8 +57,8 @@ function status(): string {
   ]
   if (d.hiddenDisplays.length) lines.push(`displays  off: ${d.hiddenDisplays.join(', ')}`)
   if (!desktopWindowsSupported()) {
-    const edge = wrldEdgeLook()
-    lines.push(`(the light round the screens and the widgets show on Windows; WRLD's Edge light here: ${edge ? lookOf(edge).title : 'none'})`)
+    const edge = vampEdgeLook()
+    lines.push(`(the light round the screens and the widgets show on Windows; VAMP's Edge light here: ${edge ? lookOf(edge).title : 'none'})`)
   }
   return lines.join('\n')
 }
@@ -97,7 +97,7 @@ export const DESKTOP_COMMANDS: TermCommand[] = [
   {
     name: 'desktop', aliases: ['ijwa'], group: 'App',
     usage: 'desktop [status] · desktop light [on|off|<look>|next] · desktop look <look> · desktop place <all|bottom|top|corners> · desktop motion <flow|music|still> · desktop tune <setting> <0-100%> · desktop colors <artwork|own|one|two> · desktop widgets [on|off] · desktop player|playlist|clock [on|off|<setting> <value>|reset] · desktop clear [on|off] · desktop lyrics [<style>|next] · desktop font <face> · desktop displays [<name> on|off]',
-    description: 'Settings > Desktop: the light round the screens, the desktop widgets, the desk cleared, and the lyric styles for WRLD and the desktop player',
+    description: 'Settings > Desktop: the light round the screens, the desktop widgets, the desk cleared, and the lyric styles for VAMP and the desktop player',
     complete: (before, partial) => {
       const p = partial.toLowerCase()
       const sub = before[0]?.toLowerCase()
@@ -128,7 +128,7 @@ export const DESKTOP_COMMANDS: TermCommand[] = [
           const word = rest[0]?.toLowerCase()
           if (!word || parseBool(word) !== null) { needsWindows(); say(actions.setLight(word ? (parseBool(word) as boolean) : undefined)); return }
           if (word === 'next' || word === 'previous') { say(actions.stepLight(word === 'next' ? 1 : -1)); return }
-          // A look by name: picked, as in Settings (off Windows, that's WRLD's Edge light).
+          // A look by name: picked, as in Settings (off Windows, that's VAMP's Edge light).
           const look = LOOKS.find((l) => l.id === word || l.title.toLowerCase() === rest.join(' ').toLowerCase()) ?? fail(`lights: ${LOOKS.map((l) => l.id).join(', ')}`)
           say(actions.pickLight(look.id))
           return

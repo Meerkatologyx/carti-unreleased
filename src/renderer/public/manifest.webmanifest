@@ -1,17 +1,17 @@
 {
-  "name": "Unreleased",
-  "short_name": "Unreleased",
-  "description": "Stream Playboi Carti's full catalog - released and unreleased - with playlists, synced lyrics, 999 FM radio and offline downloads.",
-  "id": "/",
-  "start_url": "/",
-  "scope": "/",
+  "name": "Carti Unreleased",
+  "short_name": "Carti",
+  "description": "Playboi Carti's catalogue - released, unreleased and unsurfaced - with playlists, era covers and a full player.",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#121212",
-  "theme_color": "#121212",
+  "background_color": "#0b0707",
+  "theme_color": "#0b0707",
   "icons": [
     {
-      "src": "/icon-512.png",
+      "src": "icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"

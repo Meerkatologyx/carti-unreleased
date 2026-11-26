@@ -1,13 +1,13 @@
 import { useStorePick } from '../store/useStore'
 import { isChannelEditor, isChannelContributor, isChannelManager } from '../lib/userApi'
-import type { JWApiChannel } from '../lib/juicewrldApi'
+import type { CatalogChannel } from '../lib/catalogApi'
 
 // The global role flags only cover the primary channel (see isChannelEditor
 // et al. in userApi.ts) - this resolves whether the active channel actually
 // is primary so callers can pass that through. Defaults to true when the
 // channel list hasn't loaded yet or the slug isn't recognized, matching the
 // safe default already baked into the isChannel* functions.
-export function isPrimaryChannelSlug(channels: JWApiChannel[], slug: string | null | undefined): boolean {
+export function isPrimaryChannelSlug(channels: CatalogChannel[], slug: string | null | undefined): boolean {
   if (channels.length === 0) return true
   const ch = channels.find((c) => c.slug === slug)
   return ch ? !!ch.is_primary : true
@@ -15,7 +15,7 @@ export function isPrimaryChannelSlug(channels: JWApiChannel[], slug: string | nu
 
 // The primary channel's slug, regardless of which channel is currently
 // selected in the Files tab - see useCanEdit below for why this matters.
-function primaryChannelSlug(channels: JWApiChannel[]): string | undefined {
+function primaryChannelSlug(channels: CatalogChannel[]): string | undefined {
   return channels.find((c) => c.is_primary)?.slug
 }
 
@@ -26,7 +26,7 @@ function primaryChannelSlug(channels: JWApiChannel[]): string | undefined {
 //
 // Deliberately checked against the *primary* channel rather than whichever
 // channel is active - these hooks back views (Tracker, Playlists, Liked
-// Songs, Now Playing, Player, SongInfoModal, StatsView, WrldView) that only
+// Songs, Now Playing, Player, SongInfoModal, StatsView, VampView) that only
 // ever show primary-channel songs, so editing there shouldn't be gated by
 // whatever channel the Files tab happens to have selected. Views that
 // actually operate on non-primary channel content (ApiFilesView,

@@ -156,7 +156,7 @@ export default function SkinEditorModal({
               <p className="text-text-muted text-[11px]">Buttons, highlights, the active state</p>
             </div>
             <ThemedColorPicker
-              value={toColorInputValue(skin.accent ?? '#1db954')}
+              value={toColorInputValue(skin.accent ?? '#e11d2e')}
               onChange={(hex) => setAccent(hex)}
               className="w-8 h-8 rounded-md"
               title="Accent color"

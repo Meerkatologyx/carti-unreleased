@@ -6,8 +6,8 @@ import {
   Hash, Plus, UserCheck, FileCheck, Activity, Pencil, X as XIcon, ChevronDown as ChevronDownIcon,
   History, Play,
 } from 'lucide-react'
-import { apiFetch, songToTrack } from '../lib/juicewrldApi'
-import type { JWApiSong } from '../lib/juicewrldApi'
+import { apiFetch, songToTrack } from '../lib/catalogApi'
+import type { CatalogSong } from '../lib/catalogApi'
 import { useStore, useStorePick } from '../store/useStore'
 import { displayName } from '../store/chatStore'
 import { discordHandle, errorMessage } from '../lib/format'
@@ -544,7 +544,7 @@ function ProposalsTab({ proposals, status, setStatus, onChanged, onReviewed, cha
     setPlayError(null)
     setLoadingSongId(songId)
     try {
-      const song = await apiFetch<JWApiSong>(`/songs/${songId}/`)
+      const song = await apiFetch<CatalogSong>(`/songs/${songId}/`)
       const track = songToTrack(song)
       // An unsurfaced song is a real catalog entry with no file behind it -
       // the proposal is still reviewable, there's just nothing to play.

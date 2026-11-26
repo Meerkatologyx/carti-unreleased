@@ -9,7 +9,7 @@ import { listDonorFiles } from '../donorFilesApi'
 import { isDonorAudio } from '../donorPlayback'
 import { libraryTrackToTrack } from '../fileTypes'
 import type { Track } from '../../types'
-import { apiFileIdToRef, apiFileRefToTrack, getSongById, loadAllSongs, songToTrack, type JWApiSong } from '../juicewrldApi'
+import { apiFileIdToRef, apiFileRefToTrack, getSongById, loadAllSongs, songToTrack, type CatalogSong } from '../catalogApi'
 import { completeSongs, rememberFind, songFromArg } from './player'
 import { DAY_EVENT_LABELS, dayHeadline, dayNote, dayQueue, eventsOnDay, hasAudio, loadDaySongs, yearsSince } from '../onThisDay'
 import { PLAYLIST_EDIT_SUBS, runPlaylistEdit } from './playlistEdit'
@@ -40,14 +40,14 @@ async function playlistFromArg(arg: string): Promise<PlaylistSummary> {
 // One row per entry, in playlist order, so row numbers are the positions
 // `move` and `remove -- at N` take. Songs come back in full (for show's field
 // filters); file entries as the Track the player would get.
-interface PlaylistRow { item: PlaylistItemEntry; track: Track; song: JWApiSong | null }
+interface PlaylistRow { item: PlaylistItemEntry; track: Track; song: CatalogSong | null }
 
 async function playlistRows(id: number): Promise<{ name: string; rows: PlaylistRow[] }> {
   const detail = await getPlaylist(id)
   const ordered = [...detail.items].sort((a, b) => a.position - b.position)
   // The shared catalogue (one cached request), not a /songs/{id}/ per entry:
   // a long playlist sent hundreds at once and filled the offline cache.
-  const byId = playlistSongIds(ordered).length ? songsById(await loadAllSongs()) : new Map<number, JWApiSong>()
+  const byId = playlistSongIds(ordered).length ? songsById(await loadAllSongs()) : new Map<number, CatalogSong>()
   const tracks = playlistItemsToTracks(ordered)
   const rows = ordered.map((item, i): PlaylistRow => {
     const song = item.song ? byId.get(item.song.id) ?? null : null
@@ -128,7 +128,7 @@ const oneLine = (s: string | null | undefined): string => (s ?? '').replace(/\s+
 // The API's date fields repeat their own label ("Released" + a line break + the date).
 const dateLine = (s: string | null | undefined): string => oneLine(s).replace(/^(recorded|released|previewed)\s*/i, '')
 
-function describeSong(song: JWApiSong): string {
+function describeSong(song: CatalogSong): string {
   const field = (label: string, value: string | null | undefined): string[] => (oneLine(value) ? [`${label.padEnd(10)}${oneLine(value)}`] : [])
   const aliases = (song.track_titles ?? []).filter((t) => t.toLowerCase() !== song.name.toLowerCase())
   return [
@@ -191,7 +191,7 @@ export const LIBRARY_COMMANDS: TermCommand[] = [
         const videos = videosFor(await loadMusicVideoIndex().catch(() => new Map()), song.name, 'all')
         if (videos.length) {
           const lines = videos.map((v) => `  ${v.path}  (${VIDEO_KIND_LABEL[v.kind].toLowerCase()}${v.date ? `, ${v.date}` : ''})`)
-          ctx.print([`Music video${videos.length > 1 ? 's' : ''}:`, ...lines, `  musicvideo ${song.name} shows how WRLD lines one up`].join('\n'))
+          ctx.print([`Music video${videos.length > 1 ? 's' : ''}:`, ...lines, `  musicvideo ${song.name} shows how VAMP lines one up`].join('\n'))
         }
       }
     },
@@ -319,8 +319,8 @@ export const LIBRARY_COMMANDS: TermCommand[] = [
       const files = ids.map((id) => { const ref = apiFileIdToRef(id); return ref ? apiFileRefToTrack(ref) : null }).filter((t): t is Track => t != null)
       const play = args.trim().toLowerCase() === 'play'
       if (songIds.length === 0 && !(play && files.length)) { ctx.print(other ? `${other} liked file${other === 1 ? '' : 's'} (no library songs)` : 'no liked songs yet', 'dim'); return }
-      const byId = songIds.length ? songsById(await loadAllSongs()) : new Map<number, JWApiSong>()
-      const songs = songIds.map((id) => byId.get(id)).filter((s): s is JWApiSong => !!s)
+      const byId = songIds.length ? songsById(await loadAllSongs()) : new Map<number, CatalogSong>()
+      const songs = songIds.map((id) => byId.get(id)).filter((s): s is CatalogSong => !!s)
       if (play) {
         st().playCollection([...songs.map(songToTrack), ...files], null, null)
         ctx.print(`▶ ${songs.length + files.length} liked track${songs.length + files.length === 1 ? '' : 's'}`, 'ok')

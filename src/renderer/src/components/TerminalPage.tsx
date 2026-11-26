@@ -29,12 +29,12 @@ export default function TerminalPage(): JSX.Element {
   const people = useRoomPeople(active)
   const full = useTermFullscreen()
 
-  // WRLD can take over fullscreen on return. Other destinations leave it;
+  // VAMP can take over fullscreen on return. Other destinations leave it;
   // the terminal preference stays set for the next open.
   useEffect(() => {
     if (getTermFullscreen()) syncBrowserFullscreen(true)
     return () => {
-      if (useStore.getState().activeView === 'wrld' && getTermFullscreen()) return
+      if (useStore.getState().activeView === 'vamp' && getTermFullscreen()) return
       syncBrowserFullscreen(false)
     }
   }, [])

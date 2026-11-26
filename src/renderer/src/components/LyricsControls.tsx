@@ -2,7 +2,7 @@ import { AlignLeft, AlignCenter } from 'lucide-react'
 import ThemedColorPicker from './ThemedColorPicker'
 import { useStore, useStorePick } from '../store/useStore'
 
-// Lyric display controls (size, alignment, blur, colors). Shared by the WRLD
+// Lyric display controls (size, alignment, blur, colors). Shared by the VAMP
 // tab's Customize lyrics modal and the visualizer toolbar's settings popup.
 // Alignment and blur belong to the Classic list; the other lyric styles take size and colors only.
 
@@ -12,7 +12,7 @@ const LYRIC_TEXT_SIZES: { label: string; value: number }[] = [
   { label: 'L', value: 1.2 },
   { label: 'XL', value: 1.4 },
 ]
-const LYRIC_ACTIVE_PRESETS = ['#ffffff', '#1db954', '#a78bfa', '#60a5fa', '#f472b6', '#facc15']
+const LYRIC_ACTIVE_PRESETS = ['#ffffff', '#e11d2e', '#a78bfa', '#60a5fa', '#f472b6', '#facc15']
 const LYRIC_INACTIVE_PRESETS = ['#9ca3af', '#6b7280', '#94a3b8', '#c4b5fd', '#7dd3fc', '#fda4af']
 
 function LyricColorRow({ label, presets, value, fallback, onChange }: {

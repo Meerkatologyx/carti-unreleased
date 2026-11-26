@@ -12,7 +12,7 @@ export default function DocsPage(): JSX.Element {
   const { setActiveView, previousView } = useStorePick('setActiveView', 'previousView')
 
   // Return to wherever Docs was opened from (e.g. Settings), not a fixed page.
-  const backView = previousView && previousView !== 'docs' ? previousView : 'wrld'
+  const backView = previousView && previousView !== 'docs' ? previousView : 'vamp'
 
   const primitives = useMemo(() => ({ Code, Section, Endpoint, MethodPath }), [])
 
@@ -29,9 +29,9 @@ export default function DocsPage(): JSX.Element {
             <ChevronLeft size={18} />
           </button>
           <h1 className="text-text-primary text-xl font-bold">API Docs</h1>
-          <span className="text-xs text-text-muted font-mono">juicewrldapi.com</span>
+          <span className="text-xs text-text-muted font-mono">meerkatologyx.github.io</span>
           <a
-            href="https://juicewrldapi.com/api-docs"
+            href="https://meerkatologyx.github.io/api-docs"
             target="_blank"
             rel="noopener noreferrer"
             className="ml-auto flex items-center gap-1 text-xs text-text-muted hover:text-accent transition-colors"

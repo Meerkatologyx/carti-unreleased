@@ -5,13 +5,13 @@
 // There are two different fetch strategies because the two callers start
 // from different places:
 //   - The Tracker doesn't reliably have every song loaded (paginated,
-//     filtered by category/search), so it has to ask juicewrldapi's
+//     filtered by category/search), so it has to ask cartiapi's
 //     /versions/ table for every titled group app-wide and then fetch the
 //     actual song objects.
 //   - Playlists already has its full, unpaginated track list in hand, so it
 //     only needs version metadata for those specific songs - no need to
 //     fetch anything about the songs themselves.
-import { apiFetch, OMIT_BULK, JWApiSong, getSongsByIds, songToTrack } from './juicewrldApi'
+import { apiFetch, OMIT_BULK, CatalogSong, getSongsByIds, songToTrack } from './catalogApi'
 import { SongVersionMeta, getAllVersionGroups, getVersionMetaForSongs, getVersionGroupsForSongs, versionsEnabled } from './versionsApi'
 import { pickGroupVersion } from './versionPrefs'
 import type { Track } from '../types'
@@ -56,7 +56,7 @@ function buildGroups<T>(metas: SongVersionMeta[], getItem: (songId: number) => T
 // (see invalidateCompactGroupsCache callers) so an edit shows up immediately
 // rather than waiting out the TTL.
 const COMPACT_GROUPS_TTL = 30_000
-let compactGroupsCache: { promise: Promise<CompactGroup<JWApiSong>[]>; ts: number } | null = null
+let compactGroupsCache: { promise: Promise<CompactGroup<CatalogSong>[]>; ts: number } | null = null
 
 // Invalidating the cache doesn't help a Tracker/Playlists compact view that's
 // already mounted and already fetched - its load effect only re-runs when its
@@ -76,10 +76,10 @@ export function subscribeCompactGroupsInvalidation(listener: () => void): () => 
   return () => { invalidationListeners.delete(listener) }
 }
 
-async function buildAllCompactGroups(): Promise<CompactGroup<JWApiSong>[]> {
+async function buildAllCompactGroups(): Promise<CompactGroup<CatalogSong>[]> {
   const [metas, songs] = await Promise.all([
     getAllVersionGroups(),
-    apiFetch<JWApiSong[]>('/songs/', { all: 'true', omit: OMIT_BULK }),
+    apiFetch<CatalogSong[]>('/songs/', { all: 'true', omit: OMIT_BULK }),
   ])
   const songMap = new Map(songs.map(s => [s.id, s]))
   return buildGroups(metas, id => songMap.get(id))
@@ -93,7 +93,7 @@ async function buildAllCompactGroups(): Promise<CompactGroup<JWApiSong>[]> {
  *  (~2500 songs) that this is both simpler and far faster than the
  *  thousands of individual /songs/{id}/ round trips that used to make
  *  compact view slow to open. */
-export async function fetchAllCompactGroups(): Promise<CompactGroup<JWApiSong>[]> {
+export async function fetchAllCompactGroups(): Promise<CompactGroup<CatalogSong>[]> {
   if (!versionsEnabled) return []
   const now = Date.now()
   if (!compactGroupsCache || now - compactGroupsCache.ts > COMPACT_GROUPS_TTL) {

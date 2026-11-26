@@ -1,4 +1,4 @@
-import { routeUrl } from './juicewrldApi'
+import { routeUrl } from './catalogApi'
 import { CONTRIBUTOR_ENABLED, getToken } from './userApi'
 import type { CompFileProposal } from './userApi'
 

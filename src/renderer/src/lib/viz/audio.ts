@@ -267,7 +267,7 @@ export class AudioEngine {
     const raw = this.raw;
 
     // Stopped: the analysers would only report silence, and reading them on
-    // every frame (two FFTs and three waveform copies) was most of WRLD's CPU
+    // every frame (two FFTs and three waveform copies) was most of VAMP's CPU
     // while paused. They're left alone and the frame decays as silence would.
     if (playing) this.playedAt = performance.now();
     const listening = this.analyser !== null && performance.now() - this.playedAt < STOPPED_TAIL_MS;

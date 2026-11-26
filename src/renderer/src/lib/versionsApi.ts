@@ -1,5 +1,5 @@
 // Song "version" grouping - e.g. "She's The One (v1)" / "(v2)" / "(TV Mix)"
-// linked together as the same underlying song. juicewrldapi.com's own
+// linked together as the same underlying song. meerkatologyx.github.io's own
 // /versions/ table backs this (previously a separate Supabase project).
 //
 // The table's list endpoint (GET /versions/) doesn't apply its query params
@@ -16,12 +16,12 @@
 // editor/admin auth token; there's no bulk-write endpoint, so group
 // merges/title changes touching multiple rows send one request per
 // affected song.
-import { routeUrl, apiFetch } from './juicewrldApi'
+import { routeUrl, apiFetch } from './catalogApi'
 import { authHeaders } from './apiClient'
 import { getToken } from './userApi'
 import { loadSessionSongIds } from './sessionEditsApi'
 
-/** Always true now that this is core juicewrldapi functionality rather than
+/** Always true now that this is core cartiapi functionality rather than
  *  optional Supabase config - kept as an export so existing call sites that
  *  gate version UI on it don't need to change. */
 export const versionsEnabled = true
@@ -71,7 +71,7 @@ async function getRow(songId: number): Promise<VersionRow | null> {
   return all.find(r => r.id === raw.id) ?? raw
 }
 
-// Full-table fetch (via ?all=true, same as juicewrldApi's /songs/ bulk mode),
+// Full-table fetch (via ?all=true, same as catalogApi's /songs/ bulk mode),
 // cached briefly since most operations here (group lookup, title search,
 // bulk metadata) need the whole set and re-fetching it on every call would
 // make the Tracker's compact view and song-info lookups noticeably slow.

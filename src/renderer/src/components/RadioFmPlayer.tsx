@@ -3,8 +3,8 @@ import { useStore, useStorePick } from '../store/useStore'
 import { RadioStreamClient, setActiveRadioClient } from '../lib/radioSocketService'
 import { fetchRadioLive } from '../lib/radioLive'
 import type { RadioLiveState, RadioVote } from '../lib/radioLive'
-import { apiFetch, buildImageUrl, getSongById } from '../lib/juicewrldApi'
-import type { JWApiSong } from '../lib/juicewrldApi'
+import { apiFetch, buildImageUrl, getSongById } from '../lib/catalogApi'
+import type { CatalogSong } from '../lib/catalogApi'
 import { attachAudioElement, resumeEffectsContext } from '../lib/audioEffects'
 import { IS_IOS } from '../lib/platform'
 import { noteRadioFrame } from '../lib/radioVoteOutcome'
@@ -70,7 +70,7 @@ export default function RadioFmPlayer(): JSX.Element {
   }, [show])
 
   // A brand new ballot clears any previous dismissal, exactly once. Doing it
-  // here - the single place metadata lands - keeps the WRLD panel, the floating
+  // here - the single place metadata lands - keeps the VAMP panel, the floating
   // popup, and pop-out windows from each keeping their own copy.
   const applyVote = useCallback((vote: RadioVote | null): void => {
     const isActive = !!vote?.active
@@ -177,7 +177,7 @@ export default function RadioFmPlayer(): JSX.Element {
     // The last song's cover and lyrics go at once rather than showing while the new one's are fetched.
     setRadioFmMatchedSong(null)
 
-    const apply = (song: JWApiSong) => {
+    const apply = (song: CatalogSong) => {
       if (cancelled) return
       setRadioFmMatchedSong({
         songId: song.id ?? null,
@@ -196,12 +196,12 @@ export default function RadioFmPlayer(): JSX.Element {
         .then(apply)
         .catch(() => {
           // song_id fetch failed - fall back to title search
-          apiFetch<{ results: JWApiSong[] }>('/songs/', { search: title, page_size: 3 })
+          apiFetch<{ results: CatalogSong[] }>('/songs/', { search: title, page_size: 3 })
             .then(d => { if (d.results[0]) apply(d.results[0]); else if (!cancelled) setRadioFmMatchedSong(null) })
             .catch(() => { if (!cancelled) setRadioFmMatchedSong(null) })
         })
     } else {
-      apiFetch<{ results: JWApiSong[] }>('/songs/', { search: title, page_size: 3 })
+      apiFetch<{ results: CatalogSong[] }>('/songs/', { search: title, page_size: 3 })
         .then(d => { if (d.results[0]) apply(d.results[0]); else if (!cancelled) setRadioFmMatchedSong(null) })
         .catch(() => { if (!cancelled) setRadioFmMatchedSong(null) })
     }

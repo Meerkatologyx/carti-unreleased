@@ -2,7 +2,7 @@ import { useCascade } from '../hooks/useCascade'
 import { useEffect, useState } from 'react'
 import { Play, Loader2, Music2, Share2, Download, ChevronLeft } from 'lucide-react'
 import { useStore, useStorePick } from '../store/useStore'
-import { apiFetch, buildStreamUrl, buildCoverArtUrl } from '../lib/juicewrldApi'
+import { apiFetch, buildStreamUrl, buildCoverArtUrl } from '../lib/catalogApi'
 import { liteSongToTrack, ApiSongLite } from '../lib/userApi'
 import type { PlaylistItemEntry } from '../lib/userApi'
 import { playlistItemsToTracks } from '../lib/playlistItems'
@@ -105,7 +105,7 @@ function parseTracks(data: unknown): Track[] {
 
 export default function SharedPlaylistView(): JSX.Element {
   const { playTrack, playCollection, setActiveView, previousView } = useStorePick('playTrack', 'playCollection', 'setActiveView', 'previousView')
-  const backView = previousView && previousView !== 'shared-playlist' ? previousView : 'wrld'
+  const backView = previousView && previousView !== 'shared-playlist' ? previousView : 'vamp'
   const shareId = appPathname().split('/shared/')[1]?.split('/')[0] ?? ''
 
   const [tracks, setTracks] = useState<Track[]>([])

@@ -1,4 +1,4 @@
-// Shared HTTP layer for both juicewrldApi.ts and userApi.ts — one place that
+// Shared HTTP layer for both catalogApi.ts and userApi.ts — one place that
 // does the fetch, the offline-cache fallback, and error parsing, so neither
 // caller has to reimplement any of it.
 import { cacheGet, cacheSet } from './apiCache'

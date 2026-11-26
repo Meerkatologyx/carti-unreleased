@@ -11,7 +11,7 @@
 // tryDownload() below returns null immediately. That's expected, not a bug -
 // this module activates on its own the moment nodes come online, with no
 // further wiring needed at the call sites.
-import { routeUrl } from './juicewrldApi'
+import { routeUrl } from './catalogApi'
 import { getToken } from './userApi'
 import { downloadViaNode, CdnNodeError, NO_ICE_CANDIDATES, type CdnDownloadProgress, type CdnNodeDownloadResult } from './cdnWebrtc'
 import { downloadViaTunnel } from './cdnTunnel'
@@ -137,7 +137,7 @@ class CdnService {
    *  manifest yet, or every node fails - the caller's job is to fall back
    *  to the normal API download in that case.
    *
-   *  A P2P node is an untrusted third party, unlike juicewrldapi.com itself
+   *  A P2P node is an untrusted third party, unlike meerkatologyx.github.io itself
    *  - every file handed back here was compared byte-for-byte (via BLAKE2b)
    *  against the hash the API's own master list has on record for it.
    *  There is no code path that returns an un-verified CDN blob: a file

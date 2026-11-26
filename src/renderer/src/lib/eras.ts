@@ -1,15 +1,15 @@
-// Era abbreviation → full display name (e.g. "WOD" → "WRLD On Drugs").
+// Era abbreviation → full display name (e.g. "WOD" → "VAMP On Drugs").
 //
 // The API's era objects carry the abbreviation in `name`; the human-readable
 // full name only exists inside `description`, usually suffixed with an "era"
-// qualifier and a time frame - "WRLD On Drugs era (August 2018-December 2018)".
+// qualifier and a time frame - "VAMP On Drugs era (August 2018-December 2018)".
 // This module fetches /eras/ once (paginated, 34 across 2 pages), derives the
 // clean full names, and exposes a synchronous lookup for display code
 // (currently Discord RPC).
 
-import { apiFetch, apiPeek, JWApiEra } from './juicewrldApi'
+import { apiFetch, apiPeek, CatalogEra } from './catalogApi'
 
-type ErasResponse = JWApiEra[] | { count: number; next: string | null; results: JWApiEra[] }
+type ErasResponse = CatalogEra[] | { count: number; next: string | null; results: CatalogEra[] }
 
 // Hard cap on pages followed, in case the API's pagination ever misbehaves.
 const MAX_PAGES = 10
@@ -19,20 +19,13 @@ const names: Record<string, string> = {}
 // both from the synchronous offline-cache seed and the async fetch below and
 // would otherwise double up entries.
 const eraOrder: string[] = []
-const eraByName: Record<string, JWApiEra> = {}
+const eraByName: Record<string, CatalogEra> = {}
 let loadPromise: Promise<void> | null = null
 
-// Overrides for eras whose real full name isn't derivable from the API's own
-// description at all - e.g. "HIH 999"'s description is just "HIH 999 era
-// (March 2017-May 2017)", which strips down to "HIH 999" again with no
-// expansion anywhere in the API's data. Checked before the generic
-// description-based derivation below.
-const MANUAL_FULL_NAMES: Record<string, string> = {
-  'HIH 999': 'Heartbroken In Hollywood 999',
-  'UNS: JW': 'Unsurfaced Live Recordings',
-}
+// Overrides for eras whose full name can't be derived from their description.
+const MANUAL_FULL_NAMES: Record<string, string> = {}
 
-function fullName(era: JWApiEra): string | undefined {
+function fullName(era: CatalogEra): string | undefined {
   if (era.name in MANUAL_FULL_NAMES) return MANUAL_FULL_NAMES[era.name]
   const desc = era.description?.trim()
   if (!desc) return undefined
@@ -47,8 +40,8 @@ function fullName(era: JWApiEra): string | undefined {
     .replace(/\s+releases grouping$/i, '')
     .replace(/\s+(project|collection)$/i, '')
     .trim()
-  // Stripping produced the abbreviation right back (e.g. "KILL'S WRLD era"
-  // → "KILL'S WRLD") - nothing was actually expanded, so there's no real
+  // Stripping produced the abbreviation right back (e.g. "KILL'S VAMP era"
+  // → "KILL'S VAMP") - nothing was actually expanded, so there's no real
   // full name to show.
   if (!stripped || stripped === era.name) return undefined
   return stripped
@@ -121,6 +114,6 @@ export function eraLabel(abbrev: string, full: boolean): string {
  *  seed and loadEraFullNames fetch as the name lookup above - call
  *  loadEraFullNames first (or accept whatever the offline cache seeded) if
  *  the caller needs the full set. */
-export function listEras(): JWApiEra[] {
+export function listEras(): CatalogEra[] {
   return eraOrder.map((name) => eraByName[name])
 }

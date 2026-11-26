@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { AlertCircle, AudioLines, FileAudio, Loader2, Search, Send, X } from 'lucide-react'
 import { ModalOverlay, LockToggle } from './Modal'
 import { useStore } from '../store/useStore'
-import { searchSongs, type JWApiSong } from '../lib/juicewrldApi'
+import { searchSongs, type CatalogSong } from '../lib/catalogApi'
 import {
   COMMUNITY_EDIT_ACCEPT, COMMUNITY_EDIT_KINDS, COMMUNITY_EDIT_MAX_NOTES, COMMUNITY_EDIT_MAX_TITLE,
   DuplicateEditError, checkCommunityEditFile, checkCommunityEditHash, sha256OfFile, submitCommunityEdit,
@@ -55,7 +55,7 @@ function SongPicker({ value, onChange }: {
   onChange: (song: { id: number; name: string } | null) => void
 }): JSX.Element {
   const [query, setQuery] = useState('')
-  const [results, setResults] = useState<JWApiSong[]>([])
+  const [results, setResults] = useState<CatalogSong[]>([])
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {

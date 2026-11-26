@@ -319,8 +319,8 @@ export default function ApiKeys(): JSX.Element {
       )}
 
       <p className="text-text-muted text-[11px] pt-2">
-        Keys let scripts and integrations call the API as you. Send one as <code className="font-mono">X-API-Key: jwapi_…</code> or{' '}
-        <code className="font-mono">Authorization: ApiKey jwapi_…</code>. A key never gives more access than your account has.
+        Keys let scripts and integrations call the API as you. Send one as <code className="font-mono">X-API-Key: catalog_api_…</code> or{' '}
+        <code className="font-mono">Authorization: ApiKey catalog_api_…</code>. A key never gives more access than your account has.
         Revoking stops a key working but keeps it listed; deleting removes it. Up to {API_KEY_LIMIT} keys.
       </p>
       {error && <p className="text-red-400 text-[11px] pt-1">{error}</p>}

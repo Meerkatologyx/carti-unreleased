@@ -10,7 +10,7 @@ import { LyricStage } from '../desktop/lyrics/stage'
 import { epochNow } from '../desktop/lyrics/scene'
 import type { TimedLyrics } from '../desktop/lyrics/timing'
 import { useAlbumColors, eraAssetPath } from '../desktop/artColors'
-import { useVizStore, useWrldEdgeLook } from '../store/vizStore'
+import { useVizStore, useVampEdgeLook } from '../store/vizStore'
 import { VISUALIZERS } from '../lib/viz'
 import { GLRenderer } from '../lib/viz/gl'
 import { Canvas2DRenderer } from '../lib/viz/canvas2d'
@@ -18,14 +18,14 @@ import { BINS, NOTE_COUNT } from '../lib/viz/audio'
 import { extractPalette, paletteFromAccent, parseColor } from '../lib/viz/palette'
 import { QUALITY, type AudioFrame, type RGB } from '../lib/viz/types'
 import { ERA_PALETTES } from '../lib/eraPalettes'
-import { smallCoverUrl } from '../lib/juicewrldApi'
+import { smallCoverUrl } from '../lib/catalogApi'
 import { webglAvailable } from './VizControls'
 
 // The light, lyric and visualizer choosers: every light plays in a small screen of its own - the real shader, told it
 // draws a 1920 × 1080 screen, scaled down - to a made-up song, a beat every half second, every other one harder, with
 // the user's own thickness, glow, tail and colors; every lyric style sings a few made-up lines over and over in its
-// own face and the playing song's colors; every WRLD visualizer, classic or shader, plays the same made-up song in the
-// colors WRLD would give it. A click picks it. Only the screens in sight draw, all the lights (and all the shaders)
+// own face and the playing song's colors; every VAMP visualizer, classic or shader, plays the same made-up song in the
+// colors VAMP would give it. A click picks it. Only the screens in sight draw, all the lights (and all the shaders)
 // through one WebGL canvas kept off the page.
 
 const SCREEN: [number, number] = [1920, 1080]
@@ -215,7 +215,7 @@ function LyricGrid({ chosen, onPick, colors }: { chosen: string; onPick: (id: st
       const now = epochNow()
       const round = Math.floor((now - t.from) / PERIOD)
       const clock = { seconds: 0, at: t.from + round * PERIOD, running: true }
-      t.stage.show({ id: `preview-${round}`, lyrics: PREVIEW_LYRICS, title: 'Unreleased', artist: '' },
+      t.stage.show({ id: `preview-${round}`, lyrics: PREVIEW_LYRICS, title: 'Carti Unreleased', artist: '' },
         { clock, isSeen: t.seen, colors: colorsRef.current, face: lyricFontFor(fontsRef.current, t.id), scale: SCALE })
     }
     const singAll = (): void => tiles.forEach(sing)
@@ -257,7 +257,7 @@ function LyricGrid({ chosen, onPick, colors }: { chosen: string; onPick: (id: st
   )
 }
 
-// ---- the WRLD visualizers ----
+// ---- the VAMP visualizers ----
 
 const CLASSIC = VISUALIZERS.filter((v) => v.engine === '2d' && v.id !== 'none')
 const SHADERS = VISUALIZERS.filter((v) => v.engine === 'gl')
@@ -334,7 +334,7 @@ function VizGrid({ chosen, onPick, cover }: { chosen: string; onPick: (id: strin
     ...(webglAvailable() ? [{ title: 'Shaders', modes: SHADERS }] : []),
   ]
 
-  // The colors WRLD would draw in: the cover's, or the accent's with artwork colors off or unreadable.
+  // The colors VAMP would draw in: the cover's, or the accent's with artwork colors off or unreadable.
   useEffect(() => {
     let live = true
     const accent = paletteFromAccent(parseColor(getComputedStyle(document.documentElement).getPropertyValue('--accent')))
@@ -430,7 +430,7 @@ function VizGrid({ chosen, onPick, cover }: { chosen: string; onPick: (id: strin
 }
 
 export default function DesktopPicker({ kind, onClose, onPicked }: {
-  /** 'light': the screen-edge light round the desktop. 'overlay': WRLD's Edge light, round its visualizer. */
+  /** 'light': the screen-edge light round the desktop. 'overlay': VAMP's Edge light, round its visualizer. */
   kind: 'light' | 'lyrics' | 'viz' | 'overlay'
   onClose: () => void
   /** Also told the pick. */
@@ -440,12 +440,12 @@ export default function DesktopPicker({ kind, onClose, onPicked }: {
   const lyricLook = useStore((s) => s.desktop.lyrics.look)
   const setDesktop = useStore((s) => s.setDesktop)
   const vizMode = useVizStore((s) => s.vizMode)
-  const overlay = useWrldEdgeLook()
+  const overlay = useVampEdgeLook()
   const setOverlay = useVizStore((s) => s.setVizEdgeOverlay)
   const title = { light: 'Lights', lyrics: 'Lyric styles', viz: 'Visualizers', overlay: 'Edge light' }[kind]
   const cover = useStore((s) => s.currentTrack?.imageUrl || (s.currentTrackFull?.id === s.currentTrack?.id ? s.currentTrackFull?.albumArt : null) || null)
   const colors = useAlbumColors(cover)
-  // WRLD slows down (but keeps moving) underneath while this is open.
+  // VAMP slows down (but keeps moving) underneath while this is open.
   useEffect(() => {
     const { coverViz } = useVizStore.getState()
     coverViz(true)

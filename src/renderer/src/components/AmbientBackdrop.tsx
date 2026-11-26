@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useStorePick } from '../store/useStore'
-import { smallCoverUrl, fullCoverUrl } from '../lib/juicewrldApi'
+import { smallCoverUrl, fullCoverUrl } from '../lib/catalogApi'
 import { FallbackImg } from './ProgressiveCover'
 
 const FADE_MS = 900

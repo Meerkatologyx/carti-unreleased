@@ -1,6 +1,6 @@
 // What a right-click on a widget offers - its own settings, its place, hiding it and showing the others; on the
 // player's lyrics, what's theirs: copying them, their style - as plain
-// data, so the one list serves both: the app's own menu over the WRLD tab (components/WrldWidgets.tsx), and the
+// data, so the one list serves both: the app's own menu over the VAMP tab (components/VampWidgets.tsx), and the
 // system's menu over a window on the desktop (electron/desktop, which asks the main window for it). Picking a row
 // sends its command as a widget's press does (lib/desktopBridge's runDesktopCommand; 'clear' is the main process's).
 import { DESKTOP_DEFAULTS, type DesktopSettings, type PlaylistSource } from '../store/desktopSlice'
@@ -24,7 +24,7 @@ export interface WidgetMenuItem {
 export type WidgetMenuEntry = WidgetMenuItem | 'divider'
 
 export interface WidgetMenuContext {
-  /** Right-clicked on the desktop, or in the WRLD tab. */
+  /** Right-clicked on the desktop, or in the VAMP tab. */
   where: 'desktop' | 'tab'
   /** The widgets can go out on the desktop (Windows). */
   desktopToo: boolean
@@ -64,7 +64,7 @@ export function widgetMenu(which: WidgetWhich, desktop: DesktopSettings, ctx: Wi
     const look = desktop.lyrics.look !== 'classic' ? desktop.lyrics.look : 'fisheye'
     own.push(
       { label: 'Copy lyrics', cmd: 'copy-lyrics', disabled: !ctx.lyrics?.has },
-      // The share card is WRLD's own modal, so only the tab can open it.
+      // The share card is VAMP's own modal, so only the tab can open it.
       ...(ctx.where === 'tab' && ctx.lyrics?.has ? [{ label: 'Share lyrics', cmd: 'share-lyrics' }] : []),
       ...(ctx.lyrics?.timed ? [{ label: 'Download synced lyrics', cmd: 'download-lyrics' }] : []),
       'divider',
@@ -95,9 +95,9 @@ export function widgetMenu(which: WidgetWhich, desktop: DesktopSettings, ctx: Wi
   }
   own.push(size)
 
-  // Showing and hiding is of this place: the desktop's widgets on the desktop, WRLD's in the tab.
+  // Showing and hiding is of this place: the desktop's widgets on the desktop, VAMP's in the tab.
   const onDesktop = ctx.where === 'desktop'
-  const shownKey = onDesktop ? 'isOn' : 'inWrld'
+  const shownKey = onDesktop ? 'isOn' : 'inVamp'
   const widgets: WidgetMenuItem = {
     label: 'Widgets',
     children: (['player', 'playlist', 'clock'] as const).map((w) => {
@@ -106,7 +106,7 @@ export function widgetMenu(which: WidgetWhich, desktop: DesktopSettings, ctx: Wi
     }),
   }
   const elsewhere: WidgetMenuItem | null = onDesktop
-    ? toggle('Also in WRLD', 'inWrld', style.inWrld)
+    ? toggle('Also in VAMP', 'inVamp', style.inVamp)
     : ctx.desktopToo ? toggle('Also on the desktop', 'isOn', style.isOn) : null
 
   return [
@@ -115,7 +115,7 @@ export function widgetMenu(which: WidgetWhich, desktop: DesktopSettings, ctx: Wi
     toggle('Lock position', 'locked', style.locked),
     { label: 'Reset position', ...set(onDesktop ? { place: null } : { tabPlace: null }) },
     'divider',
-    { label: onDesktop ? `Hide ${WIDGET_TITLES[which].toLowerCase()} from the desktop` : `Hide ${WIDGET_TITLES[which].toLowerCase()} from WRLD`, ...set({ [shownKey]: false }) },
+    { label: onDesktop ? `Hide ${WIDGET_TITLES[which].toLowerCase()} from the desktop` : `Hide ${WIDGET_TITLES[which].toLowerCase()} from VAMP`, ...set({ [shownKey]: false }) },
     widgets,
     ...(elsewhere ? [elsewhere] : []),
     'divider',

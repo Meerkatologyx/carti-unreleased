@@ -3,14 +3,14 @@
 // gets 403); delivery is the socket's `broadcast` frame, handled by
 // BroadcastNotifier. The live push only reaches connected sockets, so clients
 // also fetch the public catch-up list on start/reconnect (dedupe by `id`).
-import { routeUrl } from './juicewrldApi'
+import { routeUrl } from './catalogApi'
 import { authedRequest } from './apiClient'
 import { getToken } from './userApi'
 
 export const BROADCAST_LEVELS = ['info', 'success', 'warning', 'error'] as const
 export type BroadcastLevel = (typeof BROADCAST_LEVELS)[number]
 
-// Server limits (juicewrld/notifications.py).
+// Server limits (carti/notifications.py).
 export const BROADCAST_MAX_MESSAGE = 500
 export const BROADCAST_MAX_TITLE = 100
 

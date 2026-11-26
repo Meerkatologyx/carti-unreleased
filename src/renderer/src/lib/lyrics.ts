@@ -21,7 +21,7 @@ export function lyricsLoading(track: Track | null, full: FullTrack | null): bool
  * lyrics."
  *
  * Flipping `override` is the user toggling lyrics, though, not lyrics loading
- * in - that applies at once, even mid-load. Debouncing it too left WRLD's
+ * in - that applies at once, even mid-load. Debouncing it too left VAMP's
  * queue -> off toggle showing the lyrics column for the 250ms collapse delay.
  */
 export function useLyricsVisible(hasLyricsNatural: boolean, override: boolean, pending = false): boolean {

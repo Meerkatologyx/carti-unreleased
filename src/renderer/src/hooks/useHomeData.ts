@@ -3,7 +3,7 @@ import { useStore, useStorePick } from '../store/useStore'
 import { loadRecentTracks } from '../lib/recentTracks'
 import { filterListeningPlaysByDays } from '../lib/listeningPlays'
 import { allTimePrefs } from '../lib/listeningStats'
-import { playlistCoverUrl, apiFetch, apiPeek, loadAllSongs, songToTrack, type JWApiStats, type JWApiSong } from '../lib/juicewrldApi'
+import { playlistCoverUrl, apiFetch, apiPeek, loadAllSongs, songToTrack, type CatalogStats, type CatalogSong } from '../lib/catalogApi'
 import { peekPlaylistCover } from '../lib/userApi'
 import { loadRecentPlaylistIds } from '../lib/recentPlaylists'
 import { loadStats as loadHeardleStats, todayKey as heardleToday } from '../lib/heardle'
@@ -28,7 +28,7 @@ const HOME_PLAYLIST_LIMIT = 30
 // waiting on the network again; the fetch on mount still refreshes both.
 let albumsMemo: Album[] | null = null
 let albumsMemoSource: Album[] | null = null
-let albumIndexMemo: Map<string, JWApiSong> | null = null
+let albumIndexMemo: Map<string, CatalogSong> | null = null
 const newestFirst = (list: Album[]): Album[] =>
   [...list].sort((a, b) => (b.release_date ?? '').localeCompare(a.release_date ?? ''))
 
@@ -121,15 +121,15 @@ export function useHomeData({ mobile = false } = {}) {
   // listening numbers in the hero. Same stale-while-revalidate shape as News:
   // ApiTrackerView already warms this exact cache key, so most visits paint
   // it instantly from there.
-  const [siteStats, setSiteStats] = useState<JWApiStats | null>(() => mobile ? apiPeek<JWApiStats>('/stats/') ?? null : null)
+  const [siteStats, setSiteStats] = useState<CatalogStats | null>(() => mobile ? apiPeek<CatalogStats>('/stats/') ?? null : null)
   useEffect(() => {
     if (!mobile) return
-    apiFetch<JWApiStats>('/stats/').then(setSiteStats).catch(() => undefined)
+    apiFetch<CatalogStats>('/stats/').then(setSiteStats).catch(() => undefined)
   }, [mobile])
 
   // Album objects carry track paths, not full song metadata - resolved
   // against the whole catalog (?all=true, same fetch/cache the versions
-  // table and WrldView's own album browser use) for cover art and to build
+  // table and VampView's own album browser use) for cover art and to build
   // a playable queue. Newest release first, same "what's fresh" ordering as
   // Recently played.
   // First paint comes from this session's last list, else the cached pages.
@@ -139,7 +139,7 @@ export function useHomeData({ mobile = false } = {}) {
     const cached = albumsApi.peekAlbums()
     return cached ? newestFirst(cached) : []
   })
-  const [albumSongIndex, setAlbumSongIndex] = useState<Map<string, JWApiSong>>(() => albumIndexMemo ?? new Map())
+  const [albumSongIndex, setAlbumSongIndex] = useState<Map<string, CatalogSong>>(() => albumIndexMemo ?? new Map())
   // True until the first fetch settles when there was nothing to paint, so
   // Home can hold the Albums slot instead of reshuffling the bento later.
   const [albumsPending, setAlbumsPending] = useState(() => HOME_ALBUMS_SHOWN && albums.length === 0)
@@ -180,7 +180,7 @@ export function useHomeData({ mobile = false } = {}) {
       play: () => {
         const queue = tracks
           .map((t) => albumSongIndex.get(t.path))
-          .filter((s): s is JWApiSong => !!s)
+          .filter((s): s is CatalogSong => !!s)
           .map(songToTrack)
         if (queue.length > 0) playTrack(queue[0], queue)
       },
@@ -215,7 +215,7 @@ export function useHomeData({ mobile = false } = {}) {
   // Server playlists need an account; the local kinds don't. Signed out we just
   // show what exists locally rather than prompting to sign in.
   // Built once per change to the lists it reads rather than every render: Home
-  // re-renders for any store field it picks (999 FM's now playing, song prefs...),
+  // re-renders for any store field it picks (Vamp FM's now playing, song prefs...),
   // and this also reads the recents list out of localStorage.
   const playlistRow = useMemo((): HomePlaylistCard[] => {
     const ownPlaylists = account ? playlists : []
@@ -286,9 +286,9 @@ export function useHomeData({ mobile = false } = {}) {
     window.dispatchEvent(new CustomEvent('news:open', { detail: item.id }))
   }
 
-  // Navigating to WRLD used to land on the page without actually tuning in -
-  // the 999 FM toggle there is a separate click. Mirrors that toggle's own
-  // "turn on" branch (WrldView's top-left button) so the shortcut here does
+  // Navigating to VAMP used to land on the page without actually tuning in -
+  // the Vamp FM toggle there is a separate click. Mirrors that toggle's own
+  // "turn on" branch (VampView's top-left button) so the shortcut here does
   // both in one action, same as clicking through and then hitting the toggle.
   const openRadioFm = (): void => {
     if (!radioFmActive) {
@@ -297,7 +297,7 @@ export function useHomeData({ mobile = false } = {}) {
       void getActiveRadioClient()?.startListening()?.catch(() => setRadioFmActive(false))
       setRadioFmActive(true)
     }
-    setActiveView('wrld')
+    setActiveView('vamp')
   }
 
   return {

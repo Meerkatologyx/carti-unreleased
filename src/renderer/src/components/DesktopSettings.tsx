@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ElementType, type ReactNode } from 'r
 import { useShallow } from 'zustand/react/shallow'
 import { ChevronDown, Sun, Palette, MicVocal, Disc3, ListMusic, Clock, Monitor, Sparkles, Check, RotateCcw, LayoutGrid } from 'lucide-react'
 import { useStore } from '../store/useStore'
-import { useVizStore, useWrldEdgeLook } from '../store/vizStore'
+import { useVizStore, useVampEdgeLook } from '../store/vizStore'
 import { DESKTOP_DEFAULTS, type DesktopPatch, type DesktopSettings as Settings } from '../store/desktopSlice'
 import { ls } from '../lib/persist'
 import { LOOKS, PLACES } from '../desktop/light/looks'
@@ -17,7 +17,7 @@ import { Row, Toggle, SettingsTitle } from './SettingsRow'
 // Settings > Desktop: what came over from iJWA. The groups open one at a time, so the tab never grows past the
 // window, and the one left open is open next time. Everything that draws outside the app window (the light round the
 // screen, the widgets, clear desk, the displays) is Windows only; the light's tuning, the colors and the lyric styles
-// also drive WRLD's Edge light and its lyrics on every desktop build (and off Windows, the light picked is WRLD's).
+// also drive VAMP's Edge light and its lyrics on every desktop build (and off Windows, the light picked is VAMP's).
 
 const DesktopPicker = lazyOverlay(() => import('./DesktopPicker'))
 
@@ -59,7 +59,7 @@ function Group({ id, open, onToggle, icon: Icon, color, title, sub, children }: 
 }
 
 /** A plain row inside a group: the label on the left, its control on the right - or under it, right-aligned, where
- *  the two don't fit side by side (WRLD's settings popup). */
+ *  the two don't fit side by side (VAMP's settings popup). */
 function Line({ label, sub, dim, children }: { label: string; sub?: string; dim?: boolean; children: ReactNode }): JSX.Element {
   return (
     <div className={`flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 py-2 transition-opacity ${dim ? 'opacity-40 pointer-events-none' : ''}`}>
@@ -280,7 +280,7 @@ function Displays({ hidden, onChange }: { hidden: string[]; onChange: (next: str
   )
 }
 
-/** `heading` off where a tab already names it (WRLD's settings popup). */
+/** `heading` off where a tab already names it (VAMP's settings popup). */
 export default function DesktopSettings({ heading = true }: { heading?: boolean }): JSX.Element {
   const { desktop, setDesktop, resetDesktopPlace } = useStore(useShallow((s) => ({
     desktop: s.desktop, setDesktop: s.setDesktop, resetDesktopPlace: s.resetDesktopPlace,
@@ -293,8 +293,8 @@ export default function DesktopSettings({ heading = true }: { heading?: boolean 
     ls.set('desktopSettingsGroup', next)
   }
   const [picker, setPicker] = useState<'light' | 'overlay' | 'lyrics' | null>(null)
-  // Without the screen light (off Windows) the light chosen here is WRLD's Edge light.
-  const edge = useWrldEdgeLook()
+  // Without the screen light (off Windows) the light chosen here is VAMP's Edge light.
+  const edge = useVampEdgeLook()
   const setEdge = useVizStore((s) => s.setVizEdgeOverlay)
 
   const { light, player, playlist, clock, lyrics } = desktop
@@ -309,7 +309,7 @@ export default function DesktopSettings({ heading = true }: { heading?: boolean 
       <p className={`text-text-muted text-xs ${heading ? 'mb-5 px-1 leading-relaxed' : 'mb-3'}`}>
         {windows
           ? 'Light round your screens, a player, playlist and clock on the desktop, and new lyric styles. Everything follows what Unreleased plays.'
-          : 'New lyric styles and an Edge light for the WRLD tab. The light round the screen and the desktop widgets are on Windows.'}
+          : 'New lyric styles and an Edge light for the VAMP tab. The light round the screen and the desktop widgets are on Windows.'}
       </p>
 
       {windows && (
@@ -320,14 +320,14 @@ export default function DesktopSettings({ heading = true }: { heading?: boolean 
         </div>
       )}
 
-      {/* In Settings every section is one row of a glass card; in WRLD's
+      {/* In Settings every section is one row of a glass card; in VAMP's
           settings popup they stay a plain list. */}
       <div className={heading ? CARD_CLASS : undefined}>
 
       <Group id="light" open={open === 'light'} onToggle={toggle} icon={Sun} color="#f59e0b" title={windows ? 'Light' : 'Edge light'}
-        sub={windows ? 'A glow round your screens that moves with the music' : 'The light round the WRLD visualizer, and how it looks'}>
+        sub={windows ? 'A glow round your screens that moves with the music' : 'The light round the VAMP visualizer, and how it looks'}>
         {windows && <Switch label="Screen-edge light" sub="Shows while a song plays, fades when it stops" on={light.isOn} onChange={(isOn) => set({ light: { isOn } })} />}
-        <Line label="Light" sub={windows ? 'Also WRLD\'s Edge light, when it\'s on' : undefined}>
+        <Line label="Light" sub={windows ? 'Also VAMP\'s Edge light, when it\'s on' : undefined}>
           <div className="flex items-center gap-2">
             {windows
               ? <ThemedSelect value={light.look} onChange={(look) => set({ light: { look } })}
@@ -364,7 +364,7 @@ export default function DesktopSettings({ heading = true }: { heading?: boolean 
       </Group>
 
       <Group id="lyrics" open={open === 'lyrics'} onToggle={toggle} icon={MicVocal} color="#7c3aed" title="Lyric style"
-        sub={windows ? 'How WRLD and the desktop player sing the lyrics' : 'How the WRLD tab sings the lyrics'}>
+        sub={windows ? 'How VAMP and the desktop player sing the lyrics' : 'How the VAMP tab sings the lyrics'}>
         <Line label="Style" sub={lyrics.look === 'classic' ? 'The scrolling list' : 'Word by word, as a lyric video'}>
           <div className="flex items-center gap-2">
             <ThemedSelect value={lyrics.look} onChange={(look) => set({ lyrics: { look } })}
@@ -393,11 +393,11 @@ export default function DesktopSettings({ heading = true }: { heading?: boolean 
         )}
       </Group>
 
-      {/* The widgets stand on the desktop (Windows) and in WRLD's Widgets layout (everywhere), looking the same in both. */}
+      {/* The widgets stand on the desktop (Windows) and in VAMP's Widgets layout (everywhere), looking the same in both. */}
       <Group id="player" open={open === 'player'} onToggle={toggle} icon={Disc3} color="#2563eb" title={windows ? 'Desktop player' : 'Player'}
-        sub={windows ? 'Your queue as glass cards on the desktop or in WRLD, with a control bar' : "Your queue as glass cards in WRLD's Widgets layout, with a control bar"}>
+        sub={windows ? 'Your queue as glass cards on the desktop or in VAMP, with a control bar' : "Your queue as glass cards in VAMP's Widgets layout, with a control bar"}>
         {windows && <Switch label="On the desktop" on={player.isOn} onChange={(isOn) => set({ player: { isOn } })} />}
-        <Switch label="In WRLD" sub="In the tab's Widgets layout" on={player.inWrld} onChange={(inWrld) => set({ player: { inWrld } })} />
+        <Switch label="In VAMP" sub="In the tab's Widgets layout" on={player.inVamp} onChange={(inVamp) => set({ player: { inVamp } })} />
         <Slider label="Size" value={player.size} reset={DESKTOP_DEFAULTS.player.size} onChange={(size) => set({ player: { size } })} />
         <Slider label="Tilt" value={player.tilt} reset={DESKTOP_DEFAULTS.player.tilt} onChange={(tilt) => set({ player: { tilt } })} />
         <Slider label="Glass brightness" value={player.glassBrightness} reset={DESKTOP_DEFAULTS.player.glassBrightness} onChange={(glassBrightness) => set({ player: { glassBrightness } })} />
@@ -411,7 +411,7 @@ export default function DesktopSettings({ heading = true }: { heading?: boolean 
       <Group id="playlist" open={open === 'playlist'} onToggle={toggle} icon={ListMusic} color="#059669" title={windows ? 'Desktop playlist' : 'Playlist'}
         sub="A see-through list beside the player: your queue, playlists or liked songs">
         {windows && <Switch label="On the desktop" on={playlist.isOn} onChange={(isOn) => set({ playlist: { isOn } })} />}
-        <Switch label="In WRLD" sub="In the tab's Widgets layout" on={playlist.inWrld} onChange={(inWrld) => set({ playlist: { inWrld } })} />
+        <Switch label="In VAMP" sub="In the tab's Widgets layout" on={playlist.inVamp} onChange={(inVamp) => set({ playlist: { inVamp } })} />
         <Segments label="Side" value={playlist.side} choices={[['left', 'Left'], ['right', 'Right']] as const} onChange={(side) => set({ playlist: { side } })} />
         <Slider label="Tilt" value={playlist.tilt} reset={DESKTOP_DEFAULTS.playlist.tilt} onChange={(tilt) => set({ playlist: { tilt } })} />
         <Slider label="Size" value={playlist.size} reset={DESKTOP_DEFAULTS.playlist.size} onChange={(size) => set({ playlist: { size } })} />
@@ -422,7 +422,7 @@ export default function DesktopSettings({ heading = true }: { heading?: boolean 
       <Group id="clock" open={open === 'clock'} onToggle={toggle} icon={Clock} color="#0891b2" title={windows ? 'Desktop clock' : 'Clock'}
         sub="Tall glass digits, tinted by the cover">
         {windows && <Switch label="On the desktop" on={clock.isOn} onChange={(isOn) => set({ clock: { isOn } })} />}
-        <Switch label="In WRLD" sub="In the tab's Widgets layout" on={clock.inWrld} onChange={(inWrld) => set({ clock: { inWrld } })} />
+        <Switch label="In VAMP" sub="In the tab's Widgets layout" on={clock.inVamp} onChange={(inVamp) => set({ clock: { inVamp } })} />
         <Slider label="Size" value={clock.size} reset={DESKTOP_DEFAULTS.clock.size} onChange={(size) => set({ clock: { size } })} />
         <Slider label="Height" value={clock.stretch} reset={DESKTOP_DEFAULTS.clock.stretch} onChange={(stretch) => set({ clock: { stretch } })} />
         <Slider label="Weight" value={clock.weight} reset={DESKTOP_DEFAULTS.clock.weight} onChange={(weight) => set({ clock: { weight } })} />

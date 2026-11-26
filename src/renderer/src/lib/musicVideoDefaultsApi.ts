@@ -1,4 +1,4 @@
-// The video every player shows in WRLD for a song, as administrators set it on the server
+// The video every player shows in VAMP for a song, as administrators set it on the server
 // (/accounts/admin/music-videos/). Players read /accounts/music-videos/ and use a song's default
 // before their own automatic pick; a listener's pick on their device wins over both. See backend
 // docs/11-admin.md, "Admin: Music video defaults".
@@ -38,7 +38,7 @@ export function onMusicVideoDefaultsChange(cb: () => void): () => void {
   return () => { listeners.delete(cb) }
 }
 
-// Song info usually runs in a pop-out window: a change made there reaches WRLD in the main window this way.
+// Song info usually runs in a pop-out window: a change made there reaches VAMP in the main window this way.
 const BUMP_KEY = 'musicVideoDefaultsAt'
 if (typeof window !== 'undefined') {
   window.addEventListener('storage', (e) => { if (e.key === `unreleased:${BUMP_KEY}`) changed() })

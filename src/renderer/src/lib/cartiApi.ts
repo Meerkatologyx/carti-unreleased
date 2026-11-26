@@ -1,22 +1,21 @@
 // Stand-in backend for the Carti tracker.
 //
-// The original app talks to a live API server for everything. This site is
-// static: scripts/build-carti-data.mjs turns the Playboi Carti tracker sheet
-// into /carti/{songs,eras,stats}.json, and this module patches window.fetch so
-// every request to the app's API base is answered from those files in the
-// browser. Read-only catalogue endpoints (songs, eras, stats) work; anything
-// that needs a real server (accounts, chat, radio, uploads, edits) gets a
-// clean "not available" error, which the app already handles as a failed
-// request.
+// The site is static: scripts/build-carti-data.mjs turns the Playboi Carti
+// tracker sheet into /carti/{songs,eras,stats}.json, and this module patches
+// window.fetch so every request to the app's API base is answered from those
+// files in the browser. Catalogue endpoints (songs, eras, stats, shuffle
+// radio) work; anything that needs a real server (accounts, chat, live radio,
+// uploads, edits) gets a clean "not available" error, which the app already
+// handles as a failed request.
 
-import { JWAPI_BASE } from './apiServers'
-import type { JWApiSong, JWApiEra, JWApiStats } from './juicewrldApi'
+import { CATALOG_API_BASE } from './apiServers'
+import type { CatalogSong, CatalogEra, CatalogStats } from './catalogApi'
 
 const ASSET_BASE = new URL(import.meta.env.BASE_URL || '/', location.origin).href
 
-interface CartiEra extends JWApiEra { image_url: string | null }
+interface CartiEra extends CatalogEra { image_url: string | null }
 
-let dataPromise: Promise<{ songs: JWApiSong[]; eras: CartiEra[]; stats: JWApiStats }> | null = null
+let dataPromise: Promise<{ songs: CatalogSong[]; eras: CartiEra[]; stats: CatalogStats }> | null = null
 
 function asset(p: string): string {
   return new URL(p.replace(/^\//, ''), ASSET_BASE).href
@@ -29,7 +28,7 @@ function loadData() {
       return r.json()
     })
     dataPromise = Promise.all([get('songs.json'), get('eras.json'), get('stats.json')]).then(([songs, eras, stats]) => {
-      for (const s of songs as JWApiSong[]) if (s.image_url) s.image_url = asset(s.image_url)
+      for (const s of songs as CatalogSong[]) if (s.image_url) s.image_url = asset(s.image_url)
       for (const e of eras as CartiEra[]) if (e.image_url) e.image_url = asset(e.image_url)
       return { songs, eras, stats }
     })
@@ -40,7 +39,7 @@ function loadData() {
 
 const norm = (s: string): string => s.toLowerCase().replace(/['’‘`]/g, '').replace(/[^\p{L}\p{N}]+/gu, ' ').trim()
 
-function matches(song: JWApiSong, q: string, deep: boolean): boolean {
+function matches(song: CatalogSong, q: string, deep: boolean): boolean {
   const n = norm(q)
   if (!n) return true
   const hay = [song.name, ...(song.track_titles ?? []), song.credited_artists, song.producers, song.era?.name ?? '']
@@ -49,11 +48,11 @@ function matches(song: JWApiSong, q: string, deep: boolean): boolean {
   return n.split(' ').every((w) => text.includes(w))
 }
 
-function omit(song: JWApiSong, fields: string[]): JWApiSong {
+function omit(song: CatalogSong, fields: string[]): CatalogSong {
   if (!fields.length) return song
   const copy = { ...song } as Record<string, unknown>
   for (const f of fields) delete copy[f]
-  return copy as unknown as JWApiSong
+  return copy as unknown as CatalogSong
 }
 
 function json(body: unknown, status = 200): Response {
@@ -63,7 +62,7 @@ function json(body: unknown, status = 200): Response {
 const UNAVAILABLE = { detail: "This feature isn't available on the Carti tracker." }
 
 async function handle(url: URL, method: string): Promise<Response> {
-  const p = url.pathname.slice(new URL(JWAPI_BASE).pathname.replace(/\/$/, '').length) || '/'
+  const p = url.pathname.slice(new URL(CATALOG_API_BASE).pathname.replace(/\/$/, '').length) || '/'
   const q = url.searchParams
   if (method !== 'GET' && method !== 'HEAD') {
     // Play counts are fire-and-forget; swallow them quietly.
@@ -110,6 +109,16 @@ async function handle(url: URL, method: string): Promise<Response> {
 
   if (p === '/stats/' || p === '/stats') return json((await loadData()).stats)
 
+  // Shuffle radio: any song with a file of its own to stream (embed-only songs
+  // need their site's player, so they're left to the normal queue).
+  if (p === '/radio/random/') {
+    const { songs } = await loadData()
+    const pool = songs.filter((s) => /^https?:/.test(s.path))
+    const song = pool[Math.floor(Math.random() * pool.length)]
+    if (!song) return json({ detail: 'Nothing to play.' }, 404)
+    return json({ title: song.name, path: song.path, song, size: 0, hash: String(song.id) })
+  }
+
   if (p === '/plays/stats/') {
     return json({ total_plays: 0, total_songs_with_plays: 0, total_albums_with_plays: 0, total_eras_with_plays: 0, category_breakdown: [], top_songs: [], top_albums: [], top_eras: [], recent_plays: [] })
   }
@@ -130,7 +139,7 @@ export async function cartiEraCovers(): Promise<Record<string, string>> {
 }
 
 export function installCartiApi(): void {
-  const base = JWAPI_BASE.replace(/\/$/, '')
+  const base = CATALOG_API_BASE.replace(/\/$/, '')
   window.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const raw = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
     if (raw.startsWith(base)) {

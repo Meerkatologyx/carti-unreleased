@@ -8,7 +8,7 @@
 import { routeUrl } from './apiServers'
 import { apiRequest, authedRequest, authHeaders } from './apiClient'
 import { getToken, trackIdToSongId } from './userApi'
-import { buildStreamUrl } from './juicewrldApi'
+import { buildStreamUrl } from './catalogApi'
 import { DONOR_ALLOWED_EXTENSIONS, extensionOf, isImageFile } from './donorFilesApi'
 import { ensureDonorUrl, isDonorStreamUrl } from './donorPlayback'
 import { saveTimingDraft } from './lyricsTiming'

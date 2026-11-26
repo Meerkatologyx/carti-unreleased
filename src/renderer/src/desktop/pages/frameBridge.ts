@@ -1,4 +1,4 @@
-// A widget's page in a frame in the WRLD tab rather than a window on the desktop: the same bridge electron/
+// A widget's page in a frame in the VAMP tab rather than a window on the desktop: the same bridge electron/
 // desktopPreload.js gives a window, over messages to the tab that frames it.
 import { FRAME_MARK, isOurs, type FromFrame, type ToFrame } from '../frame'
 import type { Bridge } from './page'

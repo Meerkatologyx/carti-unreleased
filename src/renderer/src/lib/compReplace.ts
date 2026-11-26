@@ -3,7 +3,7 @@
 // live comp so unchanged files are reused by path instead of uploaded again,
 // then the new files are staged and the server swaps the comp in one step.
 import { stageCompFiles } from './compChunkedUpload'
-import { listSubtree } from './juicewrldApi'
+import { listSubtree } from './catalogApi'
 import { adminReplaceComp, type CompReplaceFile, type CompReplaceResult } from './userApi'
 
 // The server's ALLOWED_EXTENSIONS. A stage request with one bad file is

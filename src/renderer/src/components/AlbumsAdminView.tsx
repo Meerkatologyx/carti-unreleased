@@ -3,8 +3,8 @@ import {
   Plus, Trash2, Save, Check, X, Search, Loader2, ChevronLeft, ChevronUp, ChevronDown,
   Music, Shield, AlertCircle, FolderSearch, Play,
 } from 'lucide-react'
-import { apiFetch, buildImageUrl, loadAllSongs, songToTrack, toSiteRelativeImageUrl } from '../lib/juicewrldApi'
-import type { JWApiSong } from '../lib/juicewrldApi'
+import { apiFetch, buildImageUrl, loadAllSongs, songToTrack, toSiteRelativeImageUrl } from '../lib/catalogApi'
+import type { CatalogSong } from '../lib/catalogApi'
 import * as albumsApi from '../lib/albumsApi'
 import type { Album, Artist, AlbumSongEntry } from '../lib/albumsApi'
 import { useStorePick } from '../store/useStore'
@@ -14,11 +14,11 @@ import ThemedDatePicker from './ThemedDatePicker'
 import FilePickerModal from './FilePickerModal'
 
 // Admin UI for the real Album catalog (GET/POST/PATCH/DELETE
-// /accounts/admin/albums/), replacing the old client-side wrlddata.json
+// /accounts/admin/albums/), replacing the old client-side vampdata.json
 // editor. That JSON let one album carry several "editions" (Standard/Deluxe),
 // each with its own cover and tracklist - the backend album object has no
 // such concept, just one release_date and one flat songs[] tracklist. This
-// view (and the public Wrld page reading /albums/) both work against that
+// view (and the public Vamp page reading /albums/) both work against that
 // simpler flat shape now.
 
 // ── Song path → metadata lookup ─────────────────────────────────────────────
@@ -26,29 +26,29 @@ import FilePickerModal from './FilePickerModal'
 /** Resolves a track's display name/art from its stored file path, using the
  *  same whole-catalog fetch (?all=true) the versions table uses - the album
  *  API only stores {order, path}, not full song metadata. */
-function usePathIndex(): Map<string, JWApiSong> {
-  const [songs, setSongs] = useState<JWApiSong[]>([])
+function usePathIndex(): Map<string, CatalogSong> {
+  const [songs, setSongs] = useState<CatalogSong[]>([])
   useEffect(() => { loadAllSongs().then(setSongs).catch(() => {}) }, [])
   return useMemo(() => new Map(songs.filter(s => s.path).map(s => [s.path as string, s])), [songs])
 }
 
-function trackLabel(path: string, song: JWApiSong | undefined): string {
+function trackLabel(path: string, song: CatalogSong | undefined): string {
   if (song) return song.name
   const base = path.split('/').pop() ?? path
   return base.replace(/\.[^.]+$/, '')
 }
 
 /** The album's own cover when it has one, else the lead track's art. */
-function adminCoverUrl(coverUrl: string | undefined, songs: AlbumSongEntry[], pathIndex: Map<string, JWApiSong>): string | undefined {
+function adminCoverUrl(coverUrl: string | undefined, songs: AlbumSongEntry[], pathIndex: Map<string, CatalogSong>): string | undefined {
   const lead = [...songs].sort((a, b) => a.order - b.order)[0]?.path
   return buildImageUrl(coverUrl) ?? buildImageUrl(lead ? pathIndex.get(lead)?.image_url : undefined)
 }
 
 // ── Song search autocomplete ───────────────────────────────────────────────
 
-function SongSearch({ onPick, onClose }: { onPick: (s: JWApiSong) => void; onClose: () => void }): JSX.Element {
+function SongSearch({ onPick, onClose }: { onPick: (s: CatalogSong) => void; onClose: () => void }): JSX.Element {
   const [q, setQ] = useState('')
-  const [results, setResults] = useState<JWApiSong[]>([])
+  const [results, setResults] = useState<CatalogSong[]>([])
   const [loading, setLoading] = useState(false)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -61,7 +61,7 @@ function SongSearch({ onPick, onClose }: { onPick: (s: JWApiSong) => void; onClo
     setLoading(true)
     timer.current = setTimeout(async () => {
       try {
-        const d = await apiFetch<{ results: JWApiSong[] }>('/songs/', { search: q, page_size: 8 })
+        const d = await apiFetch<{ results: CatalogSong[] }>('/songs/', { search: q, page_size: 8 })
         setResults((d.results ?? []).filter(s => s.path))
       } catch { setResults([]) }
       setLoading(false)
@@ -230,7 +230,7 @@ function CreatePanel({ artists, onCreated }: { artists: Artist[]; onCreated: (a:
 function AlbumDetail({ album, artists, pathIndex, onBack, onSaved, onDeleted }: {
   album: Album
   artists: Artist[]
-  pathIndex: Map<string, JWApiSong>
+  pathIndex: Map<string, CatalogSong>
   onBack: () => void
   onSaved: (a: Album) => void
   onDeleted: () => void
@@ -293,7 +293,7 @@ function AlbumDetail({ album, artists, pathIndex, onBack, onSaved, onDeleted }: 
   }
 
   const removeSong = (i: number): void => setSongs(songs.filter((_, j) => j !== i))
-  const addSong = (s: JWApiSong): void => {
+  const addSong = (s: CatalogSong): void => {
     if (!s.path) return
     setSongs(prev => [...prev, { order: prev.length + 1, path: s.path as string }])
   }

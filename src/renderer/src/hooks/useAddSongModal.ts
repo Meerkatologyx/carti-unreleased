@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import * as userApi from '../lib/userApi'
 import { errorMessage } from '../lib/format'
-import { apiFetch, JWApiEra, JWApiSong } from '../lib/juicewrldApi'
+import { apiFetch, CatalogEra, CatalogSong } from '../lib/catalogApi'
 import { useProposalForm, buildProposedData, type ProposalFormState } from '../lib/proposalForm'
 import { loadEraFullNames, listEras } from '../lib/eras'
 
@@ -14,12 +14,12 @@ export function useAddSongModal(onSubmitted: () => void, onClose: () => void, ch
   setCopiedFrom: (v: string | null) => void
   pickingFile: boolean
   setPickingFile: (v: boolean) => void
-  eras: JWApiEra[]
+  eras: CatalogEra[]
   submitState: 'idle' | 'submitting' | 'submitted' | 'error'
   submitError: string | null
   edNotes: string
   setEdNotes: (v: string) => void
-  copyFrom: (s: JWApiSong) => void
+  copyFrom: (s: CatalogSong) => void
   handleSubmit: () => Promise<void>
 } {
   // Every field lives in one reducer (lib/proposalForm.ts) instead of ~26
@@ -29,7 +29,7 @@ export function useAddSongModal(onSubmitted: () => void, onClose: () => void, ch
   const { formState: f, updateField, copyFrom: copyFromForm } = useProposalForm()
   const [copiedFrom, setCopiedFrom] = useState<string | null>(null)
   const [pickingFile, setPickingFile] = useState(false)
-  const [eras, setEras] = useState<JWApiEra[]>([])
+  const [eras, setEras] = useState<CatalogEra[]>([])
   const [submitState, setSubmitState] = useState<'idle' | 'submitting' | 'submitted' | 'error'>('idle')
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [edNotes, setEdNotes] = useState('')
@@ -43,7 +43,7 @@ export function useAddSongModal(onSubmitted: () => void, onClose: () => void, ch
   // and silently inheriting those would submit wrong data for the common case.
   // (copyFromForm's field set/order/fallbacks live in proposalForm.ts's
   // reducer - see its 'copyFrom' case.)
-  const copyFrom = (s: JWApiSong): void => {
+  const copyFrom = (s: CatalogSong): void => {
     copyFromForm(s)
     setCopiedFrom(s.name || null)
   }

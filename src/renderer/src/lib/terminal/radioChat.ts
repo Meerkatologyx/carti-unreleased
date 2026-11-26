@@ -6,7 +6,7 @@ import type { RadioChatLinks, RadioChatMessage } from '../radioChatApi'
 import { sayOnceRadioChat } from '../radioChatSocket'
 import { asJson, fail, idArg, parseArgs, table, type TermCommand } from './types'
 
-// The 999 FM live chat (WRLD → 999 FM → Chat). `fmchat` reads and posts, as
+// The Vamp FM live chat (VAMP → Vamp FM → Chat). `fmchat` reads and posts, as
 // the panel does; `fmmod` is the admin side: the killswitch, deleting lines
 // and banning their authors, who may post links, and the blocked words.
 
@@ -24,7 +24,7 @@ const line = (m: RadioChatMessage): string =>
 export const RADIO_CHAT_COMMANDS: TermCommand[] = [
   {
     name: 'fmchat', group: 'Content', usage: 'fmchat [--limit n] [--json] | fmchat say <text>',
-    description: 'The 999 FM live chat: the latest lines, or post one (as your account when signed in)',
+    description: 'The Vamp FM live chat: the latest lines, or post one (as your account when signed in)',
     // `say` opens the chat socket and, signed in, trades a ticket first.
     covers: ['radioChatApi.fetchRadioChat', 'radioChatApi.fetchRadioChatTicket'],
     run: async (args, ctx) => {
@@ -53,7 +53,7 @@ export const RADIO_CHAT_COMMANDS: TermCommand[] = [
   {
     name: 'fmmod', group: 'Admin',
     usage: 'fmmod off [reason] [--clear] | on | guests off|on | clear | delete <id> | ban <id> [minutes] [--reason r] [--keep] | bans | unban <banId> | links [everyone|signed-in|staff|off] | words [add|remove <word…> | clear]',
-    description: '999 FM chat moderation: the killswitch for everyone (off/on) or guests only (guests off/on: listeners without an account), clearing, deleting lines, bans. Ban minutes 0 = until lifted; --keep leaves their lines up. links: who may post links. words: the blocked words (whole words, * matches any letters; quote a phrase)',
+    description: 'Vamp FM chat moderation: the killswitch for everyone (off/on) or guests only (guests off/on: listeners without an account), clearing, deleting lines, bans. Ban minutes 0 = until lifted; --keep leaves their lines up. links: who may post links. words: the blocked words (whole words, * matches any letters; quote a phrase)',
     covers: [
       'radioChatApi.setRadioChatState', 'radioChatApi.deleteRadioChatMessage', 'radioChatApi.banRadioChatAuthor',
       'radioChatApi.fetchRadioChatBans', 'radioChatApi.liftRadioChatBan', 'radioChatApi.fetchRadioChatAdminState',

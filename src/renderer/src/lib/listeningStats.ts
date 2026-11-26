@@ -9,7 +9,7 @@
 // this module just joins those against the prefs and ranks them. That keeps
 // the (fiddly) share/percentage math testable without a network or a store.
 
-import { parseDuration, CATEGORY_LABELS } from './juicewrldApi'
+import { parseDuration, CATEGORY_LABELS } from './catalogApi'
 import { SongPreference } from './songPrefs'
 import type { StatsSong } from './statsCatalog'
 import {
@@ -52,14 +52,14 @@ export interface ListeningStats {
   collaborators: RankedEntry[]
 }
 
-// Credit strings are free text ("Nick Mira, Sidepce & Charlie Handsome"), so
+// Credit strings are free text ("Pierre Bourne, F1LTHY & Ojivolta"), so
 // split on the separators that actually appear and leave everything else
 // intact - an aggressive split would shred names that legitimately contain
 // "x" or "and".
 const CREDIT_SEPARATORS = /\s*(?:,|&|\/|;)\s*/
 const CREDIT_PREFIX = /^(?:feat\.?|ft\.?|featuring|prod\.?(?:\s+by)?)\s+/i
 
-/** "Nick Mira, Sidepce" → ["Nick Mira", "Sidepce"]. Empty for null/blank. */
+/** "Pierre Bourne, F1LTHY" → ["Pierre Bourne", "F1LTHY"]. Empty for null/blank. */
 export function splitCredits(raw: string | null | undefined): string[] {
   if (!raw) return []
   const out: string[] = []
@@ -67,7 +67,7 @@ export function splitCredits(raw: string | null | undefined): string[] {
   for (const part of raw.split(CREDIT_SEPARATORS)) {
     const name = part.replace(CREDIT_PREFIX, '').trim()
     if (!name) continue
-    // Within a single song, "Nick Mira & Nick Mira" shouldn't double-count.
+    // Within a single song, "F1LTHY & F1LTHY" shouldn't double-count.
     const dedupe = name.toLowerCase()
     if (seen.has(dedupe)) continue
     seen.add(dedupe)
@@ -76,7 +76,7 @@ export function splitCredits(raw: string | null | undefined): string[] {
   return out
 }
 
-const JUICE = /^juice\s*wrld$/i
+const CARTI = /^carti\s*vamp$/i
 
 /** Aggregates plays by an arbitrary key extracted per song. `keyOf` returns
  *  zero or more keys - a song with three producers counts once for each. */
@@ -123,7 +123,7 @@ export function buildListeningStats(played: PlayedSong[]): ListeningStats {
     producers: rank(played, (s) => splitCredits(s.producers).map((n) => ({ key: n.toLowerCase(), label: n }))),
     collaborators: rank(played, (s) =>
       splitCredits(s.credited_artists)
-        .filter((n) => !JUICE.test(n))
+        .filter((n) => !CARTI.test(n))
         .map((n) => ({ key: n.toLowerCase(), label: n })),
     ),
   }

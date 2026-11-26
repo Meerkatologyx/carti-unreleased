@@ -1,6 +1,6 @@
 import { getFileExt, TEXT_EXTS } from './fileTypes'
 import { formatBytes } from './format'
-import { normalizeForSearch } from './juicewrldApi'
+import { normalizeForSearch } from './catalogApi'
 import { runFileSearch } from './fileSearch'
 import { fetchEntryText, listDir, listSubtreeFlat, lookupEntry, resolveDir, unquote, type FilesCwd, type FsEntry } from './terminalFiles'
 

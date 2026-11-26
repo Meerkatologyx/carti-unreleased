@@ -16,8 +16,8 @@ import type { AccountUser, PlaylistSummary, UserSettings } from '../lib/userApi'
 import type { GifResult } from '../lib/gifApi'
 import * as preferencesApi from '../lib/preferencesApi'
 import * as profilePushApi from '../lib/profilePushApi'
-import { apiFetch, apiPeek, getSongById, buildStreamUrl, buildImageUrl, parseDuration, overrideCoverUrl, fetchChannels, getSongsByIds, songToTrack, peekTrackerCatalog, fetchTrackerCatalog, OMIT_BULK } from '../lib/juicewrldApi'
-import type { JWApiSong, JWApiChannel } from '../lib/juicewrldApi'
+import { apiFetch, apiPeek, getSongById, buildStreamUrl, buildImageUrl, parseDuration, overrideCoverUrl, fetchChannels, getSongsByIds, songToTrack, peekTrackerCatalog, fetchTrackerCatalog, OMIT_BULK } from '../lib/catalogApi'
+import type { CatalogSong, CatalogChannel } from '../lib/catalogApi'
 import { resolveSongFile } from '../lib/sessionEditsApi'
 import {
   emptySongPref, isEmptySongPref, normalizePrefText, setSongPrefsCache, normalizeSongPref, songPrefsMatchServer,
@@ -181,7 +181,7 @@ interface AppState {
   // not in the nav bar itself, so the open/close state has to live somewhere
   // both can reach.
   showMoreNav: boolean
-  // Equalizer popover visibility. Store-level (not Player-local) so the WRLD
+  // Equalizer popover visibility. Store-level (not Player-local) so the VAMP
   // tab's button and the 'equalizer' hotkey can open it from anywhere - the
   // always-mounted Player owns the actual portal.
   showEqPanel: boolean
@@ -190,10 +190,10 @@ interface AppState {
   // back into the main window - the per-view list modals keep their own local
   // state. null = nothing shown.
   infoSongId: number | null
-  // True while the WRLD tab's own in-page fullscreen (album-art focus mode)
+  // True while the VAMP tab's own in-page fullscreen (album-art focus mode)
   // is active - lets App.tsx hide the frameless-window title bar controls,
   // which would otherwise float over the immersive view.
-  wrldFullscreen: boolean
+  vampFullscreen: boolean
   // Lets a view's sub-state paint a hero image full-bleed behind the app bar
   // and up under the status bar, instead of sitting on the shell's flat
   // reserved inset strip. The view that raises it MUST clear it on the way
@@ -203,7 +203,7 @@ interface AppState {
   radioFmIsLive: boolean | null  // null = unknown (not yet checked)
   radioFmNowPlaying: import('../lib/radioLive').RadioTrack | null
   radioFmVote: import('../lib/radioLive').RadioVote | null
-  // Shared so dismissing a ballot sticks across the WRLD panel, the floating
+  // Shared so dismissing a ballot sticks across the VAMP panel, the floating
   // popup, and pop-out windows. Reset centrally on the rising edge of a new
   // vote (see RadioFmPlayer's onMeta) rather than per component.
   radioFmVoteDismissed: boolean
@@ -254,7 +254,7 @@ interface AppState {
   accentColor: string
   // Text settings. appTextScale multiplies the root font-size (Tailwind's
   // rem-based sizes/spacing follow it, so it acts as an app-wide text zoom);
-  // the lyrics* keys style synced/plain lyrics in LyricsDisplay and the WRLD
+  // the lyrics* keys style synced/plain lyrics in LyricsDisplay and the VAMP
   // tab's lyrics panel.
   appTextScale: number
   // Font-stack ids from lib/fonts.ts - appFont styles the whole UI,
@@ -271,7 +271,7 @@ interface AppState {
   // hide a lyrics section that would otherwise show, or reveal the "no
   // lyrics" placeholder for a track that has none.
   lyricsOverride: boolean
-  // Show eras by their full name ("WRLD On Drugs") instead of the API's
+  // Show eras by their full name ("VAMP On Drugs") instead of the API's
   // abbreviation ("WOD") wherever the Tracker displays one.
   fullEraNames: boolean
   // User-chosen Tracker field layouts (see lib/trackerFields.ts): the
@@ -281,13 +281,13 @@ interface AppState {
   trackerMobileDetailFields: TrackerFieldKey[]
   trackerListColumns: TrackerFieldKey[]
   // Strength of that blur, as a multiplier on each surface's own base radius
-  // (the WRLD tab blurs less than the now-playing/mini panels, and a
+  // (the VAMP tab blurs less than the now-playing/mini panels, and a
   // multiplier keeps that relationship intact at every setting). 1 = the
   // amount every version before this shipped.
   lyricsBlurAmount: number
   // Custom colors for synced lyric lines - the line currently being sung, and
   // the rest (already-played + upcoming). null = auto, i.e. keep the surface's
-  // own colors (theme text vars in LyricsDisplay, art-derived ones in the WRLD
+  // own colors (theme text vars in LyricsDisplay, art-derived ones in the VAMP
   // tab), which is what every install had before these existed.
   lyricsColorActive: string | null
   lyricsColorInactive: string | null
@@ -305,12 +305,12 @@ interface AppState {
   // Per device: it costs GPU time, and only Chromium draws it.
   glassRefraction: boolean
   setGlassRefraction: (enabled: boolean) => void
-  // WRLD tab only. Off (the default) it paints itself from the playing song's
+  // VAMP tab only. Off (the default) it paints itself from the playing song's
   // cover - blurred art behind, text color picked from the art's brightness.
   // On, it drops both and uses the app's own skin instead: theme surface
   // behind, theme text colors on top, so the tab stops recoloring itself every
   // track.
-  wrldThemeBackground: boolean
+  vampThemeBackground: boolean
   // Playlist detail header's full-bleed blurred-cover backdrop (Apple Music
   // style). Off falls back to a plain flat surface header. Tracked
   // separately per skin darkness (not one flag) - the backdrop was designed
@@ -445,7 +445,7 @@ interface AppState {
   apiFilesPath: string
   apiFilesLastPath: string
 
-  channels: JWApiChannel[]
+  channels: CatalogChannel[]
   activeChannel: string
   setActiveChannel: (slug: string) => void
   loadChannels: () => Promise<void>
@@ -497,7 +497,7 @@ interface AppState {
   // dialog can show "same across all"/"mixed" per field without re-fetching.
   // See BulkEditModal.
   bulkEdit:
-    | { kind: 'api'; songs: JWApiSong[] }
+    | { kind: 'api'; songs: CatalogSong[] }
     | { kind: 'comp'; files: { path: string; name: string }[]; channel: string }
     | null
 
@@ -628,7 +628,7 @@ interface AppActions {
   setShowEqPanel: (show: boolean) => void
   toggleEqPanel: () => void
   setInfoSongId: (id: number | null) => void
-  setWrldFullscreen: (fullscreen: boolean) => void
+  setVampFullscreen: (fullscreen: boolean) => void
   setHeroBleedTop: (heroBleedTop: boolean) => void
   setTheme: (theme: SkinId) => void
   /** Creates or updates a custom skin (upsert by id). Since editing the active
@@ -668,7 +668,7 @@ interface AppActions {
   setLyricsColorInactive: (color: string | null) => void
   setGradientsEnabled: (enabled: boolean) => void
   setSurfaceGradientsEnabled: (enabled: boolean) => void
-  setWrldThemeBackground: (enabled: boolean) => void
+  setVampThemeBackground: (enabled: boolean) => void
   // Writes to playlistHeroEnabledDark or ...Light, whichever matches the
   // skin active right now.
   setPlaylistHeroEnabled: (enabled: boolean) => void
@@ -843,7 +843,7 @@ interface AppActions {
   setPendingEditProposal: (p: { id: number; songId: number | null; proposedData: Record<string, unknown>; editorNotes: string } | null) => void
   // "Edit" on a multi-song selection - opens the bulk editor dialog, which
   // submits one update proposal per song.
-  openBulkEditor: (songs: JWApiSong[]) => void
+  openBulkEditor: (songs: CatalogSong[]) => void
   // "Edit tags" on comp files in the Files tab - same dialog, submitting one
   // batch of retag proposals.
   openBulkFileEditor: (files: { path: string; name: string }[], channel: string) => void
@@ -1098,7 +1098,7 @@ function buildUserSettings(s: AppStore): UserSettings {
     full_era_names: s.fullEraNames,
     gradients_enabled: s.gradientsEnabled,
     surface_gradients_enabled: s.surfaceGradientsEnabled,
-    wrld_theme_background: s.wrldThemeBackground,
+    vamp_theme_background: s.vampThemeBackground,
     playlist_hero_enabled_dark: s.playlistHeroEnabledDark,
     playlist_hero_enabled_light: s.playlistHeroEnabledLight,
     sidebar_position: s.sidebarPosition,
@@ -1206,7 +1206,7 @@ export const useStore = create<AppStore>((set, get, store) => ({
   // ── Queue slice (all queue + playback logic) ───────────────────────────────
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ...createQueueSlice(set, get, store as any),
-  // ── Desktop (the lyric styles, the edge light, the WRLD widgets) ──────────
+  // ── Desktop (the lyric styles, the edge light, the VAMP widgets) ──────────
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ...createDesktopSlice(set, get, store as any),
 
@@ -1377,7 +1377,7 @@ export const useStore = create<AppStore>((set, get, store) => ({
   showMoreNav: false,
   showEqPanel: false,
   infoSongId: null,
-  wrldFullscreen: false,
+  vampFullscreen: false,
   heroBleedTop: false,
   radioFmActive: false,
   radioFmIsLive: null,
@@ -1439,7 +1439,7 @@ export const useStore = create<AppStore>((set, get, store) => ({
       'playlists': '/playlists',
       'albums': '/albums',
       'docs': '/docs',
-      'wrld': '/wrld',
+      'vamp': '/vamp',
       'news': '/news',
       'heardle': '/heardle',
       'wordle': '/wordle',
@@ -1462,7 +1462,7 @@ export const useStore = create<AppStore>((set, get, store) => ({
     const selectedAlbumId = get().albumsSelectedId
     // Views whose identity lives in the URL path itself (/track/<id>,
     // /shared/<id>, /u/<id>) have no fixed entry above - remember the URL
-    // they were left at so coming back (closing Settings, collapsing WRLD)
+    // they were left at so coming back (closing Settings, collapsing VAMP)
     // restores it instead of falling back to /tracker.
     const current = get().activeView
     if (PATH_PARAM_VIEWS.includes(current)) lastPathParamUrl[current] = appPathname()
@@ -1589,7 +1589,7 @@ export const useStore = create<AppStore>((set, get, store) => ({
     if (infoSongId != null) useSandboxStore.getState().expand()
     set({ infoSongId })
   },
-  setWrldFullscreen: (wrldFullscreen) => set({ wrldFullscreen }),
+  setVampFullscreen: (vampFullscreen) => set({ vampFullscreen }),
   setHeroBleedTop: (heroBleedTop) => set({ heroBleedTop }),
   setTheme: (theme) => { set({ theme }); ls.set('theme', theme); get()._scheduleProfilePush(['userSettings']) },
   saveCustomSkin: (skin) => {
@@ -1653,7 +1653,7 @@ export const useStore = create<AppStore>((set, get, store) => ({
   pauseFadeEnabled: ls.get<boolean>('pauseFadeEnabled') ?? false,
   sleepTimerEnd: null,
   audioOutput: ls.get<string>('audioOutput') ?? '',
-  accentColor: ls.get<string>('accentColor') ?? '#1db954',
+  accentColor: ls.get<string>('accentColor') ?? '#e11d2e',
   appTextScale: ls.get<number>('appTextScale') ?? 1,
   // getFont() maps unknown persisted ids (a renamed/removed stack) to System.
   appFont: getFont(ls.get<string>('appFont')).id,
@@ -1672,7 +1672,7 @@ export const useStore = create<AppStore>((set, get, store) => ({
   gradientsEnabled: ls.get<boolean>('gradientsEnabled') ?? true,
   surfaceGradientsEnabled: ls.get<boolean>('surfaceGradientsEnabled') ?? false,
   glassRefraction: ls.get<boolean>('glassRefraction') ?? true,
-  wrldThemeBackground: ls.get<boolean>('wrldThemeBackground') ?? false,
+  vampThemeBackground: ls.get<boolean>('vampThemeBackground') ?? false,
   playlistHeroEnabledDark: ls.get<boolean>('playlistHeroEnabledDark') ?? true,
   playlistHeroEnabledLight: ls.get<boolean>('playlistHeroEnabledLight') ?? false,
   preferOgVersion: ls.get<boolean>('preferOgVersion') ?? false,
@@ -1806,7 +1806,7 @@ export const useStore = create<AppStore>((set, get, store) => ({
   setGradientsEnabled: (gradientsEnabled) => { set({ gradientsEnabled }); ls.set('gradientsEnabled', gradientsEnabled); get()._scheduleProfilePush(['userSettings']) },
   setSurfaceGradientsEnabled: (surfaceGradientsEnabled) => { set({ surfaceGradientsEnabled }); ls.set('surfaceGradientsEnabled', surfaceGradientsEnabled); get()._scheduleProfilePush(['userSettings']) },
   setGlassRefraction: (enabled) => { set({ glassRefraction: enabled }); ls.set('glassRefraction', enabled) },
-  setWrldThemeBackground: (wrldThemeBackground) => { set({ wrldThemeBackground }); ls.set('wrldThemeBackground', wrldThemeBackground); get()._scheduleProfilePush(['userSettings']) },
+  setVampThemeBackground: (vampThemeBackground) => { set({ vampThemeBackground }); ls.set('vampThemeBackground', vampThemeBackground); get()._scheduleProfilePush(['userSettings']) },
   setPlaylistHeroEnabled: (enabled) => {
     if (getSkin(get().theme).dark) {
       set({ playlistHeroEnabledDark: enabled }); ls.set('playlistHeroEnabledDark', enabled)
@@ -1990,7 +1990,7 @@ export const useStore = create<AppStore>((set, get, store) => ({
     if (serverSettings.full_era_names !== undefined && serverSettings.full_era_names !== s.fullEraNames) s.setFullEraNames(serverSettings.full_era_names)
     if (serverSettings.gradients_enabled !== undefined && serverSettings.gradients_enabled !== s.gradientsEnabled) s.setGradientsEnabled(serverSettings.gradients_enabled)
     if (serverSettings.surface_gradients_enabled !== undefined && serverSettings.surface_gradients_enabled !== s.surfaceGradientsEnabled) s.setSurfaceGradientsEnabled(serverSettings.surface_gradients_enabled)
-    if (serverSettings.wrld_theme_background !== undefined && serverSettings.wrld_theme_background !== s.wrldThemeBackground) s.setWrldThemeBackground(serverSettings.wrld_theme_background)
+    if (serverSettings.vamp_theme_background !== undefined && serverSettings.vamp_theme_background !== s.vampThemeBackground) s.setVampThemeBackground(serverSettings.vamp_theme_background)
     if (serverSettings.playlist_hero_enabled_dark !== undefined && serverSettings.playlist_hero_enabled_dark !== s.playlistHeroEnabledDark) {
       set({ playlistHeroEnabledDark: serverSettings.playlist_hero_enabled_dark }); ls.set('playlistHeroEnabledDark', serverSettings.playlist_hero_enabled_dark)
     }
@@ -2080,7 +2080,7 @@ export const useStore = create<AppStore>((set, get, store) => ({
   _reapplySongPref: (songId) => {
     const { songPrefs, queue, currentTrack, currentTrackFull } = get()
     const pref = songPrefs[songId]
-    const trackId = `jw-${songId}`
+    const trackId = `pc-${songId}`
     const isCurrentTrack = currentTrack?.id === trackId
     const newCurrentTrack = isCurrentTrack ? applyPrefToTrack(currentTrack, pref) : currentTrack
     set({
@@ -2229,7 +2229,7 @@ export const useStore = create<AppStore>((set, get, store) => ({
     const orderedIds = sortListeningPlays(get().listeningPlays).map((e) => e.song).slice(0, RECENT_TRACKS_LIMIT)
     if (orderedIds.length === 0) return
     const existingIds = new Set(loadRecentTracks().map((t) => t.id))
-    const missing = orderedIds.filter((id) => !existingIds.has(`jw-${id}`))
+    const missing = orderedIds.filter((id) => !existingIds.has(`pc-${id}`))
     if (missing.length === 0) return
     try {
       const songs = await getSongsByIds(missing)
@@ -2446,7 +2446,7 @@ export const useStore = create<AppStore>((set, get, store) => ({
   // Cached so the file browser's liked/unliked hearts render correctly on the
   // first paint instead of resolving against an empty list (which reads as
   // "primary" - see useTrackChannel). Refreshed by loadChannels below.
-  channels: ls.get<JWApiChannel[]>('channels') ?? [],
+  channels: ls.get<CatalogChannel[]>('channels') ?? [],
   activeChannel: ls.get<string>('activeChannel') || '',
   setActiveChannel: (slug) => { set({ activeChannel: slug }); ls.set('activeChannel', slug); setActiveChannelCache(slug) },
   loadChannels: async () => {
@@ -2532,7 +2532,7 @@ export const useStore = create<AppStore>((set, get, store) => ({
       }
       try {
         const favorites = await userApi.getFavorites()
-        const serverIds = favorites.map((f) => `jw-${f.song.id}`)
+        const serverIds = favorites.map((f) => `pc-${f.song.id}`)
         const localOnly = get().likedTrackIds.filter((id) => !serverIds.includes(id))
         await Promise.all(
           localOnly

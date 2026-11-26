@@ -6,7 +6,7 @@ import { errorMessage, formatBytes } from '../lib/format'
 import { shortDate } from './adminShared'
 import ThemedSelect from './ThemedSelect'
 
-// Admin panel for publishing jwa-cdn-node builds (POST /cdn/binary/). Shows the
+// Admin panel for publishing cdn-node builds (POST /cdn/binary/). Shows the
 // latest binary per platform and uploads a new platform+version. Shared by the
 // desktop and mobile CDN nodes tabs; `compact` bumps touch-target sizing.
 export default function CdnBinaryUpload({ compact = false }: { compact?: boolean }): JSX.Element {

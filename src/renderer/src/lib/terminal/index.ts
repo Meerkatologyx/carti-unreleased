@@ -1,4 +1,4 @@
-import { searchSongs } from '../juicewrldApi'
+import { searchSongs } from '../catalogApi'
 import { useChatStore, conversationTitle } from '../../store/chatStore'
 import { useStore } from '../../store/useStore'
 import { canRun, chatCommandsFor } from './access'
@@ -40,7 +40,7 @@ import { directory, matchUsers, USER_COMMANDS } from './users'
 
 export type { TermCommand, TermCtx, TermGroup, TermScreen, TermTone } from './types'
 export { canRun, chatCommandsFor, moderationChatCommandsFor, plainChatCommandsFor, termAccess, termUserName, type TermAccess } from './access'
-export { juicesayText } from './fun'
+export { cartisayText } from './fun'
 export { directory, directorySync, resolveHandles } from './users'
 
 const norm = (s: string): string => s.toLowerCase()

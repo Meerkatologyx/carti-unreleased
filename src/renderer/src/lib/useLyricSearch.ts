@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { loadAllSongsWithLyricsAbortable, type JWApiSong } from './juicewrldApi'
+import { loadAllSongsWithLyricsAbortable, type CatalogSong } from './catalogApi'
 import { searchLyrics } from './lyricSearch'
 
 const PAGE = 50
@@ -7,9 +7,9 @@ const PAGE = 50
 /** The Lyrics tab's search: all matches computed locally from the cached catalogue,
  *  shown a page at a time. `fuzzy` defaults on. */
 export function useLyricSearch(query: string, fuzzy = true): {
-  results: JWApiSong[]; all: JWApiSong[]; count: number; hasMore: boolean; loading: boolean; error: string | null; loadMore: () => void
+  results: CatalogSong[]; all: CatalogSong[]; count: number; hasMore: boolean; loading: boolean; error: string | null; loadMore: () => void
 } {
-  const [matches, setMatches] = useState<JWApiSong[]>([])
+  const [matches, setMatches] = useState<CatalogSong[]>([])
   const [shown, setShown] = useState(PAGE)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)

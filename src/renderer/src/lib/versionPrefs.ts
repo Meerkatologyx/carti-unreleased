@@ -120,7 +120,7 @@ export function memberVersionPrefs(members: VersionPrefMember[], prefs: SongPref
 }
 
 /** The star/ban toggles over a group, shared by useVersionPrefToggles (the
- *  Change-version menu, the song-prefs panel, compact view, WRLD's version
+ *  Change-version menu, the song-prefs panel, compact view, VAMP's version
  *  notch) and the terminal's `vprefs`, so both change the same rows. */
 export function versionPrefToggles(members: VersionPrefMember[], prefs: SongPrefMap, write: VersionPrefWriters): {
   togglePreferred: (member: VersionPrefMember) => void

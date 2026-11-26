@@ -3,13 +3,13 @@
 // within the song's version group, and a play counter.
 //
 // This module holds only the data and its synchronous accessors, and
-// deliberately imports nothing: juicewrldApi's songToTrack reads it on every
+// deliberately imports nothing: catalogApi's songToTrack reads it on every
 // song → Track conversion, so anything imported here would become a circular
 // dependency of the API layer. The pieces live elsewhere:
 //   - network calls          → preferencesApi.ts
 //   - writes + React state   → the Zustand store (`songPrefs`)
 //   - playback resolution    → queueSlice's version swap
-//   - cover URL resolution   → juicewrldApi's resolvePrefCoverUrl
+//   - cover URL resolution   → catalogApi's resolvePrefCoverUrl
 //
 // The store owns every write and mirrors its map in here via setSongPrefsCache
 // so non-React callers always resolve against the current overrides.

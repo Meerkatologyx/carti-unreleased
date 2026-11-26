@@ -420,7 +420,7 @@ const WINDOWS: { value: '1h' | '24h' | '7d' | '30d'; label: string; hours: numbe
   { value: '30d', label: '30 days', hours: 720 },
 ]
 
-/** "GET /juicewrld/files/" -> method and path filters. */
+/** "GET /api/files/" -> method and path filters. */
 function routeFilters(key: string): LogFilters {
   const [method, ...rest] = key.split(' ')
   return rest.length ? { method, path: rest.join(' ') } : { path: key }

@@ -3,7 +3,7 @@
 // CORS), so their colors come from the palettes baked for the visualizers.
 import { useEffect, useState } from 'react'
 import { ERA_PALETTES } from '../lib/eraPalettes'
-import { JWAPI_HOST, smallCoverUrl } from '../lib/juicewrldApi'
+import { CATALOG_API_HOST, smallCoverUrl } from '../lib/catalogApi'
 import { paletteFromPixels, rgbToHsb, type AlbumColors, type HSB } from './light/engine'
 
 const SIDE = 32
@@ -12,7 +12,7 @@ const cache = new Map<string, Promise<AlbumColors | null>>()
 export function eraAssetPath(url: string): string | null {
   try {
     const { hostname, pathname } = new URL(url)
-    const apiHost = hostname === JWAPI_HOST || hostname.endsWith(`.${JWAPI_HOST}`)
+    const apiHost = hostname === CATALOG_API_HOST || hostname.endsWith(`.${CATALOG_API_HOST}`)
     return apiHost && pathname.startsWith('/assets/') ? pathname : null
   } catch {
     return null

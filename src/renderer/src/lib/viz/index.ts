@@ -76,7 +76,7 @@ const RIPPLE_LIFE = 4;
 /** Seconds without a beat before a softer drop falls on its own. */
 const RIPPLE_LULL = 1.1;
 
-/** Frame rate while a picker covers WRLD. */
+/** Frame rate while a picker covers VAMP. */
 const HELD_FPS = 30;
 
 export class Visualizer {
@@ -89,7 +89,7 @@ export class Visualizer {
   private playing = false;
   private running = false;
   /**
-   * Covered (a picker open over WRLD): still moving under the dialog's blur,
+   * Covered (a picker open over VAMP): still moving under the dialog's blur,
    * but at HELD_FPS, so the picker's own screens get most of the GPU.
    */
   private held = false;

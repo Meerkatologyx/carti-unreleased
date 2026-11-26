@@ -228,8 +228,8 @@ export function placeSong(
 
 // ─── Pool filtering ──────────────────────────────────────────────────────────
 
-/** A title with its version/feature tags stripped - "Lucid Dreams (OG)",
- *  "Lucid Dreams [v2]" and "Lucid Dreams" all come out the same. */
+/** A title with its version/feature tags stripped - "Magnolia (OG)",
+ *  "Magnolia [v2]" and "Magnolia" all come out the same. */
 function baseTitle(title: string): string {
   return normalizeTitle(title.replace(/\s*[([{][^)\]}]*[)\]}]/g, ' '))
 }
@@ -242,7 +242,7 @@ export interface AlbumMatch {
 }
 
 /** Loose key for matching album titles against era descriptions and songs'
- *  `album` text - "JuiceWRLD 9 9 9" and "Playboi Carti 999" come out the same. */
+ *  `album` text - "PlayboiCarti 9 9 9" and "Playboi Carti 999" come out the same. */
 export function albumKey(title: string | null | undefined): string {
   return title ? normalizeTitle(title).replace(/ /g, '') : ''
 }
@@ -257,8 +257,8 @@ export function albumKey(title: string | null | undefined): string {
  *  when it has one - but the live /albums/ rows all come back with `songs: []`
  *  (checked 2026-09-30) - so also any released song whose `album` names it,
  *  or whose era is the album's era (`albumEras`: era names whose description
- *  is the album title; for released songs the era *is* the album - "DRFL" /
- *  "Death Race For Love"). */
+ *  is the album title; for released songs the era *is* the album - "WLR" /
+ *  "Whole Lotta Red"). */
 export function albumMatcher(
   album: Album,
   pool: HeardleSong[],

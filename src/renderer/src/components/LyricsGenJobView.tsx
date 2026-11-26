@@ -9,7 +9,7 @@ import {
 } from '../lib/lyricsGenApi'
 import { countTimingEdits, loadTimingDraft, lrcTime, saveTimingDraft, timedLines, timingOutput } from '../lib/lyricsTiming'
 import { linesFromSegments } from '../lib/syncedLyrics'
-import { buildStreamUrl, searchSongs } from '../lib/juicewrldApi'
+import { buildStreamUrl, searchSongs } from '../lib/catalogApi'
 import { isAbortError } from '../lib/apiClient'
 import { errorMessage } from '../lib/format'
 import { showAppToast } from '../lib/appToast'

@@ -10,8 +10,8 @@
          a blank page right after Discord login (same for /shared/<id>).
          Over http(s) repoint the base at the origin root before the parser
          reaches the injected module script; file:// keeps the relative base. -->
-    <base href="./" />
-    <script>if(/^https?:/.test(location.protocol))document.querySelector('base').href='/'</script>
+    <base href="%BASE_URL%" />
+    <script>var b=document.querySelector('base');if(/^https?:/.test(location.protocol)&&b.getAttribute('href')==='./')b.href='/'</script>
     <!-- maximum-scale=1 stops iOS Safari's auto-zoom when focusing inputs
          under 10px (all our text-xs fields); deliberate pinch-zoom still
          works - iOS ignores the cap for user gestures. -->
@@ -54,7 +54,7 @@
          schemes, and coverImage.ts (copy/save cover, and ShareLyricsModal's
          export) fetches a cover's own data:/blob: URL right back out to get
          bytes it can embed, not to reach any actual network origin.
-         https://*.juicewrldapi.com / wss://*.juicewrldapi.com (the bare
+         https://*.meerkatologyx.github.io / wss://*.meerkatologyx.github.io (the bare
          domain is listed separately since a wildcard source doesn't match
          its own apex) cover staging/self-hosted instances the Settings ->
          About "API servers" overrides (main/chat/radio) can point the app
@@ -65,12 +65,13 @@
          back to the slower WebRTC path. -->
     <meta http-equiv="Content-Security-Policy" content="
       default-src 'self';
-      script-src 'self' 'wasm-unsafe-eval' 'sha256-xjpTVCo7o4K9QG8ZmAgfjVUbc2OdYbdKgT/ClSf5AWE=' 'sha256-b1jw+VU6Z+2+MRzlWRKIER82x08obZjR7Y3a9A7hu74=' 'sha256-DalSI+ICv7kcV+43N8QN6XuXql+ZJwy3Yj2YOF8AtBA=' https://static.cloudflareinsights.com;
+      script-src 'self' 'wasm-unsafe-eval' 'sha256-g637bybpNnpeC21e4TSUudG3OJT+PdRLqsm/zHlue9U=' 'sha256-b1jw+VU6Z+2+MRzlWRKIER82x08obZjR7Y3a9A7hu74=' 'sha256-DalSI+ICv7kcV+43N8QN6XuXql+ZJwy3Yj2YOF8AtBA=' https://static.cloudflareinsights.com;
       style-src 'self';
       img-src 'self' data: blob: local-media: https:;
       media-src 'self' blob: local-media: https:;
       font-src 'self';
-      connect-src 'self' data: blob: https://api.pillows.su https://juicewrldapi.com https://*.juicewrldapi.com wss://juicewrldapi.com wss://*.juicewrldapi.com https://ws.audioscrobbler.com https://api.allorigins.win https://corsproxy.io https://images.weserv.nl https://api.github.com https://cloudflareinsights.com https://tenor.googleapis.com https://*.tenor.com https://api.giphy.com https://*.giphy.com https://*.thesongapi.net wss://*.thesongapi.net local-media:;
+      connect-src 'self' data: blob: https://api.pillows.su https://meerkatologyx.github.io https://*.meerkatologyx.github.io wss://meerkatologyx.github.io wss://*.meerkatologyx.github.io https://ws.audioscrobbler.com https://api.allorigins.win https://corsproxy.io https://images.weserv.nl https://api.github.com https://cloudflareinsights.com https://tenor.googleapis.com https://*.tenor.com https://api.giphy.com https://*.giphy.com https://*.thesongapi.net wss://*.thesongapi.net local-media:;
+      frame-src 'self' https://www.youtube-nocookie.com https://w.soundcloud.com https://open.spotify.com;
       worker-src 'self';
       object-src 'none';
       base-uri 'self';
@@ -84,30 +85,30 @@
          as a whole. Once React boots, lib/seo.ts rewrites
          title/description/canonical/robots per route; see applySeo(), which
          no-ops in Electron. -->
-    <meta name="description" content="Stream Playboi Carti's full catalog - every released and unreleased song - free in your browser. Search by era, producer or engineer, build playlists, listen to 999 FM radio, and read synced lyrics." />
-    <link rel="canonical" href="https://player.juicewrldapi.com/" />
+    <meta name="description" content="Stream Playboi Carti's full catalog - every released and unreleased song - free in your browser. Search by era, producer or engineer, build playlists, listen to Vamp FM radio, and read synced lyrics." />
+    <link rel="canonical" href="https://meerkatologyx.github.io/carti-unreleased/" />
     <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1" />
 
     <meta property="og:site_name" content="unreleased" />
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://player.juicewrldapi.com/" />
-    <meta property="og:title" content="unreleased - Playboi Carti music player" />
-    <meta property="og:description" content="Stream Playboi Carti's full catalog - every released and unreleased song - free in your browser. Search by era, producer or engineer, build playlists, listen to 999 FM radio, and read synced lyrics." />
-    <meta property="og:image" content="https://player.juicewrldapi.com/icon-512.png" />
+    <meta property="og:url" content="https://meerkatologyx.github.io/carti-unreleased/" />
+    <meta property="og:title" content="Carti Unreleased - Playboi Carti music player" />
+    <meta property="og:description" content="Stream Playboi Carti's full catalog - every released and unreleased song - free in your browser. Search by era, producer or engineer, build playlists, listen to Vamp FM radio, and read synced lyrics." />
+    <meta property="og:image" content="https://meerkatologyx.github.io/carti-unreleased/icon-512.png" />
     <meta property="og:image:width" content="512" />
     <meta property="og:image:height" content="512" />
-    <meta property="og:image:alt" content="unreleased - Playboi Carti music player" />
+    <meta property="og:image:alt" content="Carti Unreleased - Playboi Carti music player" />
 
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="unreleased - Playboi Carti music player" />
-    <meta name="twitter:description" content="Stream Playboi Carti's full catalog - every released and unreleased song - free in your browser. Search by era, producer or engineer, build playlists, listen to 999 FM radio, and read synced lyrics." />
-    <meta name="twitter:image" content="https://player.juicewrldapi.com/icon-512.png" />
+    <meta name="twitter:title" content="Carti Unreleased - Playboi Carti music player" />
+    <meta name="twitter:description" content="Stream Playboi Carti's full catalog - every released and unreleased song - free in your browser. Search by era, producer or engineer, build playlists, listen to Vamp FM radio, and read synced lyrics." />
+    <meta name="twitter:image" content="https://meerkatologyx.github.io/carti-unreleased/icon-512.png" />
 
     <!-- PWA / installability. These are inert in the Electron build (it loads
          over file://, never installs, and the service worker is not registered
          there - see main.tsx). -->
     <link rel="manifest" href="/manifest.webmanifest" />
-    <meta name="theme-color" content="#121212" />
+    <meta name="theme-color" content="#0b0707" />
     <!-- iOS ignores the web manifest for "Add to Home Screen" - it reads these
          Apple-specific tags instead to launch fullscreen with our own icon. -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -118,10 +119,10 @@
          it, so don't go hunting for a CSS blur in here. Only the viewer's
          Settings → Accessibility → Reduce Transparency changes it. -->
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="Unreleased" />
+    <meta name="apple-mobile-web-app-title" content="Carti Unreleased" />
     <link rel="apple-touch-icon" href="/icon-512.png" />
 
-    <title>unreleased - Playboi Carti music player</title>
+    <title>Carti Unreleased - Playboi Carti music player</title>
 
     <!-- Structured data. WebSite carries the SearchAction so a Google sitelinks
          search box can deep-link into the tracker's ?q= param (the tracker
@@ -133,8 +134,8 @@
       "@graph": [
         {
           "@type": "WebSite",
-          "@id": "https://player.juicewrldapi.com/#website",
-          "url": "https://player.juicewrldapi.com/",
+          "@id": "https://meerkatologyx.github.io/carti-unreleased/#website",
+          "url": "https://meerkatologyx.github.io/carti-unreleased/",
           "name": "unreleased",
           "description": "A music player for Playboi Carti - stream the full catalog of released and unreleased songs.",
           "inLanguage": "en",
@@ -142,20 +143,20 @@
             "@type": "SearchAction",
             "target": {
               "@type": "EntryPoint",
-              "urlTemplate": "https://player.juicewrldapi.com/tracker?q={search_term_string}"
+              "urlTemplate": "https://meerkatologyx.github.io/carti-unreleased/tracker?q={search_term_string}"
             },
             "query-input": "required name=search_term_string"
           }
         },
         {
           "@type": "WebApplication",
-          "@id": "https://player.juicewrldapi.com/#app",
+          "@id": "https://meerkatologyx.github.io/carti-unreleased/#app",
           "name": "unreleased",
-          "url": "https://player.juicewrldapi.com/",
+          "url": "https://meerkatologyx.github.io/carti-unreleased/",
           "applicationCategory": "MultimediaApplication",
           "operatingSystem": "Web, Windows, macOS, Linux",
           "browserRequirements": "Requires JavaScript",
-          "isPartOf": { "@id": "https://player.juicewrldapi.com/#website" },
+          "isPartOf": { "@id": "https://meerkatologyx.github.io/carti-unreleased/#website" },
           "about": { "@type": "MusicGroup", "name": "Playboi Carti" },
           "featureList": [
             "Search the full released and unreleased catalog",
@@ -163,7 +164,7 @@
             "Gapless playback and radio mode",
             "Synced lyrics",
             "Playlists, folders and liked songs",
-            "999 FM live radio",
+            "Vamp FM live radio",
             "10-band equalizer and audio effects",
             "Last.fm scrobbling"
           ],
@@ -193,22 +194,22 @@
          text and crawlable links to the public routes. Never reaches a real
          visitor - or the desktop app, where scripting is always on. -->
     <noscript>
-      <h1>unreleased - a Playboi Carti music player</h1>
+      <h1>Carti Unreleased - a Playboi Carti music player</h1>
       <p>
         Stream Playboi Carti's full catalog - every released and unreleased song - free in your
-        browser. Search by era, producer or engineer, build playlists, listen to 999 FM radio,
+        browser. Search by era, producer or engineer, build playlists, listen to Vamp FM radio,
         and read synced lyrics. Powered by the
         <a href="https://docs.google.com/spreadsheets/d/1Irtfvymu26CShYowLMMfD-rM0o9CJqE6-BBSlYsAaF4/htmlview">Carti Tracker</a>.
       </p>
       <p>This player needs JavaScript enabled.</p>
       <ul>
-        <li><a href="/tracker">Tracker - search the catalog</a></li>
-        <li><a href="/files">Files - browse the API filesystem</a></li>
-        <li><a href="/wrld">WRLD - 999 FM live radio</a></li>
-        <li><a href="/heardle">Heardle - the daily song guessing game</a></li>
-        <li><a href="/wordle">Wordle - the daily song title game</a></li>
-        <li><a href="/docs">Docs</a></li>
-        <li><a href="/download">Download the desktop app</a></li>
+        <li><a href="./tracker">Tracker - search the catalog</a></li>
+        <li><a href="./files">Files - browse the API filesystem</a></li>
+        <li><a href="./vamp">VAMP - Vamp FM live radio</a></li>
+        <li><a href="./heardle">Heardle - the daily song guessing game</a></li>
+        <li><a href="./wordle">Wordle - the daily song title game</a></li>
+        <li><a href="./docs">Docs</a></li>
+        <li><a href="./download">Download the desktop app</a></li>
       </ul>
     </noscript>
     <script type="module" src="/src/main.tsx"></script>

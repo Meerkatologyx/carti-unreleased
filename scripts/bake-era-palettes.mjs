@@ -17,8 +17,8 @@ import { fileURLToPath } from 'node:url'
 import sharp from 'sharp'
 import { paletteFromPixels, PALETTE_SAMPLE } from '../src/renderer/src/lib/viz/palette.ts'
 
-// Mirrors JWAPI_BASE in juicewrldApi.ts (not imported: that module needs a browser).
-const SITE = 'https://juicewrldapi.com'
+// Mirrors CATALOG_API_BASE in catalogApi.ts (not imported: that module needs a browser).
+const SITE = 'https://meerkatologyx.github.io'
 const OUT = fileURLToPath(new URL('../src/renderer/src/lib/eraPalettes.ts', import.meta.url))
 
 async function decode(bytes) {
@@ -31,7 +31,7 @@ async function decode(bytes) {
   return raw
 }
 
-const res = await fetch(`${SITE}/juicewrld/songs/?all=true&omit=lyrics,synced_lyrics`)
+const res = await fetch(`${SITE}/api/songs/?all=true&omit=lyrics,synced_lyrics`)
 if (!res.ok) throw new Error(`song list: HTTP ${res.status}`)
 const body = await res.json()
 const songs = Array.isArray(body) ? body : body.results

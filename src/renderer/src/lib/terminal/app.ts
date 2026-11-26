@@ -20,7 +20,7 @@ const st = (): ReturnType<typeof useStore.getState> => useStore.getState()
 // come back); the overlays - queue, equalizer, diagnostics - open on top of it.
 const VIEWS: Record<string, ViewType> = {
   home: 'home', tracker: 'api-tracker', songs: 'api-tracker', files: 'api-files', playlists: 'playlists', liked: 'liked',
-  chat: 'chat', news: 'news', docs: 'docs', wrld: 'wrld', stats: 'stats', statistics: 'statistics', download: 'download',
+  chat: 'chat', news: 'news', docs: 'docs', vamp: 'vamp', stats: 'stats', statistics: 'statistics', download: 'download',
   heardle: 'heardle', wordle: 'wordle', tierlist: 'tierlist', thanks: 'thanks', editor: 'editor', contributor: 'contributor',
   albums: 'albums', 'albums-admin': 'albums-admin',
 }
@@ -79,7 +79,7 @@ export const APP_COMMANDS: TermCommand[] = [
         s.setShowUploadManager(false)
         const { useRadioChatStore } = await import('../../store/radioChatStore')
         useRadioChatStore.getState().setPopupOpen(true)
-        ctx.print('999 FM chat opened', 'ok')
+        ctx.print('Vamp FM chat opened', 'ok')
         return
       }
       if (key === 'notifications') { s.setShowNotifications(true); ctx.print('notification area opened', 'ok'); return }
@@ -90,7 +90,7 @@ export const APP_COMMANDS: TermCommand[] = [
       }
       if (key === 'song') {
         if (!rest) fail('usage: open song <title>')
-        const { resolveTitleToSong } = await import('../juicewrldApi')
+        const { resolveTitleToSong } = await import('../catalogApi')
         const song = (await resolveTitleToSong(rest)) ?? fail(`no song found for "${rest}"`)
         s.setInfoSongId(song.id)
         ctx.print(`showing ${song.name}`, 'ok')

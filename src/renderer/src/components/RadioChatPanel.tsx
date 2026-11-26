@@ -15,7 +15,7 @@ import {
 } from '../lib/radioChatApi'
 import type { RadioChatBan, RadioChatLinks, RadioChatMessage } from '../lib/radioChatApi'
 import { showAppToast } from '../lib/appToast'
-import { loadAllSongs } from '../lib/juicewrldApi'
+import { loadAllSongs } from '../lib/catalogApi'
 import { trackShareUrl } from '../lib/platform'
 import { matchRadioChatSongs } from '../lib/radioChatSongs'
 import { relativeTime } from './adminShared'
@@ -25,9 +25,9 @@ import ReactionPicker from './chat/ReactionPicker'
 import { useOpenUserCard } from './chat/UserCard'
 import type { ChatUserBrief } from '../lib/chatApi'
 
-// The 999 FM live chat, a tab of WRLD's FM panel (desktop and phone). Anyone
+// The Vamp FM live chat, a tab of VAMP's FM panel (desktop and phone). Anyone
 // can read and post; admins get the killswitches (everyone, or guests only),
-// delete and ban, who may post links, and the blocked words. Styled for WRLD's dark backdrop like the Radio tab beside it.
+// delete and ban, who may post links, and the blocked words. Styled for VAMP's dark backdrop like the Radio tab beside it.
 
 const BAN_LENGTHS: { label: string; minutes: number }[] = [
   { label: '10 minutes', minutes: 10 },
@@ -58,7 +58,7 @@ function lineAuthor(line: RadioChatMessage): ChatUserBrief | null {
 
 type MatchSongs = ReturnType<typeof matchRadioChatSongs>
 const plainText: MatchSongs = (text) => [{ text }]
-// The last matcher a panel built, so the next one (WRLD remounts it on every
+// The last matcher a panel built, so the next one (VAMP remounts it on every
 // visit) links song titles from its first paint instead of re-rendering.
 let lastMatchSongs: MatchSongs | null = null
 
@@ -476,7 +476,7 @@ export default function RadioChatPanel(): JSX.Element {
         <ContextMenu x={menu.x} y={menu.y} onClose={() => setMenu(null)} title={menu.line.name} subtitle={menu.line.text.slice(0, 60)} items={lineMenu(menu.line)} />
       )}
       {adminMenu && (
-        <ContextMenu x={adminMenu.x} y={adminMenu.y} onClose={() => setAdminMenu(null)} title="999 FM chat" items={adminItems} />
+        <ContextMenu x={adminMenu.x} y={adminMenu.y} onClose={() => setAdminMenu(null)} title="Vamp FM chat" items={adminItems} />
       )}
     </div>
   )

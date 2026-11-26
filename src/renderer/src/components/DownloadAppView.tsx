@@ -29,13 +29,13 @@ import { hasPwaInstallPrompt, onPwaInstallPromptChange, showPwaInstallPrompt } f
 // AltStore/Sideloadly, which re-sign it locally with the user's own free
 // Apple ID.
 
-const REPO_URL = 'https://github.com/Juice-WRLD-API/Unreleased'
+const REPO_URL = 'https://github.com/Meerkatologyx/carti-unreleased'
 const LATEST_URL = `${REPO_URL}/releases/latest`
 
 // The original desktop app this project succeeded - unmaintained, but some
 // people still ask for it, so it gets a small, clearly-labeled spot here
 // rather than the main grid.
-const LEGACY_REPO_URL = 'https://github.com/HackinHood/juicewrldapi-desktop'
+const LEGACY_REPO_URL = 'https://github.com/Meerkatologyx/carti-unreleased'
 
 interface ReleaseAsset {
   name: string
@@ -56,7 +56,7 @@ let cachedReleases: ReleaseInfo[] | null = null
 
 async function fetchReleases(): Promise<ReleaseInfo[]> {
   if (cachedReleases) return cachedReleases
-  const res = await fetch('https://api.github.com/repos/Juice-WRLD-API/Unreleased/releases?per_page=20', {
+  const res = await fetch('https://api.github.com/repos/Meerkatologyx/carti-unreleased/releases?per_page=20', {
     headers: { Accept: 'application/vnd.github+json' },
   })
   if (!res.ok) throw new Error(`GitHub API ${res.status}`)
@@ -79,7 +79,7 @@ let cachedLegacyRelease: ReleaseInfo | null | undefined // undefined = not fetch
 async function fetchLegacyRelease(): Promise<ReleaseInfo | null> {
   if (cachedLegacyRelease !== undefined) return cachedLegacyRelease
   try {
-    const res = await fetch('https://api.github.com/repos/HackinHood/juicewrldapi-desktop/releases/latest', {
+    const res = await fetch('https://api.github.com/repos/Meerkatologyx/carti-unreleased/releases/latest', {
       headers: { Accept: 'application/vnd.github+json' },
     })
     if (!res.ok) throw new Error(`GitHub API ${res.status}`)
@@ -124,7 +124,7 @@ function fmtDate(iso: string): string {
 
 /** The API may return a root-relative download path; resolve it against the
  *  API base that serves /cdn. The server's path usually already includes the
- *  base's own path prefix (`/juicewrld/cdn/binary/...`), so only the base's
+ *  base's own path prefix (`/api/cdn/binary/...`), so only the base's
  *  origin is prepended in that case - otherwise the prefix doubles up. */
 function cdnBinaryUrl(url: string): string {
   if (!url.startsWith('/')) return url
@@ -574,7 +574,7 @@ export default function DownloadAppView(): JSX.Element {
                 <p className="text-text-primary text-sm font-semibold mb-0.5">Looking for the old app?</p>
                 <p className="text-text-secondary text-[13px] leading-relaxed">
                   Before Unreleased there was the original{' '}
-                  <a href={LEGACY_REPO_URL} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">JuiceWRLD API Desktop</a>
+                  <a href={LEGACY_REPO_URL} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">PlayboiCarti API Desktop</a>
                   {' '}app. It&rsquo;s no longer maintained, but it&rsquo;s still here if you want it.
                 </p>
               </div>

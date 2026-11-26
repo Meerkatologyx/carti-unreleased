@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { apiPeek, type JWApiPlaysStats } from '../lib/juicewrldApi'
+import { apiPeek, type CatalogPlaysStats } from '../lib/catalogApi'
 import { fetchSongChart, type ChartRange, type ChartSort, type SongChart, type ChartSong } from '../lib/songChartsApi'
 import { resolveStatsSongs, statsSongToTrack, type StatsSong } from '../lib/statsCatalog'
 import type { Track } from '../types'
@@ -14,7 +14,7 @@ const lengthSeconds = (length: string | null | undefined): number => {
   return parts.reduce((s, n) => s * 60 + n, 0)
 }
 
-function legacyChart(playStats: JWApiPlaysStats, era: string, songs: Map<number, StatsSong>): SongChart {
+function legacyChart(playStats: CatalogPlaysStats, era: string, songs: Map<number, StatsSong>): SongChart {
   const rows = playStats.top_songs.filter((s) => !era || s.era_name === era)
   return {
     range: 'all', days: null, sort: 'plays', era: era || null, since: null,
@@ -37,7 +37,7 @@ function legacyChart(playStats: JWApiPlaysStats, era: string, songs: Map<number,
   }
 }
 
-export function useSongChart(playStats: JWApiPlaysStats | null) {
+export function useSongChart(playStats: CatalogPlaysStats | null) {
   const [range, setRange] = useState<ChartRange>('7d')
   const [sort, setSort] = useState<ChartSort>('plays')
   const [era, setEra] = useState('')

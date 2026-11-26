@@ -29,7 +29,7 @@ export interface FullTrack extends Track {
   lyrics: string | null
   syncedLyrics: string | null
   // True for the brief window between a track change and the /songs/ fetch
-  // resolving: lyrics are null but not yet confirmed absent, so WRLD's
+  // resolving: lyrics are null but not yet confirmed absent, so VAMP's
   // layout should hold its current arrangement rather than read this as a
   // lyrics-less song. See Player's metadata-load effect.
   lyricsPending?: boolean
@@ -155,7 +155,7 @@ export interface OfflineTrackMeta {
 }
 
 export interface OfflinePlaylistEntry {
-  songIds: string[]           // track ids, e.g. "jw-123"
+  songIds: string[]           // track ids, e.g. "pc-123"
   name: string
   updatedAt: number
 }
@@ -174,4 +174,4 @@ export interface SyncedLyricLine {
   words?: SyncedLyricWord[]
 }
 
-export type ViewType = 'home' | 'api-tracker' | 'api-files' | 'editor' | 'admin' | 'contributor' | 'contributor-profile' | 'liked' | 'playlists' | 'shared-playlist' | 'public-profile' | 'editor-profile' | 'docs' | 'wrld' | 'albums' | 'albums-admin' | 'news' | 'heardle' | 'wordle' | 'tierlist' | 'stats' | 'statistics' | 'download' | 'thanks' | 'settings' | 'chat' | 'terminal' | 'track' | 'not-found'
+export type ViewType = 'home' | 'api-tracker' | 'api-files' | 'editor' | 'admin' | 'contributor' | 'contributor-profile' | 'liked' | 'playlists' | 'shared-playlist' | 'public-profile' | 'editor-profile' | 'docs' | 'vamp' | 'albums' | 'albums-admin' | 'news' | 'heardle' | 'wordle' | 'tierlist' | 'stats' | 'statistics' | 'download' | 'thanks' | 'settings' | 'chat' | 'terminal' | 'track' | 'not-found'

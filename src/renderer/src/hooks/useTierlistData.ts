@@ -22,8 +22,8 @@ import { fetchAlbums } from '../lib/albumsApi'
 import type { Album } from '../lib/albumsApi'
 import { getAllVersionGroups } from '../lib/versionsApi'
 import { loadEraFullNames, listEras } from '../lib/eras'
-import type { JWApiEra } from '../lib/juicewrldApi'
-import { overrideCoverUrl } from '../lib/juicewrldApi'
+import type { CatalogEra } from '../lib/catalogApi'
+import { overrideCoverUrl } from '../lib/catalogApi'
 import { useStorePick } from '../store/useStore'
 import { errorMessage } from '../lib/format'
 import { useSongFieldSearch } from './useSongFieldSearch'
@@ -88,7 +88,7 @@ export function useTierlistData() {
   const [refreshing, setRefreshing] = useState(false)
   const [albums, setAlbums] = useState<Album[]>([])
   const [groupOf, setGroupOf] = useState<Map<number, number>>(new Map())
-  const [eraList, setEraList] = useState<JWApiEra[]>(() => listEras())
+  const [eraList, setEraList] = useState<CatalogEra[]>(() => listEras())
   const [search, setSearch] = useState('')
   const [selectedSongId, setSelectedSongId] = useState<number | null>(null)
   const [editingTier, setEditingTier] = useState<Tier | null>(null)

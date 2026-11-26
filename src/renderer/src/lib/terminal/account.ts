@@ -1,5 +1,5 @@
 import { useStore } from '../../store/useStore'
-import { getSongById } from '../juicewrldApi'
+import { getSongById } from '../catalogApi'
 import {
   changePassword, changeUsername, checkUsername, compressImageFile, decideLoginApproval, getDiscordAuthUrl, getFavorites, getMe, getOtpSetup, listLoginApprovals, pollLoginApproval,
   confirmOtpSetup, removeAvatar, requestLoginApproval, updateAvatar, updateBio, updateDisplayName,
@@ -513,7 +513,7 @@ export const ACCOUNT_COMMANDS: TermCommand[] = [
       }
       if ((sub !== 'add' && sub !== 'rm' && sub !== 'remove') || rest.length === 0) fail('usage: favorites [ls | add <song> | rm <song>]')
       const song = await songFromArg(rest.join(' '))
-      const id = `jw-${song.id}`
+      const id = `pc-${song.id}`
       const liked = st().likedTrackIds.includes(id)
       if (sub === 'add') {
         if (liked) { ctx.print(`${song.name} is already liked`, 'dim'); return }

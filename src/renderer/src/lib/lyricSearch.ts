@@ -1,4 +1,4 @@
-import type { JWApiSong } from './juicewrldApi'
+import type { CatalogSong } from './catalogApi'
 
 // One lyric matcher for the Lyrics tab (desktop + mobile) and the terminal's
 // `lyricfind`, so they can't drift apart. Searches the catalogue the app already
@@ -45,8 +45,8 @@ function wordScore(token: string, word: string): number {
 }
 
 interface Index { text: string; tokens: string[]; set: Set<string> }
-const indexes = new WeakMap<JWApiSong, Index>()
-function indexOf(song: JWApiSong): Index {
+const indexes = new WeakMap<CatalogSong, Index>()
+function indexOf(song: CatalogSong): Index {
   let idx = indexes.get(song)
   if (!idx) {
     const text = normalize(song.lyrics ?? '')
@@ -70,10 +70,10 @@ function bestWordScore(idx: Index, word: string): number {
 const countOccurrences = (hay: string, needle: string): number => hay.split(needle).length - 1
 
 /** Songs whose lyrics match `query`, best first. */
-export function searchLyrics(songs: JWApiSong[], query: string, fuzzy = true): JWApiSong[] {
+export function searchLyrics(songs: CatalogSong[], query: string, fuzzy = true): CatalogSong[] {
   const q = query.trim()
   if (!q) return []
-  const scored: { song: JWApiSong; score: number }[] = []
+  const scored: { song: CatalogSong; score: number }[] = []
   if (!fuzzy) {
     const needle = q.toLowerCase()
     for (const song of songs) {

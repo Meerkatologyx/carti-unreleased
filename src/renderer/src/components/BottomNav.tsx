@@ -38,12 +38,12 @@ export default function BottomNav(): JSX.Element {
   const showSettings = activeView === 'settings'
   const { tabs } = useMobileNavSplit()
   const mobileRoomOpen = useChatUiStore((s) => s.mobileRoomOpen)
-  // WRLD and an open chat room are both full-screen overlays drawn over this
+  // VAMP and an open chat room are both full-screen overlays drawn over this
   // bar (see App.tsx and ChatView.mobile). It stays laid out underneath them
   // rather than being hidden: dragging either one away then reveals the page
   // with its nav bar already in place, instead of the bar popping back in
   // (and the page reflowing around it) only once the overlay has unmounted.
-  const covered = activeView === 'wrld' || (activeView === 'chat' && mobileRoomOpen)
+  const covered = activeView === 'vamp' || (activeView === 'chat' && mobileRoomOpen)
 
   const navigateTo = (view: ViewType): void => {
     // Re-tapping the already-active Playlists tab dispatches a back event
@@ -75,10 +75,10 @@ export default function BottomNav(): JSX.Element {
   //   toasts and the like sit over the overlay then, where there's no nav bar
   //   to clear.
   // - --nav-h: the real height, never zeroed. The mini player parks itself
-  //   above this, so it doesn't jump while WRLD's curtain drag reveals it.
+  //   above this, so it doesn't jump while VAMP's curtain drag reveals it.
   // - --dock-h: the bar plus the mini player above it - what a scroller pads
   //   its end by (.pb-dock) so the last rows can scroll clear of the glass.
-  //   Also never zeroed, so the page under a dragged WRLD doesn't reflow.
+  //   Also never zeroed, so the page under a dragged VAMP doesn't reflow.
   // All zero on desktop, where this is display:none. Measured rather than
   // hardcoded since it varies with the safe-area inset. A layout effect so the
   // values are in place before an overlay's first paint.

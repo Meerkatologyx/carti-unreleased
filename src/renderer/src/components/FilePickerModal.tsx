@@ -3,8 +3,8 @@ import { ModalOverlay, LockToggle } from './Modal'
 import { X, Folder, FolderOpen, ArrowLeft, Home, ChevronRight, Loader2, ImageIcon, Search, Check, Music2, File, FolderCheck, FolderPlus } from 'lucide-react'
 import {
   apiFetch, apiPeek, buildStreamUrl, smallCoverUrl, parseBrowseEntries, cleanTitleForSearch, coverSearchQueries, filterSearchResults, searchFiles,
-  JWApiFileEntry, JWApiBrowseResponse,
-} from '../lib/juicewrldApi'
+  CatalogFileEntry, CatalogBrowseResponse,
+} from '../lib/catalogApi'
 import { getMediaType } from '../lib/fileTypes'
 import { folderFromIndex, loadFileIndex, runFileSearch } from '../lib/fileSearch'
 import { SearchHelpButton } from './SearchHelpPopover'
@@ -21,7 +21,7 @@ function joinFolder(base: string, name: string): string {
 
 // Directories first, then matching files, alphabetically within each - a picker
 // has no need for the full sort/view-mode machinery ApiFilesView offers.
-function sortForPicker(entries: JWApiFileEntry[], kind: PickerKind): JWApiFileEntry[] {
+function sortForPicker(entries: CatalogFileEntry[], kind: PickerKind): CatalogFileEntry[] {
   return [...entries]
     .filter((e) => e.type === 'directory' || kind === 'any' || getMediaType(e.name) === kind)
     .sort((a, b) => {
@@ -111,7 +111,7 @@ export default function FilePickerModal({ kind = 'image', songTitle, altTitles =
   // repeating a name the primary search already covers).
   const altQueries = songTitle ? coverSearchQueries(songTitle, altTitles).filter((q) => q.toLowerCase() !== initialQuery.toLowerCase()) : []
   const [currentPath, setCurrentPath] = useState('')
-  const [entries, setEntries] = useState<JWApiFileEntry[]>([])
+  const [entries, setEntries] = useState<CatalogFileEntry[]>([])
   const [loading, setLoading] = useState(!initialQuery)
   const [error, setError] = useState<string | null>(null)
   const [history, setHistory] = useState<string[]>([])
@@ -132,10 +132,10 @@ export default function FilePickerModal({ kind = 'image', songTitle, altTitles =
   // that still happens quietly alongside it.
   const [search, setSearch] = useState(initialQuery)
   const [debouncedSearch, setDebouncedSearch] = useState(initialQuery)
-  const [primaryResults, setSearchResults] = useState<JWApiFileEntry[]>([])
+  const [primaryResults, setSearchResults] = useState<CatalogFileEntry[]>([])
   // Alt-title results live apart from the primary search's, so whichever of
   // the two lands last can't wipe the other out.
-  const [altResults, setAltResults] = useState<JWApiFileEntry[]>([])
+  const [altResults, setAltResults] = useState<CatalogFileEntry[]>([])
   const [searchLoading, setSearchLoading] = useState(!!initialQuery)
   const isSearching = debouncedSearch.trim().length > 0
 
@@ -145,7 +145,7 @@ export default function FilePickerModal({ kind = 'image', songTitle, altTitles =
     const id = ++navigateId.current
     if (resetSearch) { setSearch(''); setDebouncedSearch('') }
     // Cached listing, else the channel's file index if search already loaded it.
-    const peeked = apiPeek<JWApiBrowseResponse>('/files/browse/', browseParams(path))
+    const peeked = apiPeek<CatalogBrowseResponse>('/files/browse/', browseParams(path))
     const cached = peeked ? parseBrowseEntries(peeked) : folderFromIndex(activeChannel, path)
     if (cached) {
       setEntries(cached)
@@ -157,7 +157,7 @@ export default function FilePickerModal({ kind = 'image', songTitle, altTitles =
       setError(null)
     }
     try {
-      const data = await apiFetch<JWApiBrowseResponse>('/files/browse/', browseParams(path))
+      const data = await apiFetch<CatalogBrowseResponse>('/files/browse/', browseParams(path))
       if (id !== navigateId.current) return
       if (pushHistory) setHistory((h) => [...h, currentPath])
       setCurrentPath(path)
@@ -225,7 +225,7 @@ export default function FilePickerModal({ kind = 'image', songTitle, altTitles =
     Promise.all(altQueries.map((q) =>
       searchFiles(q, searchParams(q))
         .then((entries) => filterSearchResults(entries, q))
-        .catch(() => [] as JWApiFileEntry[])
+        .catch(() => [] as CatalogFileEntry[])
     )).then((lists) => {
       if (!cancelled) setAltResults(lists.flat())
     })

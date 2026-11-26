@@ -16,10 +16,10 @@ import {
   buildCoverArtUrl,
   smallCoverUrl,
   apiFileTrackId,
-  JWApiFileEntry,
-  JWApiPaginatedResponse,
-  JWApiSong,
-} from '../lib/juicewrldApi'
+  CatalogFileEntry,
+  CatalogPaginatedResponse,
+  CatalogSong,
+} from '../lib/catalogApi'
 import { getFileExt, getMediaType } from '../lib/fileTypes'
 import { formatBytes } from '../lib/format'
 import { registerBackHandler } from '../lib/backHandlers'
@@ -86,7 +86,7 @@ const SORT_LABELS: Record<SortBy, string> = { name: 'Name', type: 'Type', size: 
 
 /** Short second line under a row's name: "MP3 · 8.2 MB", or the folder it
  *  lives in while searching (results come from the whole tree). */
-function metaLine(entry: JWApiFileEntry, showParent: boolean): string {
+function metaLine(entry: CatalogFileEntry, showParent: boolean): string {
   if (showParent) return parentFolder(entry.path) || 'Root'
   if (entry.type === 'directory') return 'Folder'
   const ext = getFileExt(entry.name).slice(1).toUpperCase()
@@ -97,7 +97,7 @@ function metaLine(entry: JWApiFileEntry, showParent: boolean): string {
 // ─── Thumbnails ───────────────────────────────────────────────────────────────
 
 function Thumb({ entry, size, rounded = 'rounded-lg' }: {
-  entry: JWApiFileEntry
+  entry: CatalogFileEntry
   size: number
   rounded?: string
 }): JSX.Element {
@@ -188,13 +188,13 @@ export default function ApiFilesView({ embedded = false }: { embedded?: boolean;
   const likedSet = useMemo(() => new Set(likedTrackIds), [likedTrackIds])
 
   const [toast, setToast] = useState<string | null>(null)
-  const [infoSong, setInfoSong] = useState<JWApiSong | null>(null)
+  const [infoSong, setInfoSong] = useState<CatalogSong | null>(null)
 
   // Sheets. `sheetEntry` is the row the actions sheet was opened for;
   // `sheetPage` is its sub-page (the playlist picker drills in rather than
   // opening a second layer on top).
   const [sheet, setSheet] = useState<SheetKind>(null)
-  const [sheetEntry, setSheetEntry] = useState<JWApiFileEntry | null>(null)
+  const [sheetEntry, setSheetEntry] = useState<CatalogFileEntry | null>(null)
   const [sheetPage, setSheetPage] = useState<'main' | 'playlists'>('main')
 
   // Multi-select
@@ -281,11 +281,11 @@ export default function ApiFilesView({ embedded = false }: { embedded?: boolean;
 
   // ── Actions ────────────────────────────────────────────────────────────────
 
-  const openSongInfo = async (entry: JWApiFileEntry): Promise<void> => {
+  const openSongInfo = async (entry: CatalogFileEntry): Promise<void> => {
     setInfoSong(await findSongByFilename(entry.name))
   }
 
-  const openActions = (entry: JWApiFileEntry): void => {
+  const openActions = (entry: CatalogFileEntry): void => {
     setSheetEntry(entry)
     setSheetPage('main')
     resetPlaylistDone()
@@ -299,16 +299,16 @@ export default function ApiFilesView({ embedded = false }: { embedded?: boolean;
     navigator.clipboard.writeText(text).then(() => showToast(`${what} copied`)).catch(() => showToast('Copy failed'))
   }
 
-  const copyLink = (entry: JWApiFileEntry): void => copyToClipboard(fileEntryLinkUrl(entry, activeChannel), 'Link')
+  const copyLink = (entry: CatalogFileEntry): void => copyToClipboard(fileEntryLinkUrl(entry, activeChannel), 'Link')
 
   // The API-relative path ("Compilation/Folder/song.mp3") - what every
   // /files/* endpoint takes as its `path` param, unlike Copy link's full URL.
-  const copyPath = (entry: JWApiFileEntry): void => copyToClipboard(entry.path, 'Path')
+  const copyPath = (entry: CatalogFileEntry): void => copyToClipboard(entry.path, 'Path')
 
   // Tries the P2P CDN first (primary channel only - /cdn/resolve/ has no
   // channel param, so a non-primary path could collide with a different
   // file of the same name) and falls back to the direct stream URL.
-  const handleDownload = (entry: JWApiFileEntry): void => {
+  const handleDownload = (entry: CatalogFileEntry): void => {
     const streamUrl = buildStreamUrl(entry.path, activeChannel)
     if (!isPrimary) { triggerDownload(streamUrl, entry.name); return }
     startCdnFileDownload(entry.path, entry.name, streamUrl)
@@ -317,7 +317,7 @@ export default function ApiFilesView({ embedded = false }: { embedded?: boolean;
 
   // ── Selection ──────────────────────────────────────────────────────────────
 
-  const enterSelectMode = (entry: JWApiFileEntry): void => {
+  const enterSelectMode = (entry: CatalogFileEntry): void => {
     setSelectMode(true)
     setSelectedPaths(new Set([entry.path]))
   }
@@ -345,7 +345,7 @@ export default function ApiFilesView({ embedded = false }: { embedded?: boolean;
     pressOrigin.current = null
   }
 
-  const pressHandlers = (entry: JWApiFileEntry): {
+  const pressHandlers = (entry: CatalogFileEntry): {
     onTouchStart: (e: React.TouchEvent) => void
     onTouchMove: (e: React.TouchEvent) => void
     onTouchEnd: () => void
@@ -379,7 +379,7 @@ export default function ApiFilesView({ embedded = false }: { embedded?: boolean;
     onContextMenu: (e) => { e.preventDefault(); openActions(entry) },
   })
 
-  const openEntry = (entry: JWApiFileEntry): void => {
+  const openEntry = (entry: CatalogFileEntry): void => {
     if (pressConsumed.current) { pressConsumed.current = false; return }
     if (selectMode) { toggleSelect(entry.path); return }
     const mt = entry.type === 'directory' ? 'folder' : getMediaType(entry.name)
@@ -444,7 +444,7 @@ export default function ApiFilesView({ embedded = false }: { embedded?: boolean;
 
   // ── Row ────────────────────────────────────────────────────────────────────
 
-  const renderRow = (entry: JWApiFileEntry): JSX.Element => {
+  const renderRow = (entry: CatalogFileEntry): JSX.Element => {
     const isDir = entry.type === 'directory'
     const mt = isDir ? 'folder' : getMediaType(entry.name)
     const isSelected = selectedPaths.has(entry.path)
@@ -504,7 +504,7 @@ export default function ApiFilesView({ embedded = false }: { embedded?: boolean;
     )
   }
 
-  const renderTile = (entry: JWApiFileEntry): JSX.Element => {
+  const renderTile = (entry: CatalogFileEntry): JSX.Element => {
     const isDir = entry.type === 'directory'
     const mt = isDir ? 'folder' : getMediaType(entry.name)
     const isSelected = selectedPaths.has(entry.path)
@@ -1055,7 +1055,7 @@ export default function ApiFilesView({ embedded = false }: { embedded?: boolean;
                         const songTitle = sheetEntry.name.replace(/\.[^.]+$/, '')
                         closeSheet()
                         try {
-                          const data = await apiFetch<JWApiPaginatedResponse>('/songs/', { search: songTitle, page_size: 1 })
+                          const data = await apiFetch<CatalogPaginatedResponse>('/songs/', { search: songTitle, page_size: 1 })
                           const id = data.results[0]?.id
                           if (id) useStore.getState().openSongEditor(id)
                         } catch {}

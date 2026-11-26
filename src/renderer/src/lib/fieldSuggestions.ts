@@ -7,12 +7,12 @@
 // that this is simpler and cheaper than a search-as-you-type request per
 // keystroke) and indexes it client-side.
 //
-// Matching is whole-field, not per-name - "Dominic Miller & Nick Mira" is one
+// Matching is whole-field, not per-name - "Pierre Bourne & F1LTHY" is one
 // suggestion, not two. Splitting multi-credit fields into individual names
 // would need a real delimiter convention this data doesn't consistently have
 // (" & ", ", ", "/" all show up), and whole-field matching is what the
 // version-title suggestions already do, so it stays consistent.
-import { loadAllSongs, JWApiSong } from './juicewrldApi'
+import { loadAllSongs, CatalogSong } from './catalogApi'
 
 export type SuggestField =
   | 'album' | 'credited_artists' | 'producers' | 'engineers'
@@ -21,9 +21,9 @@ export type SuggestField =
 // Built once per catalog fetch and reused across every field/query - indexing
 // all six fields costs one pass over ~2500 songs, and repeating that per
 // keystroke was the difference between instant and noticeably laggy.
-let indexCache: { forCatalog: Promise<JWApiSong[]>; byField: Map<SuggestField, Map<string, number>> } | null = null
+let indexCache: { forCatalog: Promise<CatalogSong[]>; byField: Map<SuggestField, Map<string, number>> } | null = null
 
-function buildIndex(catalog: JWApiSong[]): Map<SuggestField, Map<string, number>> {
+function buildIndex(catalog: CatalogSong[]): Map<SuggestField, Map<string, number>> {
   const fields: SuggestField[] = ['album', 'credited_artists', 'producers', 'engineers', 'recording_locations', 'leak_type']
   const byField = new Map<SuggestField, Map<string, number>>(fields.map(f => [f, new Map()]))
   for (const song of catalog) {
@@ -38,7 +38,7 @@ function buildIndex(catalog: JWApiSong[]): Map<SuggestField, Map<string, number>
 }
 
 async function getIndex(): Promise<Map<SuggestField, Map<string, number>>> {
-  // juicewrldApi's shared bulk-catalogue cache rather than a private copy -
+  // catalogApi's shared bulk-catalogue cache rather than a private copy -
   // this module used to keep its own identical 5-minute TTL cache of the same
   // ?all=true fetch, so opening an edit form after any view that had already
   // loaded the catalogue paid for it a second time.

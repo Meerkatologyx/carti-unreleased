@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { getMyCompProposals } from '../lib/userApi'
 import type { CompFileProposal } from '../lib/userApi'
-import type { JWApiFileEntry } from '../lib/juicewrldApi'
+import type { CatalogFileEntry } from '../lib/catalogApi'
 import { COMP_UPLOADS_CHANGED } from '../lib/compUploads'
 
 // The contributor's own still-pending comp proposals, projected onto the Files
@@ -54,7 +54,7 @@ export function usePendingCompGhosts({ enabled, activeChannel, currentPath, entr
   enabled: boolean
   activeChannel: string
   currentPath: string
-  entries: JWApiFileEntry[]
+  entries: CatalogFileEntry[]
   isSearching: boolean
 }): {
   ghosts: PendingGhost[]

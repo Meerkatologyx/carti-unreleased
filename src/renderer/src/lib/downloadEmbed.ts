@@ -8,7 +8,7 @@
 // setting is off, there's nothing to embed, the file isn't an MP3 or anything
 // fails, the caller just downloads the untouched file.
 import { useStore } from '../store/useStore'
-import { buildImageUrl, getSongById, overrideCoverUrl, type JWApiSong } from './juicewrldApi'
+import { buildImageUrl, getSongById, overrideCoverUrl, type CatalogSong } from './catalogApi'
 import { peekSongPref } from './songPrefs'
 import { isLrcFormat, parseLrc } from './lyrics'
 import { triggerDownload } from './apiFilesShared'
@@ -17,7 +17,7 @@ import type { Mp3Cover, Mp3Extras } from './mp3Tags'
 
 export type DownloadEmbed = Mp3Extras
 
-function lyricsOf(song: JWApiSong): Mp3Extras['lyrics'] {
+function lyricsOf(song: CatalogSong): Mp3Extras['lyrics'] {
   const synced = song.synced_lyrics && isLrcFormat(song.synced_lyrics) ? parseLrc(song.synced_lyrics) : []
   const text = (song.lyrics?.trim() || synced.map((l) => l.text).join('\n')).trim()
   return text ? { text, synced } : undefined
@@ -53,7 +53,7 @@ export async function embedForDownload(songId: number | null | undefined, path: 
   if (songId == null || !/\.mp3$/i.test(path)) return null
   // `tagged` overrides the setting for this one download.
   if (!(tagged ?? useStore.getState().embedSongInfoOnDownload)) return null
-  let song: JWApiSong
+  let song: CatalogSong
   try {
     song = await getSongById(songId)
   } catch {

@@ -60,13 +60,13 @@ const UNAUTHORIZED = 4401
 // The API documents both routes; which one the proxy actually upgrades depends
 // on deployment (the prefixed one has been answering 502), so rotate through
 // them on handshake failure and stick with whichever opens.
-const WS_PATHS = ['/juicewrld/ws/chat/', '/ws/chat/']
+const WS_PATHS = ['/api/ws/chat/', '/ws/chat/']
 
 function wsUrl(token: string, path: string): string {
-  const env = import.meta.env.VITE_JWAPI_WS as string | undefined
+  const env = import.meta.env.VITE_CATALOG_API_WS as string | undefined
   const origin = env
     ? env.replace(/\/$/, '')
-    : CHAT_API_BASE.replace(/\/juicewrld\/?$/, '').replace(/^http/, 'ws')
+    : CHAT_API_BASE.replace(/\/carti\/?$/, '').replace(/^http/, 'ws')
   return `${origin}${path}?token=${encodeURIComponent(token)}`
 }
 

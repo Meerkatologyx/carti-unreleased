@@ -38,7 +38,7 @@ test('existing-server lyrics jobs work with a multipart-only endpoint without up
     './apiServers': { routeUrl: route => `https://example.test${route}` },
     './apiClient': apiClient,
     './userApi': { getToken: () => 'test-token' },
-    './juicewrldApi': {},
+    './catalogApi': {},
     './donorFilesApi': { DONOR_ALLOWED_EXTENSIONS: [] },
     './donorPlayback': {},
     './lyricsTiming': { saveTimingDraft: () => {} },

@@ -31,10 +31,10 @@ export interface NavItemDef {
 }
 
 export const NAV_ITEMS: NavItemDef[] = [
-  // Desktop-only - mobile reaches WRLD through the mini player, not this
+  // Desktop-only - mobile reaches VAMP through the mini player, not this
   // list (see MOBILE_HIDDEN_VIEWS in useMobileNavTabs), same as it always
   // has.
-  { view: 'wrld', label: 'WRLD', icon: <img src={logo} alt="WRLD" className="w-[24px] h-[24px] object-contain" /> },
+  { view: 'vamp', label: 'VAMP', icon: <img src={logo} alt="VAMP" className="w-[24px] h-[24px] object-contain" /> },
   // The landing page on both shells, so it's pinned rather than optional -
   // hiding it would leave the app with no way back to where it opened.
   { view: 'home', label: 'Home', icon: <House size={18} />, alwaysVisible: true },
@@ -184,7 +184,7 @@ export interface NavControlDef {
 export const NAV_CONTROLS: NavControlDef[] = [
   { id: 'profile', label: 'Profile', icon: <User size={18} /> },
   { id: 'uploads', label: 'Transfers', icon: <Upload size={18} /> },
-  { id: 'fmchat', label: '999 FM chat', icon: <MessagesSquare size={18} /> },
+  { id: 'fmchat', label: 'Vamp FM chat', icon: <MessagesSquare size={18} /> },
   { id: 'notifications', label: 'Notifications', icon: <Bell size={18} /> },
   { id: 'diagnostics', label: 'Diagnostics', icon: <Info size={18} /> },
   { id: 'download', label: 'Download app', icon: <Download size={18} /> },

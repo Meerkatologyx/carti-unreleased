@@ -8,8 +8,8 @@ import { useStorePick } from '../store/useStore'
 import { Sheet } from './mobile/Sheet'
 import { Avatar } from './adminShared'
 import { GameSwitcher, GameBackdrop, Field, Segmented, numberInput } from './gameShell'
-import { getSongById, songToTrack, smallCoverUrl, CATEGORY_LABELS } from '../lib/juicewrldApi'
-import type { JWApiSong } from '../lib/juicewrldApi'
+import { getSongById, songToTrack, smallCoverUrl, CATEGORY_LABELS } from '../lib/catalogApi'
+import type { CatalogSong } from '../lib/catalogApi'
 import { eraFullName, loadEraFullNames } from '../lib/eras'
 import {
   MIN_TRIES, MAX_TRIES, POOL_LABELS, DEFAULT_SETTINGS,
@@ -345,7 +345,7 @@ export default function HeardleView(): JSX.Element {
     'setActiveView', 'playTrack', 'setIsPlaying', 'isPlaying', 'volume', 'setVolume', 'account', 'setHeroBleedTop', 'previousView')
 
   // Lets GameBackdrop's wash paint full-bleed under the status bar instead of
-  // stopping at the shell's usual inset - matches WRLD's ownsTopInset trick.
+  // stopping at the shell's usual inset - matches VAMP's ownsTopInset trick.
   // The corner buttons and the switcher's top clearance compensate below.
   // Always true: mobile's nav bar is bottom-only now (see BottomNav), so the
   // shell always reserves this inset itself.
@@ -447,7 +447,7 @@ export default function HeardleView(): JSX.Element {
   }, [categoryKey])
 
   // The era filter narrows what's already loaded - no refetch, and the guess
-  // dropdown narrows with it, which is the point: a Goodbye & Good Riddance
+  // dropdown narrows with it, which is the point: a Die Lit
   // round shouldn't autocomplete songs that can't be the answer.
   const eraKey = rules.eras.join(',')
   const playablePool = useMemo(
@@ -671,8 +671,8 @@ export default function HeardleView(): JSX.Element {
         style={{ top: ownsTopInset ? 'calc(var(--top-inset) + 0.5rem)' : '0.5rem' }}
       >
         <button
-          // Desktop treats WRLD as the games' hub and always returns there;
-          // on mobile there's no WRLD tab in this flow any more - Home is
+          // Desktop treats VAMP as the games' hub and always returns there;
+          // on mobile there's no VAMP tab in this flow any more - Home is
           // where every game is actually entered from (see HomeView's Games
           // section) - so back goes to wherever that really was instead of a
           // hardcoded destination that no longer makes sense here.
@@ -725,7 +725,7 @@ export default function HeardleView(): JSX.Element {
           <div className="text-center mb-5">
             <h1 className="text-title1 text-text-primary inline-flex items-start gap-1">
               Playboi Carti Heardle
-              <span className="text-accent text-footnote font-bold mt-0.5">999</span>
+              <span className="text-accent text-footnote font-bold mt-0.5">*</span>
             </h1>
             <p className="mt-1 text-subhead text-text-secondary">
               Name the song from its opening seconds

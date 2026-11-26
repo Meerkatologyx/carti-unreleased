@@ -17,7 +17,7 @@ const GAP = 8
 
 // Explains the field:"value" query syntax (trackerSearch.ts) that a search
 // box's info button opens - shared by every search that takes it (Tracker,
-// 999 FM, playlists, queues, tier list). Rendered where the button's
+// Vamp FM, playlists, queues, tier list). Rendered where the button's
 // `relative` wrapper is, but portalled and fixed-positioned against that
 // wrapper so panels with overflow-hidden (the queues) don't clip it. Closes on
 // outside click/Escape like the other popovers/menus.

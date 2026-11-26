@@ -7,7 +7,7 @@
 import type { LibraryTrack, Track } from '../types'
 import type { PlaylistEntryInput, PlaylistItemEntry, PlaylistItemSource } from './userApi'
 import { liteSongToTrack, trackIdToSongId } from './userApi'
-import { apiFileIdToRef, apiFilePathToTrack } from './juicewrldApi'
+import { apiFileIdToRef, apiFilePathToTrack } from './catalogApi'
 import { donorFileIdFromTrackId, donorFileToTrack } from './donorPlayback'
 import { libraryTrackToTrack } from './fileTypes'
 import { isPrimaryChannelSlug } from '../hooks/useChannelRoles'

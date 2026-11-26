@@ -6,8 +6,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useStore, useStorePick } from '../store/useStore'
 import { hasEscapeLayer } from './useEscapeToClose'
-import { getSongById, songToTrack } from '../lib/juicewrldApi'
-import type { JWApiSong } from '../lib/juicewrldApi'
+import { getSongById, songToTrack } from '../lib/catalogApi'
+import type { CatalogSong } from '../lib/catalogApi'
 import { loadEraFullNames } from '../lib/eras'
 import {
   loadPools, filterByEra, poolEras, POOL_LABELS,

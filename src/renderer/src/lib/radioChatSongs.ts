@@ -1,6 +1,6 @@
-import type { JWApiSong } from './juicewrldApi'
+import type { CatalogSong } from './catalogApi'
 
-type SongTitle = Pick<JWApiSong, 'id' | 'name' | 'track_titles'>
+type SongTitle = Pick<CatalogSong, 'id' | 'name' | 'track_titles'>
 
 function titleKey(title: string): string {
   return title.trim().replace(/\s+/g, ' ').replace(/[‘’]/g, "'").toLowerCase()
@@ -11,7 +11,7 @@ type Matcher = (text: string) => { text: string; songId?: number }[]
 // One matcher per catalogue array (loadAllSongs hands every caller the same one
 // until its TTL runs out). The title regex alternates every song name, so
 // running it over a chat's worth of lines took ~270 ms, and the panel paid that
-// again on every mount (each WRLD visit). Lines are cached by text too, so a
+// again on every mount (each VAMP visit). Lines are cached by text too, so a
 // remount only runs the regex for lines it hasn't seen.
 const matchers = new WeakMap<readonly SongTitle[], Matcher>()
 const LINE_CACHE_MAX = 1000

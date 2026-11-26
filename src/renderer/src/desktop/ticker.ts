@@ -1,5 +1,5 @@
 // The Lyrics Ticker's line: the one being sung now, else the song's name and artist - between lines, before the words
-// come, and when they aren't timed. Read from the app's own lyrics (FM's matched song while 999 FM plays).
+// come, and when they aren't timed. Read from the app's own lyrics (FM's matched song while Vamp FM plays).
 import { useStore } from '../store/useStore'
 import { playingSeconds } from './playClock'
 import { getCurrentLineIndex, isLrcFormat, parseLrc } from '../lib/lyrics'
@@ -13,7 +13,7 @@ export function tickerLine(): string {
   const fm = s.radioFmActive
   const title = fm ? s.radioFmNowPlaying?.title : s.currentTrack?.title
   const artist = fm ? s.radioFmNowPlaying?.artist : s.currentTrack?.artist
-  const name = title ? `${title}${artist ? ` — ${artist}` : ''}` : 'Unreleased'
+  const name = title ? `${title}${artist ? ` — ${artist}` : ''}` : 'Carti Unreleased'
   const raw = fm
     ? (s.radioFmMatchedSong?.syncedLyrics || s.radioFmMatchedSong?.lyrics || null)
     : (s.currentTrackFull && s.currentTrackFull.id === s.currentTrack?.id ? s.currentTrackFull.syncedLyrics || s.currentTrackFull.lyrics : null)

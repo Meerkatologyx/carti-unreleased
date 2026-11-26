@@ -108,7 +108,7 @@ function paintWord(text: string, key: string, size: number, inkColor: RGB, outli
   canvas.width = Math.ceil(box.width * scale)
   canvas.height = Math.ceil(box.height * scale)
   // Drawn on the CPU: the picture is read straight back out, and reading a GPU canvas waits for everything the GPU
-  // has queued - with WRLD's visualizer running, a frame or two.
+  // has queued - with VAMP's visualizer running, a frame or two.
   const g = canvas.getContext('2d', { willReadFrequently: true })!
   g.scale(scale, scale)
   g.font = font

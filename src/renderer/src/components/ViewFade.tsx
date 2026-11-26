@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef } from 'react'
-import { isExpandingToWrld } from '../lib/wrldExpand'
+import { isExpandingToVamp } from '../lib/vampExpand'
 import { reducedMotion, swapIn } from '../lib/dashboardSwap'
 
 // Fades and lifts a view in as it becomes the one on screen: on mount for most
@@ -16,8 +16,8 @@ export default function ViewFade({ view, active, swap = 0, wholePageSwap = false
   useLayoutEffect(() => {
     if (!active) return
     const el = ref.current?.firstElementChild
-    // Expanding into WRLD from the player bar is its own entrance.
-    if (!(el instanceof HTMLElement) || isExpandingToWrld() || reducedMotion()) return
+    // Expanding into VAMP from the player bar is its own entrance.
+    if (!(el instanceof HTMLElement) || isExpandingToVamp() || reducedMotion()) return
     if (swap && (wholePageSwap || el.querySelector('[data-swap]'))) { swapIn(el, swap, wholePageSwap); return }
     el.animate(
       [{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 1, transform: 'none' }],

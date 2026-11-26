@@ -72,10 +72,10 @@
   --text-muted: #6b6b6b;
   --border: rgba(0, 0, 0, 0.08);
   --scrollbar: #cccccc;
-  --accent: #1db954;
-  --accent-rgb: 29 185 84;
-  --accent-hover: #1ed760;
-  --accent-hover-rgb: 30 215 96;
+  --accent: #e11d2e;
+  --accent-rgb: 225 29 46;
+  --accent-hover: #ff3344;
+  --accent-hover-rgb: 255 51 68;
 }
 
 /* ─── Dark theme ─────────────────────────────────────────────────────────────── */
@@ -115,10 +115,10 @@
 @property --text-muted { syntax: '<color>'; inherits: true; initial-value: #6b6b6b; }
 @property --border { syntax: '<color>'; inherits: true; initial-value: rgba(0, 0, 0, 0.08); }
 @property --scrollbar { syntax: '<color>'; inherits: true; initial-value: #cccccc; }
-@property --accent { syntax: '<color>'; inherits: true; initial-value: #1db954; }
-@property --accent-hover { syntax: '<color>'; inherits: true; initial-value: #1ed760; }
-@property --accent-rgb { syntax: '<number>+'; inherits: true; initial-value: 29 185 84; }
-@property --accent-hover-rgb { syntax: '<number>+'; inherits: true; initial-value: 30 215 96; }
+@property --accent { syntax: '<color>'; inherits: true; initial-value: #e11d2e; }
+@property --accent-hover { syntax: '<color>'; inherits: true; initial-value: #ff3344; }
+@property --accent-rgb { syntax: '<number>+'; inherits: true; initial-value: 225 29 46; }
+@property --accent-hover-rgb { syntax: '<number>+'; inherits: true; initial-value: 255 51 68; }
 
 /* Clicks and hovers pass through to the live page while the snapshot fades. */
 html:active-view-transition-type(palette)::view-transition { pointer-events: none; }
@@ -249,20 +249,20 @@ html.gradients #root {
     radial-gradient(80% 70% at 0% 100%, rgb(var(--accent-rgb) / 0.08), transparent 55%);
 }
 
-/* Same gap, same fix, for WRLD: its dark blurred-cover backdrop is the only
+/* Same gap, same fix, for VAMP: its dark blurred-cover backdrop is the only
    thing under that sliver while it's open, so leaking through to the raw
    `var(--surface)` below reads as a wrong-colored (and theme-following)
    patch sitting on top of an otherwise dark, immersive screen - much more
-   jarring than the Gradient Surfaces case above, since WRLD's backdrop is
-   always dark regardless of the active theme. `wrld-active` is toggled on
-   <html> for exactly as long as WrldView is mounted (mobile only - desktop
+   jarring than the Gradient Surfaces case above, since VAMP's backdrop is
+   always dark regardless of the active theme. `vamp-active` is toggled on
+   <html> for exactly as long as VampView is mounted (mobile only - desktop
    never fills the safe-area top inset this way). Can't replicate the actual
    blurred-cover art here (this paints behind everything, before React has
    anything to sample from), so a plain dark tone is the fix: close enough
    to blend, and always closer than the theme surface color it replaces. */
-html.wrld-active,
-html.wrld-active body,
-html.wrld-active #root {
+html.vamp-active,
+html.vamp-active body,
+html.vamp-active #root {
   background: #000;
 }
 
@@ -588,21 +588,21 @@ input[type='range']:active::-moz-range-thumb {
   animation: eq-bar 0.9s ease-in-out infinite;
 }
 
-/* Mobile WRLD's blurred-cover backdrop, never quite still - Apple Music's
+/* Mobile VAMP's blurred-cover backdrop, never quite still - Apple Music's
    now-playing background drifts the same way. Scale never drops below 1.08,
    so the translate never uncovers an edge. Transform only, on its own layer. */
-@keyframes wrld-backdrop-drift {
+@keyframes vamp-backdrop-drift {
   0%   { transform: scale(1.08) translate(0, 0); }
   33%  { transform: scale(1.18) translate(-3%, 2%); }
   66%  { transform: scale(1.12) translate(3%, -2%); }
   100% { transform: scale(1.08) translate(0, 0); }
 }
-.wrld-backdrop-drift {
-  animation: wrld-backdrop-drift 36s ease-in-out infinite;
+.vamp-backdrop-drift {
+  animation: vamp-backdrop-drift 36s ease-in-out infinite;
   will-change: transform;
 }
 @media (prefers-reduced-motion: reduce) {
-  .wrld-backdrop-drift { animation: none; }
+  .vamp-backdrop-drift { animation: none; }
 }
 
 @keyframes slide-in-right {
@@ -649,60 +649,60 @@ input[type='range']:active::-moz-range-thumb {
   animation: fade-in 0.2s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-/* ─── WRLD queue panel ───────────────────────────────────────────────────────── */
+/* ─── VAMP queue panel ───────────────────────────────────────────────────────── */
 
 /* Whole-panel entrance: rises + fades + settles from a hair under scale */
-@keyframes wrld-queue-in {
+@keyframes vamp-queue-in {
   from { opacity: 0; transform: translateY(18px) scale(0.98); }
   to   { opacity: 1; transform: translateY(0)    scale(1); }
 }
-.animate-wrld-queue-in {
-  animation: wrld-queue-in 0.38s cubic-bezier(0.16, 1, 0.3, 1) both;
+.animate-vamp-queue-in {
+  animation: vamp-queue-in 0.38s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-/* ─── WRLD side panel (lyrics / queue / FM radio) ───────────────────────────────
+/* ─── VAMP side panel (lyrics / queue / FM radio) ───────────────────────────────
    The toolbar's panel toggle. The player column glides between centred and the
-   left half (a transform, run from WrldView - SPLIT_GLIDE_MS), while the panel
+   left half (a transform, run from VampView - SPLIT_GLIDE_MS), while the panel
    slides in from the right behind it. Closing keeps the panel mounted just long
-   enough for wrld-panel-out (PANEL_EXIT_MS) while the player glides back.
+   enough for vamp-panel-out (PANEL_EXIT_MS) while the player glides back.
    Curves here start gently and settle long rather than the expo-out used
    elsewhere, which put most of the motion in the first ~100ms and read as a
    snap. Only transform and opacity animate, and no text is scaled - scaled
    text re-rasterises and shimmers. */
-@keyframes wrld-panel-in {
+@keyframes vamp-panel-in {
   0%   { opacity: 0; transform: translateX(40px); }
   55%  { opacity: 1; }
   100% { opacity: 1; transform: translateX(0); }
 }
-@keyframes wrld-panel-out {
+@keyframes vamp-panel-out {
   from { opacity: 1; transform: translateX(0); }
   to   { opacity: 0; transform: translateX(32px); }
 }
-.animate-wrld-panel-in  { animation: wrld-panel-in 0.6s cubic-bezier(0.33, 0, 0.15, 1) 0.1s both; }
-.animate-wrld-panel-out { animation: wrld-panel-out 0.36s cubic-bezier(0.4, 0, 0.6, 1) both; pointer-events: none; }
+.animate-vamp-panel-in  { animation: vamp-panel-in 0.6s cubic-bezier(0.33, 0, 0.15, 1) 0.1s both; }
+.animate-vamp-panel-out { animation: vamp-panel-out 0.36s cubic-bezier(0.4, 0, 0.6, 1) both; pointer-events: none; }
 
 /* Swapping views inside the open panel (lyrics <-> queue, radio <-> lyrics) is
    a crossfade: the old view lifts away, and the new one rises in once it has
    mostly gone. Only on a swap - a view arriving with the panel itself doesn't
-   animate on its own (WrldPanelLayer). VIEW_EXIT_MS in WrldView matches
-   wrld-view-out. */
-@keyframes wrld-view-in {
+   animate on its own (VampPanelLayer). VIEW_EXIT_MS in VampView matches
+   vamp-view-out. */
+@keyframes vamp-view-in {
   from { opacity: 0; transform: translateY(10px); }
   to   { opacity: 1; transform: translateY(0); }
 }
-@keyframes wrld-view-out {
+@keyframes vamp-view-out {
   from { opacity: 1; transform: translateY(0); }
   to   { opacity: 0; transform: translateY(-6px); }
 }
-.animate-wrld-view-in  { animation: wrld-view-in 0.46s cubic-bezier(0.33, 0, 0.15, 1) 0.14s both; }
-.animate-wrld-view-out { animation: wrld-view-out 0.22s cubic-bezier(0.4, 0, 0.6, 1) both; pointer-events: none; }
+.animate-vamp-view-in  { animation: vamp-view-in 0.46s cubic-bezier(0.33, 0, 0.15, 1) 0.14s both; }
+.animate-vamp-view-out { animation: vamp-view-out 0.22s cubic-bezier(0.4, 0, 0.6, 1) both; pointer-events: none; }
 
 /* The toggle's own icon (lyrics / queue / radio) turns in when it changes. */
-@keyframes wrld-icon-swap {
+@keyframes vamp-icon-swap {
   from { opacity: 0; transform: scale(0.7) rotate(-30deg); }
   to   { opacity: 1; transform: scale(1)   rotate(0); }
 }
-.animate-wrld-icon-swap { display: inline-flex; animation: wrld-icon-swap 0.38s cubic-bezier(0.3, 1.25, 0.5, 1) both; }
+.animate-vamp-icon-swap { display: inline-flex; animation: vamp-icon-swap 0.38s cubic-bezier(0.3, 1.25, 0.5, 1) both; }
 
 /* ─── Sliding nav highlight ────────────────────────────────────────────────────
    hooks/useSlidingIndicator: one highlight behind the nav items, moved onto the
@@ -793,22 +793,22 @@ input[type='range']:active::-moz-range-thumb {
 /* Per-row reveal, staggered - layered on top of the panel entrance so the
    list cascades in. `backwards` (not `both`) so the fill state is dropped
    once the animation ends, leaving the drag-reorder transforms free to apply. */
-@keyframes wrld-row-in {
+@keyframes vamp-row-in {
   from { opacity: 0; transform: translateX(16px); }
   to   { opacity: 1; transform: translateX(0); }
 }
-.wrld-q-row { animation: wrld-row-in 0.34s cubic-bezier(0.16, 1, 0.3, 1) backwards; }
-.wrld-q-row:nth-child(1)   { animation-delay:  40ms; }
-.wrld-q-row:nth-child(2)   { animation-delay:  62ms; }
-.wrld-q-row:nth-child(3)   { animation-delay:  82ms; }
-.wrld-q-row:nth-child(4)   { animation-delay: 100ms; }
-.wrld-q-row:nth-child(5)   { animation-delay: 116ms; }
-.wrld-q-row:nth-child(6)   { animation-delay: 130ms; }
-.wrld-q-row:nth-child(7)   { animation-delay: 142ms; }
-.wrld-q-row:nth-child(8)   { animation-delay: 152ms; }
-.wrld-q-row:nth-child(9)   { animation-delay: 160ms; }
-.wrld-q-row:nth-child(10)  { animation-delay: 166ms; }
-.wrld-q-row:nth-child(n+11) { animation-delay: 172ms; }
+.vamp-q-row { animation: vamp-row-in 0.34s cubic-bezier(0.16, 1, 0.3, 1) backwards; }
+.vamp-q-row:nth-child(1)   { animation-delay:  40ms; }
+.vamp-q-row:nth-child(2)   { animation-delay:  62ms; }
+.vamp-q-row:nth-child(3)   { animation-delay:  82ms; }
+.vamp-q-row:nth-child(4)   { animation-delay: 100ms; }
+.vamp-q-row:nth-child(5)   { animation-delay: 116ms; }
+.vamp-q-row:nth-child(6)   { animation-delay: 130ms; }
+.vamp-q-row:nth-child(7)   { animation-delay: 142ms; }
+.vamp-q-row:nth-child(8)   { animation-delay: 152ms; }
+.vamp-q-row:nth-child(9)   { animation-delay: 160ms; }
+.vamp-q-row:nth-child(10)  { animation-delay: 166ms; }
+.vamp-q-row:nth-child(n+11) { animation-delay: 172ms; }
 
 /* Menu / flyout entrance, also used by Transfers. A fade keeps text crisp
    and leaves anchored menus in place, including ones flipped above a trigger. */
@@ -846,7 +846,7 @@ input[type='range']:active::-moz-range-thumb {
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Glass menus - the look of the new-style WRLD player's own menu
+/* Glass menus - the look of the new-style VAMP player's own menu
    (desktop/pages/player.css, #menu): a see-through pane blurring what's
    behind it, a light rim, and rows as rounded pills inside a padded edge.
    Mixed from the skin's colors so it reads on every theme. The 4px padding
@@ -1439,13 +1439,13 @@ img[data-img-fade="in"] { animation: img-fade-in 0.42s cubic-bezier(0.33, 0, 0.1
      element's resting appearance is the animation's end state - dropping the
      animation entirely would leave it stuck at `from` (invisible, offset, or
      translated off-screen). A near-zero duration lands on `to` immediately. */
-  .animate-wrld-queue-in,
-  .animate-wrld-panel-in,
-  .animate-wrld-panel-out,
-  .animate-wrld-view-in,
-  .animate-wrld-view-out,
-  .animate-wrld-icon-swap,
-  .wrld-q-row,
+  .animate-vamp-queue-in,
+  .animate-vamp-panel-in,
+  .animate-vamp-panel-out,
+  .animate-vamp-view-in,
+  .animate-vamp-view-out,
+  .animate-vamp-icon-swap,
+  .vamp-q-row,
   .animate-wordle-shake,
   .animate-menu-pop,
   .animate-m-page-in,
@@ -1512,7 +1512,7 @@ img[data-img-fade="in"] { animation: img-fade-in 0.42s cubic-bezier(0.33, 0, 0.1
   outline-offset: 2px;
 }
 
-/* Fullscreen WRLD: once the mouse rests, WrldVisualizer sets data-viz-idle on
+/* Fullscreen VAMP: once the mouse rests, VampVisualizer sets data-viz-idle on
    the fullscreen root. The cursor hides everywhere (important, or any element
    with its own cursor-pointer would keep showing it) and the page's chrome
    fades out along with the visualizer toolbar. */

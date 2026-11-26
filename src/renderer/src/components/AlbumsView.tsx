@@ -4,7 +4,7 @@ import { addSongsInBackground } from '../lib/optimisticPlaylist'
 import { useStore, useStorePick } from '../store/useStore'
 import * as albumsApi from '../lib/albumsApi'
 import type { Album, AlbumSongEntry } from '../lib/albumsApi'
-import { loadAllSongs, songToTrack, parseDuration, type JWApiSong } from '../lib/juicewrldApi'
+import { loadAllSongs, songToTrack, parseDuration, type CatalogSong } from '../lib/catalogApi'
 import { formatDuration } from '../lib/format'
 import { useCanEdit } from '../hooks/useChannelRoles'
 import { useContentMotion } from '../hooks/useContentMotion'
@@ -62,7 +62,7 @@ function Description({ text, className }: { text: string; className: string }): 
 interface Row {
   entry: AlbumSongEntry
   /** The full catalogue song, needed to play it (null until the catalogue loads, or with no match). */
-  song: JWApiSong | null
+  song: CatalogSong | null
   songId: number | null
   name: string
   seconds: number
@@ -128,7 +128,7 @@ export default function AlbumsView(): JSX.Element {
   const canEdit = useCanEdit()
   const [albums, setAlbums] = useState<Album[] | null>(null)
   const [error, setError] = useState(false)
-  const [songIndex, setSongIndex] = useState<Map<string, JWApiSong>>(new Map())
+  const [songIndex, setSongIndex] = useState<Map<string, CatalogSong>>(new Map())
   const [catalogReady, setCatalogReady] = useState(false)
   const [type, setType] = useState<string>('All')
   const [ctxMenu, setCtxMenu] = useState<SongContextMenuState | null>(null)
@@ -333,7 +333,7 @@ export default function AlbumsView(): JSX.Element {
           {/* Tracklist: zebra rows on desktop, hairlines on narrow windows. */}
           <ol className="mt-7 md:mt-8 -mx-2 md:mx-0">
             {rows.map((r, i) => {
-              const active = r.songId != null && currentTrack?.id === `jw-${r.songId}`
+              const active = r.songId != null && currentTrack?.id === `pc-${r.songId}`
               const startIndex = rows.slice(0, i).filter((x) => x.song).length
               const isSelected = selected.has(i)
               const openMenu = (x: number, y: number): void => {

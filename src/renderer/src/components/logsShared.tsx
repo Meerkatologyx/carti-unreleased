@@ -361,10 +361,10 @@ const MORE_FIELDS: { key: keyof LogFilters; label: string; placeholder: string; 
   { key: 'event', label: 'Event', placeholder: 'auth.login_failed, access.', list: 'admin-log-events', mono: true },
   { key: 'user', label: 'User', placeholder: 'Username or id' },
   { key: 'ip', label: 'IP', placeholder: '1.2.3.4', mono: true },
-  { key: 'path', label: 'Path contains', placeholder: '/juicewrld/files', mono: true },
+  { key: 'path', label: 'Path contains', placeholder: '/api/files', mono: true },
   { key: 'status', label: 'Status', placeholder: '404, 5xx', mono: true },
   { key: 'method', label: 'Method', placeholder: 'GET, POST', list: 'admin-log-methods', mono: true },
-  { key: 'logger', label: 'Logger', placeholder: 'juicewrld.security', mono: true },
+  { key: 'logger', label: 'Logger', placeholder: 'carti.security', mono: true },
 ]
 
 /** Level, categories, text and the rest of the search params - the same

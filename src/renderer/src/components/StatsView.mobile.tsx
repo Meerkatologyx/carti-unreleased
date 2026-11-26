@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { BarChart3, Play, Loader2, Clock, ListMusic, Disc3 } from 'lucide-react'
 import { useStorePick } from '../store/useStore'
 import { useCanEdit } from '../hooks/useChannelRoles'
-import { apiFetch, JWApiSong } from '../lib/juicewrldApi'
+import { apiFetch, CatalogSong } from '../lib/catalogApi'
 import { formatListeningTime, type RankedEntry } from '../lib/listeningStats'
 import { statsSongToTrack } from '../lib/statsCatalog'
 import { AlbumArtThumbnail } from './AlbumArtThumbnail'
@@ -87,12 +87,12 @@ export default function StatsView(): JSX.Element {
     stats, topTracks, visible, topPlays, nothingEverPlayed,
   } = useStatsViewData()
   const canEdit = useCanEdit()
-  const [infoSong, setInfoSong] = useState<JWApiSong | null>(null)
+  const [infoSong, setInfoSong] = useState<CatalogSong | null>(null)
   const [scrollEl, setScrollEl] = useState<HTMLDivElement | null>(null)
   const collapsed = useScrolledPast(scrollEl, LARGE_TITLE_COLLAPSE)
 
   const openSongInfo = async (songId: number): Promise<void> => {
-    try { setInfoSong(await apiFetch<JWApiSong>(`/songs/${songId}/`)) } catch {}
+    try { setInfoSong(await apiFetch<CatalogSong>(`/songs/${songId}/`)) } catch {}
   }
 
   if (nothingEverPlayed) {

@@ -20,8 +20,8 @@
 
 import type { StateCreator } from 'zustand'
 import type { Track } from '../types'
-import { apiFetch, getSongById, songToTrack } from '../lib/juicewrldApi'
-import type { JWApiPaginatedResponse, JWApiSong } from '../lib/juicewrldApi'
+import { apiFetch, getSongById, songToTrack } from '../lib/catalogApi'
+import type { CatalogPaginatedResponse, CatalogSong } from '../lib/catalogApi'
 import { getOwnVersionMeta, getVersionGroup } from '../lib/versionsApi'
 import type { SongVersionMeta } from '../lib/versionsApi'
 import { hasAnyDefaultVersion, hasAnyExcludedVersion } from '../lib/songPrefs'
@@ -50,7 +50,7 @@ export interface QueueFilter {
 interface RadioResponse {
   title: string
   path: string
-  song: JWApiSong
+  song: CatalogSong
   size: number
   hash: string
 }
@@ -154,9 +154,9 @@ export interface QueueSlice {
    */
   startRandomRadio: () => void
   /**
-   * WRLD's Random button: on, the song playing carries on and every song
+   * VAMP's Random button: on, the song playing carries on and every song
    * after it is a random pick from /radio/random/ (the same radio as above,
-   * not 999 FM). Coming from 999 FM there's no song of ours playing, so it
+   * not Vamp FM). Coming from Vamp FM there's no song of ours playing, so it
    * moves straight to a random one. Off stops radio, like shuffle off does.
    */
   setRandomMode: (on: boolean) => void
@@ -884,7 +884,7 @@ export const createQueueSlice: StateCreator<any, [], [], QueueSlice> = (set, get
 
     const session = _queueLoadSession
     set({ queueLoadingMore: true })
-    apiFetch<JWApiPaginatedResponse>('/songs/', {
+    apiFetch<CatalogPaginatedResponse>('/songs/', {
       searchall: queueFilter.search || undefined,
       category: queueFilter.category || undefined,
       era: queueFilter.era || undefined,
@@ -966,7 +966,7 @@ export const createQueueSlice: StateCreator<any, [], [], QueueSlice> = (set, get
       const pageSize = 50
       const totalPages = Math.max(1, Math.ceil(radioFilter.total / pageSize))
       const randomPage = Math.floor(Math.random() * totalPages) + 1
-      apiFetch<JWApiPaginatedResponse>('/songs/', {
+      apiFetch<CatalogPaginatedResponse>('/songs/', {
         searchall: radioFilter.search || undefined,
         category: radioFilter.category || undefined,
         era: radioFilter.era || undefined,
@@ -975,7 +975,7 @@ export const createQueueSlice: StateCreator<any, [], [], QueueSlice> = (set, get
       }, ctrl.signal)
         .then((data) => {
           if (!live()) return
-          const playable = data.results.filter((s: JWApiSong) => !!s.path)
+          const playable = data.results.filter((s: CatalogSong) => !!s.path)
           if (playable.length === 0) { handleError(); return }
           void handleTrack(songToTrack(playable[Math.floor(Math.random() * playable.length)]))
         })

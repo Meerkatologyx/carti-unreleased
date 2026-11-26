@@ -23,7 +23,7 @@ export const COMMIT_HASH = typeof __COMMIT_HASH__ !== 'undefined' ? __COMMIT_HAS
 // build, say, has no reason to ever match `web`'s tip), which is what made
 // the freshness bulb read permanently red regardless of actual freshness.
 const BUILD_BRANCH = typeof __BRANCH_NAME__ !== 'undefined' ? __BRANCH_NAME__ : 'unknown'
-const REPO = 'Juice-WRLD-API/Unreleased'
+const REPO = 'Meerkatologyx/carti-unreleased'
 
 // 'error' covers both a rate-limited response (403/429 - GitHub's
 // unauthenticated API allows only 60 req/hr per IP) and any other fetch

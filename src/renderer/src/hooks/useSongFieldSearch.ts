@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { loadAllSongs } from '../lib/juicewrldApi'
-import type { JWApiSong } from '../lib/juicewrldApi'
+import { loadAllSongs } from '../lib/catalogApi'
+import type { CatalogSong } from '../lib/catalogApi'
 import { parseSearchQuery, matchesFieldFilters, songsById } from '../lib/trackerSearch'
 
 // The Tracker's field:"value" syntax (trackerSearch.ts) for lists whose rows
@@ -21,7 +21,7 @@ export interface SongFieldSearch {
 export function useSongFieldSearch(query: string): SongFieldSearch {
   const { freeText, filters } = useMemo(() => parseSearchQuery(query), [query])
   const hasFilters = filters.length > 0
-  const [byId, setById] = useState<Map<number, JWApiSong> | null>(null)
+  const [byId, setById] = useState<Map<number, CatalogSong> | null>(null)
 
   useEffect(() => {
     if (!hasFilters || byId) return

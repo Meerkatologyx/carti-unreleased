@@ -7,7 +7,7 @@ import { useStore } from '../store/useStore'
 import { useShallow } from 'zustand/react/shallow'
 import * as userApi from '../lib/userApi'
 import { ensureDonorUrl, isDonorStreamUrl } from '../lib/donorPlayback'
-import { apiFileIdToRef, buildStreamUrl, findSessionZips, songToTrack, JWApiSong, JWApiFileEntry, ZIP_OPERATIONS_ENABLED } from '../lib/juicewrldApi'
+import { apiFileIdToRef, buildStreamUrl, findSessionZips, songToTrack, CatalogSong, CatalogFileEntry, ZIP_OPERATIONS_ENABLED } from '../lib/catalogApi'
 import { downloadWithEmbed } from '../lib/downloadEmbed'
 import { trackShareUrl } from '../lib/platform'
 import { Track } from '../types'
@@ -29,9 +29,9 @@ const ShareSongModal = lazyOverlay(() => import('./chat/ShareSongModal'))
 const HeartFilled = (p: ComponentProps<typeof Heart>): JSX.Element => <Heart {...p} fill="currentColor" />
 
 // The one context menu used everywhere a song can be right-clicked (Tracker,
-// Liked Songs, Playlists, the bottom Player bar, WRLD). Built around `Track`
+// Liked Songs, Playlists, the bottom Player bar, VAMP). Built around `Track`
 // + `songId` (the common denominator across those places - some only have a
-// Track, not a full JWApiSong) so it works without every caller re-fetching a
+// Track, not a full CatalogSong) so it works without every caller re-fetching a
 // full song object first. Everything that doesn't depend on the view is done
 // here, so a song gets the same rows wherever it's right-clicked: Play next,
 // Add to queue, Like and Show in Files fall back to the app's own actions when
@@ -72,14 +72,14 @@ interface Props {
 
   /** Full song object, if the caller already has one - unlocks the
    *  recording-session ZIP download (needs fields Track doesn't carry). */
-  song?: JWApiSong
+  song?: CatalogSong
 
   /** Hides "Change version" even when songId is valid - for playback
-   *  contexts where switching doesn't make sense (e.g. WRLD's FM radio,
+   *  contexts where switching doesn't make sense (e.g. VAMP's FM radio,
    *  which is server-driven and can't be manually redirected). */
   disableChangeVersion?: boolean
 
-  /** WRLD only - opens the lyric share card for the playing song. */
+  /** VAMP only - opens the lyric share card for the playing song. */
   onShareLyrics?: () => void
 
   /** Session-edit file linking (Tracker only) - lets an editor/contributor
@@ -143,7 +143,7 @@ export function openInFiles(at: { folder: string; channel: string | null }): voi
   s.setActiveView('api-files')
 }
 
-function downloadZipEntry(entry: JWApiFileEntry): void {
+function downloadZipEntry(entry: CatalogFileEntry): void {
   const a = document.createElement('a')
   a.href = buildStreamUrl(entry.path)
   a.download = entry.name
@@ -171,7 +171,7 @@ export default function SongContextMenu({
   const { track, songId } = state
   // After "Download session (ZIP)" finds more than one candidate the menu swaps
   // to a pick-one page.
-  const [zipCandidates, setZipCandidates] = useState<JWApiFileEntry[] | null>(null)
+  const [zipCandidates, setZipCandidates] = useState<CatalogFileEntry[] | null>(null)
   const [zipPage, setZipPage] = useState(false)
   const [shareOpen, setShareOpen] = useState(false)
   const [busyId, setBusyId] = useState<number | null>(null)
@@ -282,8 +282,8 @@ export default function SongContextMenu({
   const isLocalOnly = songId == null && track.id.startsWith('local-')
 
   // The rows every view gets, done the app's own way unless the caller passed
-  // its own. 999 FM's track has an id of its own; its like is the song's.
-  const likeId = track.id.startsWith('fm-') && songId != null ? `jw-${songId}` : track.id
+  // its own. Vamp FM's track has an id of its own; its like is the song's.
+  const likeId = track.id.startsWith('fm-') && songId != null ? `pc-${songId}` : track.id
   const liked = likedProp ?? likedTrackIds.includes(likeId)
   const onToggleLike = toggleLikeProp ?? (() => useStore.getState().toggleLike(likeId))
   const onPlayNext = playNextProp ?? (() => useStore.getState().playNext(track))
@@ -424,7 +424,7 @@ export default function SongContextMenu({
       subtitle={track.artist}
       onClose={onClose}
       // Above every view's own chrome - this menu opens from the Player bar and
-      // fullscreen WRLD as well as ordinary pages.
+      // fullscreen VAMP as well as ordinary pages.
       zIndex={9999}
       className="w-52"
       page={zipPage ? {

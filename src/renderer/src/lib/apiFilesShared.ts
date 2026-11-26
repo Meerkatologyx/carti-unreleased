@@ -1,6 +1,6 @@
 // Pure helpers shared by ApiFilesView.desktop.tsx and .mobile.tsx - the
 // /files/* browser's path/sort/track-building logic, identical on both.
-import { apiFetch, apiFilePathToTrack, buildStreamUrl, JWApiFileEntry, JWApiPaginatedResponse, JWApiSong } from './juicewrldApi'
+import { apiFetch, apiFilePathToTrack, buildStreamUrl, CatalogFileEntry, CatalogPaginatedResponse, CatalogSong } from './catalogApi'
 import { getFileExt } from './fileTypes'
 import { shareOrigin } from './platform'
 import { Track } from '../types'
@@ -21,11 +21,11 @@ export function parentFolder(path: string): string {
   return i > 0 ? path.slice(0, i) : ''
 }
 
-export function fileToTrack(entry: JWApiFileEntry, channel?: string): Track {
+export function fileToTrack(entry: CatalogFileEntry, channel?: string): Track {
   return apiFilePathToTrack(entry.path, entry.name, channel)
 }
 
-export function sortEntries(entries: JWApiFileEntry[], by: SortBy, dir: SortDir): JWApiFileEntry[] {
+export function sortEntries(entries: CatalogFileEntry[], by: SortBy, dir: SortDir): CatalogFileEntry[] {
   return [...entries].sort((a, b) => {
     // Dirs always first
     const aDir = a.type === 'directory'
@@ -58,7 +58,7 @@ export function urlToPath(pathname: string): string {
 
 /** The URL "Copy link" puts on the clipboard: the file's stream URL, or a
  *  deep link to the folder itself for a directory. */
-export function fileEntryLinkUrl(entry: JWApiFileEntry, channel: string | undefined): string {
+export function fileEntryLinkUrl(entry: CatalogFileEntry, channel: string | undefined): string {
   return entry.type === 'file'
     ? buildStreamUrl(entry.path, channel)
     : folderLinkUrl(entry.path)
@@ -74,10 +74,10 @@ export function folderLinkUrl(folderPath: string): string {
  *  taking the top search hit - used to open "Find in Tracker" / the song
  *  info panel from a file row. Identical fetch in both views; what they do
  *  with the result (open a global panel vs. a local modal) differs. */
-export async function findSongByFilename(name: string): Promise<JWApiSong | null> {
+export async function findSongByFilename(name: string): Promise<CatalogSong | null> {
   const title = name.replace(/\.[^.]+$/, '')
   try {
-    const data = await apiFetch<JWApiPaginatedResponse>('/songs/', { search: title, page_size: 5 })
+    const data = await apiFetch<CatalogPaginatedResponse>('/songs/', { search: title, page_size: 5 })
     return data.results[0] ?? null
   } catch {
     return null

@@ -1,7 +1,7 @@
 // Shared "download all" flow for PlaylistsView desktop/mobile.
 //
 // Backend ZIP jobs are disabled (see ZIP_OPERATIONS_ENABLED in
-// juicewrldApi.ts) - the ZIP is built client-side instead (lib/clientZip).
+// catalogApi.ts) - the ZIP is built client-side instead (lib/clientZip).
 // Tracks can be passed as a loader so the save dialog opens straight off the
 // click, before the playlist fetch eats the user activation it needs.
 import { useCallback, useState } from 'react'

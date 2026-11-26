@@ -5,7 +5,7 @@ import {
 } from 'lucide-react'
 import { useStorePick } from '../store/useStore'
 import { Sheet } from './mobile/Sheet'
-import { smallCoverUrl, CATEGORY_LABELS } from '../lib/juicewrldApi'
+import { smallCoverUrl, CATEGORY_LABELS } from '../lib/catalogApi'
 import { eraFullName } from '../lib/eras'
 import { matchedAlias, POOL_LABELS, puzzleNumber } from '../lib/heardle'
 import type { PoolId, Stats } from '../lib/heardle'
@@ -242,7 +242,7 @@ export default function WordleView(): JSX.Element {
     'setActiveView', 'setHeroBleedTop', 'previousView')
 
   // Lets GameBackdrop's wash paint full-bleed under the status bar instead of
-  // stopping at the shell's usual inset - matches WRLD's ownsTopInset trick.
+  // stopping at the shell's usual inset - matches VAMP's ownsTopInset trick.
   // The corner buttons and the switcher's top clearance compensate below.
   // Always true: mobile's nav bar is bottom-only now (see BottomNav), so the
   // shell always reserves this inset itself.
@@ -278,7 +278,7 @@ export default function WordleView(): JSX.Element {
         style={{ top: ownsTopInset ? 'calc(var(--top-inset) + 0.5rem)' : '0.5rem' }}
       >
         {/* See HeardleView.mobile.tsx's back button - same reasoning: Home,
-            not WRLD, is where mobile actually enters this game from now. */}
+            not VAMP, is where mobile actually enters this game from now. */}
         <BackButton onClick={() => setActiveView(previousView ?? 'home')} />
       </div>
       <div
@@ -308,7 +308,7 @@ export default function WordleView(): JSX.Element {
           <div className="text-center mb-5">
             <h1 className="text-title1 text-text-primary inline-flex items-start gap-1">
               Playboi Carti Wordle
-              <span className="text-accent text-footnote font-bold mt-0.5">999</span>
+              <span className="text-accent text-footnote font-bold mt-0.5">*</span>
             </h1>
             <p className="mt-1 text-subhead text-text-secondary">
               Guess the song title, letter by letter

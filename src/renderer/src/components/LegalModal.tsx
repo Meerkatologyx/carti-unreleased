@@ -48,7 +48,7 @@ function TermsContent(): JSX.Element {
       <H>1. About this app</H>
       <P>
         unreleased (the &quot;App&quot;) is a free, fan-made music player for exploring Playboi Carti&apos;s catalogue. It
-        is not affiliated with, endorsed by, or connected to Playboi Carti, his estate, Grade A Productions, Interscope
+        is not affiliated with, endorsed by, or connected to Playboi Carti, his estate, AWGE, Interscope
         Records, or any associated party. All music, artwork, names, and trademarks belong to their respective owners.
         The App is provided by the community that maintains it (&quot;we&quot;, &quot;us&quot;) at no cost.
       </P>
@@ -154,8 +154,8 @@ function TermsContent(): JSX.Element {
       <H>13. Contact</H>
       <P>
         Questions about these Terms, or copyright and takedown requests, can be raised on our{' '}
-        <Ext href="https://discord.gg/jwa">Discord</Ext> or via the project&apos;s{' '}
-        <Ext href="https://github.com/Juice-WRLD-API/Unreleased">GitHub</Ext>.
+        <Ext href="https://github.com/Meerkatologyx/carti-unreleased/issues">GitHub</Ext> or via the project&apos;s{' '}
+        <Ext href="https://github.com/Meerkatologyx/carti-unreleased">GitHub</Ext>.
       </P>
     </div>
   )
@@ -288,8 +288,8 @@ function PrivacyContent(): JSX.Element {
       <H>11. Contact</H>
       <P>
         For privacy questions or requests, reach us on{' '}
-        <Ext href="https://discord.gg/jwa">Discord</Ext> or via{' '}
-        <Ext href="https://github.com/Juice-WRLD-API/Unreleased">GitHub</Ext>.
+        <Ext href="https://github.com/Meerkatologyx/carti-unreleased/issues">GitHub</Ext> or via{' '}
+        <Ext href="https://github.com/Meerkatologyx/carti-unreleased">GitHub</Ext>.
       </P>
     </div>
   )

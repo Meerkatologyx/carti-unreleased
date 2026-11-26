@@ -25,7 +25,7 @@ document.body.innerHTML = `<div id="player" data-clear>
   <div id="tools" data-clear>
     <button class="circle quiet gone" data-tool="lyricsCard" aria-label="Hide the card"></button>
     <div id="notice-slot" data-clear></div>
-    <button class="circle" data-tool="fm" aria-label="999 FM"></button>
+    <button class="circle" data-tool="fm" aria-label="Vamp FM"></button>
     <button class="circle away" data-tool="versions" data-menu-button aria-label="Other versions" title="Other versions"></button>
     <button class="circle" data-tool="settings" aria-label="Desktop settings" title="Desktop settings"></button>
     <div id="searchbar" class="circle"><span class="mag"></span><input type="text" placeholder="Search songs and eras" spellcheck="false" aria-label="Search"><span class="spin"></span><button class="clear" aria-label="Clear"></button></div>
@@ -198,7 +198,7 @@ class Bar {
       if (action === 'clear') { page.command('clear'); return }
       if (action === 'open') { if (!live.inTab) page.command('open-app'); return }
       if (action === 'more') { if (songMenuOpen()) closeMenu(); else void openSongMenu(); return }
-      // Where the button is, for the WRLD tab to open the equalizer beside it; on the desktop it gets its own window.
+      // Where the button is, for the VAMP tab to open the equalizer beside it; on the desktop it gets its own window.
       if (action === 'equalizer') {
         const r = target.getBoundingClientRect()
         page.command('equalizer', { x: r.left, y: r.top, width: r.width, height: r.height })
@@ -269,7 +269,7 @@ class Bar {
     clear.title = live.isClear ? 'Bring everything back' : 'Clear the desk'
     $('[data-action="lyrics"]', this.host).classList.toggle('active', !!live.settings?.player.lyricsOpen)
     const title = t?.title || 'Not Playing'
-    const subtitle = !t ? 'Play something in Unreleased' : t.album && t.album !== t.artist ? `${t.artist} — ${t.album}` : t.artist
+    const subtitle = !t ? 'Play something' : t.album && t.album !== t.artist ? `${t.artist} — ${t.album}` : t.artist
     if (`${title}\n${subtitle}` !== this.shownTitle) {
       this.shownTitle = `${title}\n${subtitle}`
       ;(this.title.firstElementChild as HTMLElement).textContent = title
@@ -595,7 +595,7 @@ function openMenu(x: number, y: number, song: DesktopTrack, list: DesktopTrack[]
 }
 function closeMenu(): void { $('#menu').classList.add('hidden'); menuKind = null; menuFor = null; songMenuTurn++ }
 
-// ---- the song's other versions: WRLD's version notch, as a menu over the versions button ----
+// ---- the song's other versions: VAMP's version notch, as a menu over the versions button ----
 
 const versionsOpen = (): boolean => menuOpen('versions')
 function openVersions(): void {
@@ -793,12 +793,12 @@ function render(): void {
   const hasVersions = !!live.state.versions?.length
   $('[data-tool="versions"]').classList.toggle('away', !hasVersions)
   if (!hasVersions && versionsOpen()) closeMenu()
-  // 999 FM: lit while it's on, and not to be tuned in while it's off the air.
+  // Vamp FM: lit while it's on, and not to be tuned in while it's off the air.
   const fm = $<HTMLButtonElement>('[data-tool="fm"]')
   const offAir = live.state.fmLive === false && !live.state.fm
   fm.classList.toggle('on', !!live.state.fm)
   fm.disabled = offAir
-  fm.title = live.state.fm ? 'Leave 999 FM' : offAir ? '999 FM is off the air' : 'Listen to 999 FM'
+  fm.title = live.state.fm ? 'Leave Vamp FM' : offAir ? 'Vamp FM is off the air' : 'Listen to Vamp FM'
 
   const eye = $('[data-tool="lyricsCard"]')
   eye.classList.toggle('gone', !lyricsCard)
@@ -860,7 +860,7 @@ carousel.addEventListener('click', (event) => {
   browseKey = null
   render()
 })
-// A card right-clicked: its song's menu, not the player's (that's the bar's). In the WRLD tab it's the app's own song
+// A card right-clicked: its song's menu, not the player's (that's the bar's). In the VAMP tab it's the app's own song
 // menu; on the desktop the page's: the ⋯ menu for the song playing, play/next/queue for the others.
 carousel.addEventListener('contextmenu', (event) => {
   const { clientX: x, clientY: y } = event

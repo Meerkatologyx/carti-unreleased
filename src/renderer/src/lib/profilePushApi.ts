@@ -6,7 +6,7 @@
 // song skip, which bumps both playcount and listening plays) fired one PATCH
 // per field instead of one PATCH total. This is the single combined pusher
 // the store's one shared debounce timer calls into instead.
-import { routeUrl } from './juicewrldApi'
+import { routeUrl } from './catalogApi'
 import { getToken } from './userApi'
 import { apiRequest, authHeaders } from './apiClient'
 import { capSongPrefs, serializeSongPref } from './songPrefs'

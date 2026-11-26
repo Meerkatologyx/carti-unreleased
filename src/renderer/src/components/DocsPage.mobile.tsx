@@ -17,7 +17,7 @@ export default function DocsPage(): JSX.Element {
   // Wherever this was opened from (Settings, most likely) is where "back"
   // should return to - matching the app's other pushed pages (EditorPage,
   // LocalEditorPage) rather than a hardcoded destination.
-  const backView = previousView && previousView !== 'docs' ? previousView : 'wrld'
+  const backView = previousView && previousView !== 'docs' ? previousView : 'vamp'
 
   const primitives = useMemo(() => ({ Code, Section, Endpoint, MethodPath }), [])
 
@@ -30,14 +30,14 @@ export default function DocsPage(): JSX.Element {
         shown={collapsed}
         leading={<BackButton onClick={() => setActiveView(backView)} />}
         trailing={
-          <BarButton label="Open live docs" onClick={() => window.open('https://juicewrldapi.com/api-docs', '_blank', 'noopener,noreferrer')}>
+          <BarButton label="Open live docs" onClick={() => window.open('https://meerkatologyx.github.io/api-docs', '_blank', 'noopener,noreferrer')}>
             <ExternalLink size={19} />
           </BarButton>
         }
       />
 
       <div ref={setScrollEl} className="flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden overscroll-contain pb-dock">
-        <LargeTitle inset="bar" title="API Docs" subtitle="juicewrldapi.com" />
+        <LargeTitle inset="bar" title="API Docs" subtitle="meerkatologyx.github.io" />
 
         <div className="px-4">
           <SearchField

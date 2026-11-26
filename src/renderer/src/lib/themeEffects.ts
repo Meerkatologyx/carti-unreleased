@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { useStore, useStorePick } from '../store/useStore'
-import { buildImageUrl, smallCoverUrl } from './juicewrldApi'
+import { buildImageUrl, smallCoverUrl } from './catalogApi'
 import { getFont } from './fonts'
 import { useCustomFonts } from '../hooks/useCustomFonts'
 import { getSkin, SKIN_OPTIONAL_VAR_KEYS, type Skin } from './skins'
@@ -275,7 +275,7 @@ export function useThemeEffects(): void {
   // and repaints - this is what gives the skin editor its live preview.
   const skin = getSkin(theme)
   // Only the dynamic skin subscribes to the current song's art (same source
-  // chain WrldView uses for the big cover); null otherwise so track changes
+  // chain VampView uses for the big cover); null otherwise so track changes
   // don't rerun the effect for static skins.
   // Degraded where available: the palette is averaged down to a handful of
   // colours anyway, so a 128px copy yields the same result as the 600px one and

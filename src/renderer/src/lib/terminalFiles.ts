@@ -5,7 +5,7 @@ import { startCdnFileDownload } from '../hooks/useCdnFileDownload'
 import cdnService from './cdn'
 import { openZipTarget, saveItems, type ZipItem } from './clientZip'
 import { formatBytes } from './format'
-import { apiFetch, buildStreamUrl, fetchFileText, listFilesRecursive, listSubtree, parseBrowseEntries, type JWApiBrowseResponse, type JWApiFileEntry } from './juicewrldApi'
+import { apiFetch, buildStreamUrl, fetchFileText, listFilesRecursive, listSubtree, parseBrowseEntries, type CatalogBrowseResponse, type CatalogFileEntry } from './catalogApi'
 
 // The Files tab as a little filesystem for the admin terminal: the root lists
 // the file channels, a channel is a directory, and below that it's the same
@@ -25,7 +25,7 @@ export interface FsEntry {
   name: string
   type: 'file' | 'directory'
   size?: number | null
-  entry?: JWApiFileEntry
+  entry?: CatalogFileEntry
 }
 
 const LIST_TTL_MS = 60_000
@@ -63,7 +63,7 @@ export async function listDir(cwd: FilesCwd, fresh = false): Promise<FsEntry[]> 
   const key = `${cwd.channel}:${cwd.dir.join('/')}`
   const hit = listCache.get(key)
   if (!fresh && hit && Date.now() - hit.at < LIST_TTL_MS) return hit.entries
-  const data = await apiFetch<JWApiBrowseResponse>('/files/browse/', { path: cwd.dir.join('/') || undefined, channel: cwd.channel })
+  const data = await apiFetch<CatalogBrowseResponse>('/files/browse/', { path: cwd.dir.join('/') || undefined, channel: cwd.channel })
   const entries = parseBrowseEntries(data)
     .map((e): FsEntry => ({ name: e.name, type: e.type, size: e.size, entry: e }))
     .sort((a, b) => (a.type === b.type ? a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }) : a.type === 'directory' ? -1 : 1))
@@ -83,7 +83,7 @@ export async function listSubtreeFlat(cwd: FilesCwd): Promise<{ rel: string[]; e
   const key = `${cwd.channel}:${base}`
   const hit = treeCache.get(key)
   if (hit && Date.now() - hit.at < LIST_TTL_MS) return hit.items
-  let raw: JWApiFileEntry[] | null
+  let raw: CatalogFileEntry[] | null
   try { raw = await listSubtree(base, cwd.channel) } catch { return null }
   if (raw === null) return null
   const prefix = base ? `${base.toLowerCase()}/` : ''
@@ -162,7 +162,7 @@ export interface EditorFile {
 
 /** Fetches a file the way the Files tab's text viewer does (the stream URL,
  *  2 MB cap, binary files refused). `cmd` and `label` only shape the error. */
-export async function fetchEntryText(entry: JWApiFileEntry, channel: string, cmd: string, label: string): Promise<string> {
+export async function fetchEntryText(entry: CatalogFileEntry, channel: string, cmd: string, label: string): Promise<string> {
   const file = await fetchFileText(entry.path, channel, EDIT_MAX_BYTES)
   if (!file.ok) throw new Error(`${cmd}: ${label}: couldn't load (HTTP ${file.status})`)
   if (file.truncated) throw new Error(`${cmd}: ${label}: too large (${formatBytes(file.bytes)}, limit ${formatBytes(EDIT_MAX_BYTES)})`)

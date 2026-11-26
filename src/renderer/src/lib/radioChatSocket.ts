@@ -6,7 +6,7 @@ import { getToken } from './userApi'
 import { mergeLines, useRadioChatStore } from '../store/radioChatStore'
 import { useStore } from '../store/useStore'
 
-// The 999 FM chat socket (/ws/radio/chat/). Opened while a chat panel is on
+// The Vamp FM chat socket (/ws/radio/chat/). Opened while a chat panel is on
 // screen (acquireRadioChat), shared by every panel in the window, and closed a
 // few seconds after the last one goes so switching tabs doesn't reconnect.
 // Signed in, it trades a ticket so lines show as the account (verified).

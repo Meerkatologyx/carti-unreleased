@@ -2,8 +2,8 @@ import { useEffect, useMemo, useReducer, useState } from 'react'
 import { useStorePick } from '../store/useStore'
 import {
   apiFetch, apiPeek, getSongById, songToTrack,
-  type JWApiStats, type JWApiPlaysStats,
-} from '../lib/juicewrldApi'
+  type CatalogStats, type CatalogPlaysStats,
+} from '../lib/catalogApi'
 import { resolveStatsSongs, statsSongToTrack, type StatsSong } from '../lib/statsCatalog'
 import { loadEraFullNames, eraLabel, listEras } from '../lib/eras'
 import { useCanEdit } from './useChannelRoles'
@@ -33,14 +33,14 @@ export function useStatisticsData() {
   const [statsFailed, setStatsFailed] = useState(false)
   const [playStatsFailed, setPlayStatsFailed] = useState(false)
 
-  const [stats, setStats] = useState<JWApiStats | null>(() => apiPeek<JWApiStats>('/stats/') ?? null)
+  const [stats, setStats] = useState<CatalogStats | null>(() => apiPeek<CatalogStats>('/stats/') ?? null)
   useEffect(() => {
-    apiFetch<JWApiStats>('/stats/').then(setStats).catch(() => setStatsFailed(true))
+    apiFetch<CatalogStats>('/stats/').then(setStats).catch(() => setStatsFailed(true))
   }, [])
 
-  const [playStats, setPlayStats] = useState<JWApiPlaysStats | null>(() => apiPeek<JWApiPlaysStats>('/plays/stats/') ?? null)
+  const [playStats, setPlayStats] = useState<CatalogPlaysStats | null>(() => apiPeek<CatalogPlaysStats>('/plays/stats/') ?? null)
   useEffect(() => {
-    apiFetch<JWApiPlaysStats>('/plays/stats/').then(setPlayStats).catch(() => setPlayStatsFailed(true))
+    apiFetch<CatalogPlaysStats>('/plays/stats/').then(setPlayStats).catch(() => setPlayStatsFailed(true))
   }, [])
 
   // Cover art (and everything else needed to play) for the songs named in

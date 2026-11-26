@@ -14,16 +14,16 @@
 
 import { ViewType } from '../types'
 
-const ORIGIN = 'https://player.juicewrldapi.com'
-const SITE = 'unreleased'
+const ORIGIN = 'https://meerkatologyx.github.io/carti-unreleased'
+const SITE = 'Carti Unreleased'
 
 const DEFAULT_DESCRIPTION =
-  "Stream Playboi Carti's full catalog - every released and unreleased song - free in your browser. Search by era, producer or engineer, build playlists, listen to 999 FM radio, and read synced lyrics."
+  "Stream Playboi Carti's full catalog - every released and unreleased song - free in your browser. Search by era, producer or engineer, build playlists, listen to Vamp FM radio, and read synced lyrics."
 
 type SeoEntry = {
   /** Canonical path for the view. Omitted for views with no stable URL. */
   path?: string
-  /** Rendered as "<title> · unreleased" unless it already names the site. */
+  /** Rendered as "<title> · Carti Unreleased" unless it already names the site. */
   title: string
   description: string
   noindex?: boolean
@@ -34,7 +34,7 @@ const ROUTES: Record<ViewType, SeoEntry> = {
     // Canonical on the root, not /tracker: the two render the same view and
     // the root is what people link to. /tracker consolidates into it.
     path: '/',
-    title: 'unreleased - Playboi Carti music player',
+    title: 'Carti Unreleased - Playboi Carti music player',
     description: DEFAULT_DESCRIPTION,
   },
   'api-files': {
@@ -43,9 +43,9 @@ const ROUTES: Record<ViewType, SeoEntry> = {
     description:
       'Browse the Carti Tracker filesystem folder by folder - stream any track in place or download the original file.',
   },
-  wrld: {
-    path: '/wrld',
-    title: '999 FM - live Playboi Carti radio',
+  vamp: {
+    path: '/vamp',
+    title: 'Vamp FM - live Playboi Carti radio',
     description:
       'A 24/7 Playboi Carti radio station. See what everyone is listening to in real time, vote to skip, suggest the next song, and preview the upcoming queue.',
   },

@@ -3,7 +3,7 @@
 // .mobile.tsx before this extraction; neither view touches anything here
 // beyond what's returned, so this is safe to share outright.
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { buildStreamUrl } from '../lib/juicewrldApi'
+import { buildStreamUrl } from '../lib/catalogApi'
 import type { HeardleSong } from '../lib/heardle'
 
 export function useHeardleClipPlayback(params: {

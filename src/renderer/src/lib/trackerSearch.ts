@@ -7,7 +7,7 @@
 // server-side search, while field filters are applied client-side - see
 // ApiTrackerView's fetchAllMode, which this pushes field-filtered queries
 // into (same as sort/multi-category search already does).
-import { JWApiSong } from './juicewrldApi'
+import { CatalogSong } from './catalogApi'
 import { stripApostrophes } from './compactGroups'
 import { displaySongName } from './songPrefs'
 
@@ -18,7 +18,7 @@ interface FieldDef {
   keys: string[]
   /** Canonical key shown in the info popover and used as the token's field name. */
   label: string
-  get: (s: JWApiSong) => string
+  get: (s: CatalogSong) => string
   /** Optional /songs/ fields `get` reads, so a bulk fetch with ?omit= keeps them. */
   api?: string[]
 }
@@ -53,10 +53,10 @@ for (const def of FIELD_DEFS) for (const k of def.keys) FIELD_LOOKUP.set(k, def)
 export const SEARCH_FIELD_HELP: { field: string; example: string }[] = FIELD_DEFS.map((d) => ({
   field: d.label,
   example: `${d.label}:"${{
-    title: 'Lucid Dreams', artists: 'Playboi Carti', producers: 'Nick Mira', engineers: 'Max Lord',
-    era: 'goodbye & good riddance', category: 'unreleased', location: 'Record One', date: '2018',
-    leak: 'cdq', dateleaked: '2020', bitrate: '320', release: '2018', files: '.wav', session: 'juice1',
-    notes: 'snippet', info: 'reference', instrumental: 'yes', album: 'Legends Never Die', key: 'lucid',
+    title: 'Magnolia', artists: 'Playboi Carti', producers: 'Pierre Bourne', engineers: 'Marcus Fritz',
+    era: 'Die Lit', category: 'unreleased', location: 'Record One', date: '2018',
+    leak: 'cdq', dateleaked: '2020', bitrate: '320', release: '2018', files: '.wav', session: 'carti1',
+    notes: 'snippet', info: 'reference', instrumental: 'yes', album: 'Die Lit', key: 'magnolia',
   }[d.label] ?? 'value'}"`,
 }))
 
@@ -136,7 +136,7 @@ function normalize(s: string): string {
 }
 
 /** The same apostrophe-insensitive substring test field filters use, for
- *  callers matching against something other than a JWApiSong (999 FM's
+ *  callers matching against something other than a CatalogSong (Vamp FM's
  *  library tracks). */
 export function textMatches(haystack: string, needle: string): boolean {
   return normalize(haystack).includes(normalize(needle))
@@ -147,7 +147,7 @@ export function filterApiFields(filters: FieldFilter[]): string[] {
   return filters.flatMap(({ field }) => FIELD_LOOKUP.get(field)?.api ?? [])
 }
 
-export function matchesFieldFilters(song: JWApiSong, filters: FieldFilter[]): boolean {
+export function matchesFieldFilters(song: CatalogSong, filters: FieldFilter[]): boolean {
   return filters.every(({ field, value }) => {
     const def = FIELD_LOOKUP.get(field)
     if (!def) return true
@@ -158,8 +158,8 @@ export function matchesFieldFilters(song: JWApiSong, filters: FieldFilter[]): bo
 // Id lookup over the /songs/ catalogue (loadAllSongs), rebuilt only when the
 // catalogue itself is refetched - for lists whose rows carry a song id but
 // not the fields filters read (playlists, the queue, the tier list).
-let byIdIndex: { list: JWApiSong[]; byId: Map<number, JWApiSong> } | null = null
-export function songsById(list: JWApiSong[]): Map<number, JWApiSong> {
+let byIdIndex: { list: CatalogSong[]; byId: Map<number, CatalogSong> } | null = null
+export function songsById(list: CatalogSong[]): Map<number, CatalogSong> {
   if (byIdIndex?.list !== list) byIdIndex = { list, byId: new Map(list.map((s) => [s.id, s])) }
   return byIdIndex.byId
 }

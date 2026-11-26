@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { ServerCard } from '../../lib/chatApi'
 import { changelogStatusForCommits, changelogStatusFrom } from '../../lib/appVersion'
-import { getSongsByIds } from '../../lib/juicewrldApi'
+import { getSongsByIds } from '../../lib/catalogApi'
 import type { BroadcastMessage } from '../../lib/broadcastApi'
 import { displayName } from '../../store/chatStore'
 import BroadcastHistoryCard from './BroadcastHistoryCard'

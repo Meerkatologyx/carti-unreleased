@@ -23,7 +23,7 @@ interface Props {
    *  before export, since the exported canvas can't read a tainted image). */
   imageUrl: string | null | undefined
   /** Plain or LRC-format lyrics text - callers already have this computed
-   *  (from the current track, or a 999 FM matched song) as a single blob. */
+   *  (from the current track, or a Vamp FM matched song) as a single blob. */
   rawLyrics: string | null
   onClose: () => void
 }
@@ -117,7 +117,7 @@ function fitFontSizeToArea(lines: string[], maxFont: number, areaW: number, area
 }
 
 /** Small pill-style segmented control, matching the app's own lyrics-display
- *  settings sheet (WrldView.mobile's LyricsSettingsSheet). */
+ *  settings sheet (VampView.mobile's LyricsSettingsSheet). */
 function SegmentedControl<T extends string>({ label, value, options, onChange }: {
   label: string
   value: T

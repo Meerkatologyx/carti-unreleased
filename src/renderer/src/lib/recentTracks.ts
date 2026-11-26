@@ -43,7 +43,7 @@ export function backfillRecentTracks(orderedSongIds: number[], resolved: Map<num
   const seen = new Set<string>()
   const merged: Track[] = []
   for (const songId of orderedSongIds) {
-    const trackId = `jw-${songId}`
+    const trackId = `pc-${songId}`
     const track = resolved.get(songId) ?? existingById.get(trackId)
     if (track && !seen.has(trackId)) { merged.push(track); seen.add(trackId) }
   }

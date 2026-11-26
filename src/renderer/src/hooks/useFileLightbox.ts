@@ -3,26 +3,26 @@
 // entry can live in a folder other than the one currently browsed, so the
 // gallery is built from the search results rather than the browsed folder.
 import { useState } from 'react'
-import { buildStreamUrl, JWApiFileEntry } from '../lib/juicewrldApi'
+import { buildStreamUrl, CatalogFileEntry } from '../lib/catalogApi'
 import { getMediaType } from '../lib/fileTypes'
 import { LightboxItem } from '../components/MediaLightbox'
 
 export function useFileLightbox(opts: {
-  entries: JWApiFileEntry[]
-  searchResults: JWApiFileEntry[]
+  entries: CatalogFileEntry[]
+  searchResults: CatalogFileEntry[]
   isSearching: boolean
   activeChannel: string
 }): {
   lightboxItems: LightboxItem[]
   lightboxIndex: number
   setLightboxIndex: (i: number) => void
-  openLightbox: (entry: JWApiFileEntry) => void
+  openLightbox: (entry: CatalogFileEntry) => void
 } {
   const { entries, searchResults, isSearching, activeChannel } = opts
   const [lightboxItems, setLightboxItems] = useState<LightboxItem[]>([])
   const [lightboxIndex, setLightboxIndex] = useState(-1)
 
-  const openLightbox = (entry: JWApiFileEntry): void => {
+  const openLightbox = (entry: CatalogFileEntry): void => {
     const mediaEntries = (isSearching ? searchResults : entries).filter((e) => {
       const mt = getMediaType(e.name)
       return e.type === 'file' && (mt === 'image' || mt === 'video')

@@ -3,9 +3,9 @@
 // queue/flush logic.
 //
 // Live endpoints (both unauthenticated, throttled at 10/min):
-//   POST /juicewrld/feedback/  { message, contact?, automated? }
-//   GET  /juicewrld/feedback/  (?automated=true|false, editor token)
-//   POST /juicewrld/reports/   { song_id | public_id, message, contact? }
+//   POST /api/feedback/  { message, contact?, automated? }
+//   GET  /api/feedback/  (?automated=true|false, editor token)
+//   POST /api/reports/   { song_id | public_id, message, contact? }
 // `automated` flags a feedback report ErrorBoundary sent on its own (see
 // autoReportErrors) rather than one a person actually wrote, so the API can
 // tell them apart on the review side.
@@ -16,7 +16,7 @@
 // There is no idempotency key server-side, so the store only flushes the
 // outbox from the MAIN window (pop-outs share localStorage and would
 // double-send every queued report otherwise).
-import { routeUrl } from './juicewrldApi'
+import { routeUrl } from './catalogApi'
 import { getToken } from './userApi'
 import { apiRequest, authHeaders } from './apiClient'
 import { FEEDBACK_CATEGORY_LABELS, SONG_ISSUE_LABELS } from './reports'
@@ -86,8 +86,8 @@ export function dedupeAutomatedFeedback(rows: FeedbackRow[]): { rows: FeedbackRo
 }
 
 // ── Editor review ─────────────────────────────────────────────────────────────
-// GET /juicewrld/reports/ (?status=pending|resolved) lists submitted song
-// reports; PATCH /juicewrld/reports/<id>/ sets status/review_notes and the
+// GET /api/reports/ (?status=pending|resolved) lists submitted song
+// reports; PATCH /api/reports/<id>/ sets status/review_notes and the
 // server records the reviewer + time. Both require an editor/admin token.
 
 export type SongReportStatus = 'pending' | 'resolved'

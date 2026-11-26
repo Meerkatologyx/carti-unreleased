@@ -1,4 +1,4 @@
-// The light's ears: the meter worklet on the app's own playback graph, at the point WRLD's visualizers tap
+// The light's ears: the meter worklet on the app's own playback graph, at the point VAMP's visualizers tap
 // (audioEffects' analysis tap), so it hears exactly what Unreleased plays and nothing else on the PC. It runs only
 // while something listens.
 import { getAnalysisTap } from '../lib/audioEffects'

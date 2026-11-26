@@ -3,7 +3,7 @@ import { Folder, FolderSearch, Loader2 } from 'lucide-react'
 import { PopLayer } from './PopLayer'
 import { findFolders, loadFileIndex, runFileSearch } from '../lib/fileSearch'
 import { parentFolder } from '../lib/apiFilesShared'
-import type { JWApiFileEntry } from '../lib/juicewrldApi'
+import type { CatalogFileEntry } from '../lib/catalogApi'
 
 // "Go to folder" for the Files tab: type part of any folder's name (or paste
 // a path) and jump straight there, anywhere in the channel's tree. Matches
@@ -19,7 +19,7 @@ export function FolderJumpBox({ channel, current = '', onJump, onClose }: {
 }): JSX.Element {
   const [query, setQuery] = useState(current)
   const [edited, setEdited] = useState(false)
-  const [results, setResults] = useState<JWApiFileEntry[]>([])
+  const [results, setResults] = useState<CatalogFileEntry[]>([])
   const [loading, setLoading] = useState(false)
   const [active, setActive] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -47,7 +47,7 @@ export function FolderJumpBox({ channel, current = '', onJump, onClose }: {
     listRef.current?.querySelector(`[data-index="${active}"]`)?.scrollIntoView({ block: 'nearest' })
   }, [active])
 
-  const jump = (entry: JWApiFileEntry | undefined): void => {
+  const jump = (entry: CatalogFileEntry | undefined): void => {
     if (!entry) return
     onJump(entry.path)
     onClose()

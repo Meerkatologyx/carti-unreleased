@@ -4,7 +4,7 @@ import {
   AlertCircle, Loader2, Volume2, SlidersHorizontal, RotateCcw, Type, Delete,
 } from 'lucide-react'
 import { useStore } from '../store/useStore'
-import { smallCoverUrl, CATEGORY_LABELS } from '../lib/juicewrldApi'
+import { smallCoverUrl, CATEGORY_LABELS } from '../lib/catalogApi'
 import { eraFullName } from '../lib/eras'
 import { matchedAlias, POOL_LABELS, puzzleNumber } from '../lib/heardle'
 import type { PoolId, Stats } from '../lib/heardle'
@@ -289,7 +289,7 @@ export default function WordleView(): JSX.Element {
         style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
       >
         <button
-          onClick={() => setActiveView(previousView && previousView !== 'wordle' ? previousView : 'wrld')}
+          onClick={() => setActiveView(previousView && previousView !== 'wordle' ? previousView : 'vamp')}
           title="Back"
           className="p-2.5 rounded-xl text-text-muted hover:text-text-primary hover:bg-surface-overlay transition-colors"
         >
@@ -324,7 +324,7 @@ export default function WordleView(): JSX.Element {
           <div className="text-center mb-6">
             <h1 className="text-text-primary text-4xl sm:text-5xl font-black tracking-tight inline-flex items-start gap-1">
               Playboi Carti Wordle
-              <span className="text-accent text-sm font-mono font-bold mt-1">999</span>
+              <span className="text-accent text-sm font-mono font-bold mt-1">*</span>
             </h1>
             <p className="mt-2 text-[11px] font-mono lowercase tracking-[0.18em] text-text-muted">
               guess the song title, letter by letter

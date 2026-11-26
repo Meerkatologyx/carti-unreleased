@@ -25,10 +25,12 @@ import { useStore, useStorePick } from '../store/useStore'
 import { useVizStore } from '../store/vizStore'
 import * as desktopActions from '../desktop/actions'
 import ContextMenu from './ContextMenu'
+import EmbedDock from './EmbedDock'
+import { isEmbedUrl, silentUrlFor } from '../lib/embedPlayback'
 import { eventToCombo, resolveAction, registerHotkeyDispatch } from '../lib/hotkeys'
 import { formatDuration } from '../lib/format'
 import { takeEqAnchor } from '../lib/eqAnchor'
-import { getSongById, fullCoverUrl, fileStem } from '../lib/juicewrldApi'
+import { getSongById, fullCoverUrl, fileStem } from '../lib/catalogApi'
 import { trackIdToSongId, showStaffProfile, staffProfileView } from '../lib/userApi'
 import { rememberRecentTrack } from '../lib/recentTracks'
 import { useCanEdit } from '../hooks/useChannelRoles'
@@ -55,7 +57,7 @@ import { showQueueEndedToast } from '../lib/queueEndedToast'
 import PlaybackNotice from './PlaybackNotice'
 import { ensureDonorCover } from '../lib/donorCoverArt'
 import { showAppToast } from '../lib/appToast'
-import { expandToWrld as runWrldExpand, isExpandingToWrld } from '../lib/wrldExpand'
+import { expandToVamp as runVampExpand, isExpandingToVamp } from '../lib/vampExpand'
 import { runLog } from '../lib/runLog'
 import { CoverFade, LikePop, SwapIcon, TrackSwap } from './PlayerMotion'
 import { PopLayer } from './PopLayer'
@@ -78,6 +80,9 @@ type PlayableTrack = { id: string; streamUrl?: string; path: string }
 function plainPlaybackUrl(track: PlayableTrack): string {
   if (isOfflineTrack(track.id)) return cachedOfflineUrl(track.id) ?? ''
   if (isDonorStreamUrl(track.streamUrl)) return cachedDonorUrl(track.streamUrl) ?? ''
+  // YouTube/SoundCloud/Spotify-only songs: a silent stand-in keeps the player's
+  // timeline running while EmbedDock plays the real thing.
+  if (isEmbedUrl(track.streamUrl)) return silentUrlFor(track.streamUrl!)
   return track.streamUrl ?? toFileUrl(track.path)
 }
 
@@ -375,13 +380,13 @@ let _getAudioDuration: (() => number) | null = null
 let _getAudioCurrentTime: (() => number) | null = null
 let _transport: { next: () => void; previous: () => void } | null = null
 export function seekAudio(t: number): void { _seek?.(t) }
-// Views with their own transport buttons (WRLD) route through here so they share
+// Views with their own transport buttons (VAMP) route through here so they share
 // the Player's restart, crossfade and repeat-one handling instead of calling the
 // queue directly.
 export function runPlayerCommand(cmd: 'next' | 'previous'): void { _transport?.[cmd]() }
 export function getAudioDuration(): number { return _getAudioDuration?.() ?? 0 }
 // "Loading" = the app wants to play but the active slot isn't producing sound
-// yet (fetching, buffering or seeking). Lives outside the Player so WRLD's
+// yet (fetching, buffering or seeking). Lives outside the Player so VAMP's
 // scrubber can show the same sweep as the bars here.
 export const usePlayerLoading = create<{ on: boolean }>(() => ({ on: false }))
 // Live audio.currentTime, not the Zustand-stored value (which only updates on
@@ -424,7 +429,7 @@ function ElapsedTime(): JSX.Element {
   return <>{formatDuration(currentTime)}</>
 }
 
-// 999 FM's elapsed time, ticking locally between WS updates. Same reasoning as
+// Vamp FM's elapsed time, ticking locally between WS updates. Same reasoning as
 // above: a 500ms tick in the Player body re-rendered all of it twice a second
 // for as long as FM played, so only the parts that show it tick.
 function useFmElapsedMs(): number {
@@ -508,7 +513,7 @@ function MediaSessionPosition({ active, playbackSpeed }: { active: boolean; play
     // song is loading or rebuffering - or a new one has no duration yet and
     // the previous song's state would keep running - withdraw the state; the
     // bar then follows the element itself, which isn't moving.
-    // Same for 999 FM: a live stream has no position, and the paused queue
+    // Same for Vamp FM: a live stream has no position, and the paused queue
     // song's last report would otherwise run on underneath it.
     if (fm || loading || !duration || isNaN(duration)) {
       try { navigator.mediaSession.setPositionState() } catch {/* ignore */}
@@ -566,8 +571,8 @@ export default function Player(): JSX.Element {
   // iOS ignores element volume and suspends RAF while locked, so its two-slot
   // fade cannot provide a reliable background transition.
   const crossfadeEnabled = requestedCrossfade && !IS_IOS
-  // The bar grows into WRLD (lib/wrldExpand.ts).
-  const expandToWrld = useCallback(() => runWrldExpand(() => setActiveView('wrld'), useStore.getState().activeView), [setActiveView])
+  // The bar grows into VAMP (lib/vampExpand.ts).
+  const expandToVamp = useCallback(() => runVampExpand(() => setActiveView('vamp'), useStore.getState().activeView), [setActiveView])
 
   const [showContextMenu, setShowContextMenu] = useState(false)
   // Cursor position for a right-click-spawned menu. null → menu was opened via
@@ -1085,7 +1090,7 @@ export default function Player(): JSX.Element {
         if (url && !isStale()) setCurrentTrackFull({ ...synthetic, albumArt: url })
       })
     }
-    // Fetch lyrics from API if this is a tracker song (id = "jw-{n}")
+    // Fetch lyrics from API if this is a tracker song (id = "pc-{n}")
     const songId = trackIdToSongId(currentTrack.id)
     if (songId != null) {
       // Serve from session cache to avoid re-hitting /songs/ when replaying
@@ -1094,7 +1099,7 @@ export default function Player(): JSX.Element {
       if (cached && Date.now() - cached.ts < LYRICS_CACHE_TTL_MS) {
         setCurrentTrackFull({ ...synthetic, lyrics: cached.lyrics, syncedLyrics: cached.syncedLyrics })
       } else if (lyricsFetchInFlight !== songId) {
-        // Flagged pending so WRLD's layout doesn't read the still-null
+        // Flagged pending so VAMP's layout doesn't read the still-null
         // lyrics as "this song has none" and snap to the centered,
         // no-lyrics arrangement before the fetch below has a chance to say
         // otherwise.
@@ -1858,7 +1863,7 @@ export default function Player(): JSX.Element {
   }, [volume])
 
   // Sleep timer on a clock. The check in handleTimeUpdate only runs while a
-  // queue song is advancing, so the timer never stopped 999 FM, and one that
+  // queue song is advancing, so the timer never stopped Vamp FM, and one that
   // ran out while paused stayed armed and paused the next song the instant
   // it was started. That check stays as the backstop for a hidden tab, whose
   // timers are throttled.
@@ -2023,7 +2028,7 @@ export default function Player(): JSX.Element {
   useEffect(() => {
     if (!('mediaSession' in navigator)) return
     if (!mediaSessionActive) return
-    // 999 FM plays with isPlaying off (it's a separate element), and reporting
+    // Vamp FM plays with isPlaying off (it's a separate element), and reporting
     // that as paused put a play button on the lock screen while it streamed.
     navigator.mediaSession.playbackState = isPlaying || radioFmActive ? 'playing' : 'paused'
   }, [isPlaying, radioFmActive, mediaSessionActive])
@@ -2032,7 +2037,7 @@ export default function Player(): JSX.Element {
   useEffect(() => {
     if (!('mediaSession' in navigator)) return
     if (!mediaSessionActive) return
-    // While 999 FM is on these must not reach the queue: play/next/previous
+    // While Vamp FM is on these must not reach the queue: play/next/previous
     // started a queue song on top of the stream, and pause did nothing at all.
     // The in-app transport is disabled then for the same reason. Pause stops
     // the stream, since a live stream has nothing else to pause into.
@@ -2533,7 +2538,7 @@ export default function Player(): JSX.Element {
     'seek-90': () => seekToPercent(0.9),
     'view-tracker':   () => setActiveView('api-tracker'),
     'view-playlists': () => setActiveView('playlists'),
-    'view-wrld':      expandToWrld,
+    'view-vamp':      expandToVamp,
     'view-admin':     () => {
       // Admin tools live in the editor profile page's Admin tab now.
       if (showStaffProfile(account) && (account?.is_administrator || account?.is_editor || account?.is_manager)) useStore.getState().openProfile()
@@ -2544,7 +2549,7 @@ export default function Player(): JSX.Element {
     'open-terminal':    () => { const s = useStore.getState(); s.setActiveView(s.activeView === 'terminal' ? (s.previousView ?? 'home') : 'terminal') },
     'next-light':       () => desktopActions.stepLight(1),
     'next-lyric-style': () => desktopActions.stepLyricStyle(1),
-    'wrld-widgets':     () => { const v = useVizStore.getState(); v.setWrldWidgets(!v.wrldWidgets) },
+    'vamp-widgets':     () => { const v = useVizStore.getState(); v.setVampWidgets(!v.vampWidgets) },
     'focus-search':     () => {
       // The open view gets first claim (e.g. a playlist's collapsed track search).
       if (!window.dispatchEvent(new Event('app:focus-search', { cancelable: true }))) return
@@ -2649,13 +2654,13 @@ export default function Player(): JSX.Element {
   const duration = (activeDuration && isFinite(activeDuration) ? activeDuration : 0) || currentTrack?.duration || 0
 
   // Equalizer popover (also hosts balance/mono/skip-silence + playback speed).
-  // Visibility lives in the store so the 'equalizer' hotkey and the WRLD tab's
+  // Visibility lives in the store so the 'equalizer' hotkey and the VAMP tab's
   // button can open it too - this always-mounted component owns the portal.
   const { showEqPanel, setShowEqPanel, toggleEqPanel } = useStorePick('showEqPanel', 'setShowEqPanel', 'toggleEqPanel')
   const isMobile = useIsMobile()
   const eqBtnRef = useRef<HTMLButtonElement>(null)
   const [eqPos, setEqPos] = useState<{ bottom?: number; top?: number; right: number }>({ bottom: 0, right: 0 })
-  // Anchor to the button that opened it (bar or WRLD tab); openers without an
+  // Anchor to the button that opened it (bar or VAMP tab); openers without an
   // anchor (hotkey, collapsed bar) get a fixed bottom-right spot.
   useEffect(() => {
     if (!showEqPanel) return
@@ -2683,7 +2688,7 @@ export default function Player(): JSX.Element {
   const coverArt = currentTrackFull?.albumArt ?? currentTrack?.imageUrl
   const [coverArtError, setCoverArtError] = useState(false)
   useEffect(() => { setCoverArtError(false) }, [currentTrack?.id, coverArt])
-  // What the title/artist blocks animate on: the song (or the 999FM now-
+  // What the title/artist blocks animate on: the song (or the Vamp FM now-
   // playing line), with its queue position telling next from previous.
   const swapKey = radioFmActive ? `fm:${radioFmNowPlaying?.title ?? ''}:${radioFmNowPlaying?.artist ?? ''}` : (currentTrack?.id ?? '')
   const swapOrder = radioFmActive ? undefined : queueIndex
@@ -2723,20 +2728,20 @@ export default function Player(): JSX.Element {
   // The desktop bar floats over the bottom of the main area. Publish the room
   // it takes there (its height plus the gap below and above it) as
   // --player-dock, for views that scroll under it and the panes that end
-  // above it. 0 while it's hidden: WRLD, and narrow windows (display: none
+  // above it. 0 while it's hidden: VAMP, and narrow windows (display: none
   // reads as height 0).
   const dockRef = useRef<HTMLDivElement>(null)
-  const barShown = activeView !== 'wrld'
+  const barShown = activeView !== 'vamp'
   // Rows scroll under the bar in most views, so its rim bends them.
   useLiquidLens(dockRef, 'lens-player', PLAYER_LENS)
   useLayoutEffect(() => {
     const root = document.documentElement
     const el = dockRef.current
     const publish = (h: number): void => {
-      // The page left under WRLD keeps the bar's room while WRLD slides up
-      // over it, or it would grow and reflow mid-slide; lib/wrldExpand.ts
+      // The page left under VAMP keeps the bar's room while VAMP slides up
+      // over it, or it would grow and reflow mid-slide; lib/vampExpand.ts
       // clears it when the slide ends.
-      if (h === 0 && isExpandingToWrld()) return
+      if (h === 0 && isExpandingToVamp()) return
       root.style.setProperty('--player-dock', h > 0 ? `${h + PLAYER_DOCK_GAP * 2}px` : '0px')
     }
     if (!el) { publish(0); return }
@@ -2796,9 +2801,10 @@ export default function Player(): JSX.Element {
         onCanPlay={onSlotLoadingEvent}
         onEmptied={onSlotLoadingEvent}
       />
+      <EmbedDock />
 
-      {/* Equalizer - outside the WRLD-page conditional below so the hotkey and
-          the WRLD tab's own button can open it on any view. Mobile has no
+      {/* Equalizer - outside the VAMP-page conditional below so the hotkey and
+          the VAMP tab's own button can open it on any view. Mobile has no
           anchor button to position a popover against (the bar this ref lives
           on is desktop-only, `hidden md:flex`), so it opens as a full bottom
           sheet there instead of the desktop anchored popover. */}
@@ -2828,13 +2834,13 @@ export default function Player(): JSX.Element {
       ))}
 
       {/* ── Mobile player ── */}
-      {/* Stays mounted on WRLD too: mobile WRLD is a sheet over the whole
+      {/* Stays mounted on VAMP too: mobile VAMP is a sheet over the whole
           shell (see App.tsx), so this bar just sits underneath it, already in
-          place when WRLD is dragged down - same as BottomNav. */}
+          place when VAMP is dragged down - same as BottomNav. */}
       {/* A floating glass capsule parked just above the nav bar, out of the
           layout like the bar itself, so the page scrolls beneath both. Placed
-          off --nav-h (the bar's real height, never zeroed while WRLD covers
-          it), so it doesn't jump as WRLD's curtain drag reveals it. 56px in
+          off --nav-h (the bar's real height, never zeroed while VAMP covers
+          it), so it doesn't jump as VAMP's curtain drag reveals it. 56px in
           px rather than rem: BottomNav reserves exactly that much room for it
           (MINI_PLAYER_SLOT). Play/pause and next only, as plain glyphs -
           shuffle, repeat and previous live on Now Playing. */}
@@ -2843,10 +2849,10 @@ export default function Player(): JSX.Element {
         style={{ bottom: 'calc(var(--nav-h, 0px) + 8px)' }}
         onContextMenu={(e) => { e.preventDefault(); if (currentTrack) setShowContextMenu(v => !v) }}
       >
-        {/* Track row - whole row opens WRLD, not just the cover; the
+        {/* Track row - whole row opens VAMP, not just the cover; the
             transport buttons stopPropagation so tapping them doesn't also
             navigate. */}
-        <div className="flex items-center h-full pl-2 pr-1.5 gap-3" {...clickable(() => setActiveView('wrld'))}>
+        <div className="flex items-center h-full pl-2 pr-1.5 gap-3" {...clickable(() => setActiveView('vamp'))}>
           <div className="w-10 h-10 rounded-lg bg-[var(--fill)] shrink-0 overflow-hidden">
             {radioFmActive ? (
               radioFmMatchedSong?.imageUrl
@@ -2965,17 +2971,17 @@ export default function Player(): JSX.Element {
           renders Player inside <main>), with views scrolling under it. The
           glass is a ::before layer: SongContextMenu's panels can be fixed
           without a portal, and backdrop-filter on the bar itself would pin
-          them to it. Expanding (the chevron) grows the bar into WRLD, see
-          expandToWrld; the cover opens the Now Playing panel (999 FM has none,
-          so there it still opens WRLD). */}
+          them to it. Expanding (the chevron) grows the bar into VAMP, see
+          expandToVamp; the cover opens the Now Playing panel (Vamp FM has none,
+          so there it still opens VAMP). */}
       {barShown && (
-      <div ref={dockRef} className={`app-player hidden md:flex glass-backdrop glass-specular glass-lift absolute z-30 left-2 right-2 bottom-2 mx-auto max-w-[1080px] items-center h-[88px] rounded-[22px] px-4 gap-4`} data-wrld-expand="bar" onContextMenu={(e) => { e.preventDefault(); if (currentTrack) { setCtxMenuPos({ x: e.clientX, y: e.clientY }); setShowContextMenu(true) } }}>
+      <div ref={dockRef} className={`app-player hidden md:flex glass-backdrop glass-specular glass-lift absolute z-30 left-2 right-2 bottom-2 mx-auto max-w-[1080px] items-center h-[88px] rounded-[22px] px-4 gap-4`} data-vamp-expand="bar" onContextMenu={(e) => { e.preventDefault(); if (currentTrack) { setCtxMenuPos({ x: e.clientX, y: e.clientY }); setShowContextMenu(true) } }}>
         {/* Track info */}
         <div className="flex items-center gap-3 w-72 min-w-[8rem] basis-[28%]">
           <button
             className="w-14 h-14 rounded-[10px] bg-surface-overlay shrink-0 overflow-hidden hover:ring-2 ring-accent transition-all"
-            onClick={radioFmActive ? expandToWrld : () => setShowNowPlaying(!showNowPlaying)}
-            title={radioFmActive ? '999FM' : 'Now Playing'}
+            onClick={radioFmActive ? expandToVamp : () => setShowNowPlaying(!showNowPlaying)}
+            title={radioFmActive ? 'Vamp FM' : 'Now Playing'}
           >
             {radioFmActive ? (
               radioFmMatchedSong?.imageUrl
@@ -3069,7 +3075,7 @@ export default function Player(): JSX.Element {
               <p className="text-text-muted text-xs truncate">{radioFmActive && radioFmNowPlaying ? radioFmNowPlaying.artist : (currentTrack?.artist || '')}</p>
               {(radioMode || radioFmActive) && (
                 <span className={`flex items-center gap-0.5 text-[9px] font-semibold uppercase tracking-widest shrink-0 ${radioFmActive ? 'text-red-400' : 'text-accent'}`}>
-                  <Radio size={9} /> {radioFmActive ? '999 FM' : 'Random'}
+                  <Radio size={9} /> {radioFmActive ? 'Vamp FM' : 'Random'}
                 </span>
               )}
             </div>
@@ -3205,9 +3211,9 @@ export default function Player(): JSX.Element {
           </div>
 
           <button
-            onClick={expandToWrld}
-            title="Open WRLD"
-            aria-label="Open WRLD"
+            onClick={expandToVamp}
+            title="Open VAMP"
+            aria-label="Open VAMP"
             className="text-text-secondary hover:text-text-primary transition-colors"
           >
             <ChevronUp size={18} />

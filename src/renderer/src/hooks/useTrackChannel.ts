@@ -1,7 +1,7 @@
 // The channel that goes into a Track built from a file-browser entry - its id
 // and its URLs - as opposed to the channel the listing itself is fetched with.
 //
-// Only a non-primary channel is tagged: a bare `jw-file-` id has always meant
+// Only a non-primary channel is tagged: a bare `pc-file-` id has always meant
 // the primary tree, so tagging those would orphan every like made before ids
 // carried a channel, and /files/ serves the primary tree with or without the
 // param anyway. Playing and liking must agree on it, since the player likes

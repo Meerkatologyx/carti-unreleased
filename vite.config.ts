@@ -102,7 +102,7 @@ function emitPrecacheList() {
   return {
     name: 'emit-precache-list',
     apply: 'build' as const,
-    // After Vite's own HTML plugin, which drops empty entry chunks (the WRLD
+    // After Vite's own HTML plugin, which drops empty entry chunks (the VAMP
     // host page has no script of its own) from the bundle.
     enforce: 'post' as const,
     generateBundle(
@@ -156,7 +156,7 @@ export default defineConfig({
   build: {
     outDir: resolve(__dirname, 'dist'),
     emptyOutDir: true,
-    // The app, and the pages the WRLD tab's widgets (player, playlist, clock) are drawn in: each is a page of its own.
+    // The app, and the pages the VAMP tab's widgets (player, playlist, clock) are drawn in: each is a page of its own.
     rollupOptions: {
       input: {
         main: resolve(__dirname, 'src/renderer/index.html'),
@@ -172,7 +172,7 @@ export default defineConfig({
     port: 5173,
     strictPort: true,
     host: true,
-    allowedHosts: ['.juicewrldapi.com', 'player.juicewrldapi.com', 'localhost', '127.0.0.1'],
+    allowedHosts: ['.meerkatologyx.github.io', 'meerkatologyx.github.io', 'localhost', '127.0.0.1'],
     // Chat link previews; run `npm run social-preview` alongside to get them.
     proxy: { '/unfurl': 'http://127.0.0.1:8788' },
   },
@@ -180,7 +180,7 @@ export default defineConfig({
     port: 5173,
     strictPort: true,
     host: true,
-    allowedHosts: ['.juicewrldapi.com', 'player.juicewrldapi.com', 'localhost', '127.0.0.1'],
+    allowedHosts: ['.meerkatologyx.github.io', 'meerkatologyx.github.io', 'localhost', '127.0.0.1'],
     proxy: { '/unfurl': 'http://127.0.0.1:8788' },
   },
 })

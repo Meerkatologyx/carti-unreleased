@@ -10,7 +10,7 @@
 // contract-sensitive extraction in the rewrite: the payload sent to
 // createProposal must be byte-for-byte identical before and after.
 import { useCallback, useReducer } from 'react'
-import type { JWApiSong } from './juicewrldApi'
+import type { CatalogSong } from './catalogApi'
 import { cleanDate } from './format'
 
 export interface ProposalFormState {
@@ -56,7 +56,7 @@ export const EMPTY_PROPOSAL_FORM: ProposalFormState = {
 
 type Action =
   | { type: 'update'; key: keyof ProposalFormState; value: string }
-  | { type: 'copyFrom'; song: JWApiSong }
+  | { type: 'copyFrom'; song: CatalogSong }
   | { type: 'reset' }
 
 function reducer(state: ProposalFormState, action: Action): ProposalFormState {
@@ -110,7 +110,7 @@ function reducer(state: ProposalFormState, action: Action): ProposalFormState {
 export function useProposalForm(): {
   formState: ProposalFormState
   updateField: (key: keyof ProposalFormState, value: string) => void
-  copyFrom: (song: JWApiSong) => void
+  copyFrom: (song: CatalogSong) => void
   reset: () => void
 } {
   const [formState, dispatch] = useReducer(reducer, EMPTY_PROPOSAL_FORM)
@@ -119,7 +119,7 @@ export function useProposalForm(): {
     dispatch({ type: 'update', key, value })
   }, [])
 
-  const copyFrom = useCallback((song: JWApiSong) => {
+  const copyFrom = useCallback((song: CatalogSong) => {
     dispatch({ type: 'copyFrom', song })
   }, [])
 

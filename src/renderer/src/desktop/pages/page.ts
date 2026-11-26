@@ -1,5 +1,5 @@
 // What every desktop window's page shares: the bridge to the app (electron/desktopPreload.js, or in a frame in the
-// WRLD tab, frameBridge.ts), the shapes of what it hears, and the two habits of a window on the desktop - letting
+// VAMP tab, frameBridge.ts), the shapes of what it hears, and the two habits of a window on the desktop - letting
 // clicks through its clear parts, and moving when its empty glass is dragged.
 import { frameBridge } from './frameBridge'
 import type { DesktopSettings } from '../../store/desktopSlice'
@@ -26,10 +26,10 @@ export interface DesktopState {
   shuffle?: boolean
   /** Anything in the equalizer set away from neutral: its button lights up, as the app's does. */
   eq?: boolean
-  /** The song's other versions that can be played (WRLD's version notch's list), labeled by version alone. */
+  /** The song's other versions that can be played (VAMP's version notch's list), labeled by version alone. */
   versions?: { songId: number; label: string | null }[]
   fm?: boolean
-  /** Whether 999 FM is on the air (null: not known yet). */
+  /** Whether Vamp FM is on the air (null: not known yet). */
   fmLive?: boolean | null
   cards?: { from: number; current: number; items: DesktopTrack[] }
   lyrics?: { id: string; lines: TimedLine[] } | null
@@ -46,9 +46,9 @@ export interface Hello {
   frost: string | null
   isClear: boolean
   hidden: boolean
-  /** The main display, whose wallpaper the frost is; none in the WRLD tab. */
+  /** The main display, whose wallpaper the frost is; none in the VAMP tab. */
   primary: Bounds | null
-  /** On the desktop in a window of its own, or in the WRLD tab. */
+  /** On the desktop in a window of its own, or in the VAMP tab. */
   where?: 'desktop' | 'tab'
 }
 
@@ -66,20 +66,20 @@ export interface Bridge {
   on(channel: 'desktop:curtain-close', cb: (look: { picture: string | null }) => void): () => void
   on(channel: 'desktop:curtain-open', cb: () => void): () => void
   on(channel: 'desktop:primary', cb: (bounds: Bounds) => void): () => void
-  /** In the WRLD tab: put away (true) while the tab's closed or its old style is showing, the page kept for coming back. */
+  /** In the VAMP tab: put away (true) while the tab's closed or its old style is showing, the page kept for coming back. */
   on(channel: 'desktop:shelved', cb: (on: boolean) => void): () => void
   command(cmd: string, arg?: unknown): void
   request<T = unknown>(kind: string, arg?: unknown): Promise<T | null>
   solid(on: boolean): void
   drag(phase: 'start' | 'end'): void
-  /** In the WRLD tab: where the pointer is while dragging, on the screen. A window follows the pointer itself. */
+  /** In the VAMP tab: where the pointer is while dragging, on the screen. A window follows the pointer itself. */
   dragTo?(x: number, y: number): void
   keys(on: boolean): void
   size(width: number, height: number): void
   curtainOpened(): void
   /** Right-clicked at this point: the widget's menu, from the app - the lyrics' own when it was on them (`part`). */
   menu?(x: number, y: number, part?: WidgetPart): void
-  /** In the WRLD tab: a card right-clicked, for the app's own menu of its song (the one at `place` in the queue). A
+  /** In the VAMP tab: a card right-clicked, for the app's own menu of its song (the one at `place` in the queue). A
    *  window on the desktop has no app beside it, so there the page shows a song menu itself. */
   songMenu?(x: number, y: number, place: number, id: string): void
 }
@@ -95,9 +95,9 @@ export class Live {
   isClear = false
   hidden = false
   primary: Bounds | null = null
-  /** In a frame in the WRLD tab: no desk to clear, no app to open. The page's root has the in-tab class too. */
+  /** In a frame in the VAMP tab: no desk to clear, no app to open. The page's root has the in-tab class too. */
   inTab = false
-  /** In the WRLD tab, put away until the widgets show again: nothing hears it, so nothing moves. */
+  /** In the VAMP tab, put away until the widgets show again: nothing hears it, so nothing moves. */
   shelved = false
   meter: Meter = { decibels: -120, punch: 0 }
   private listeners = new Set<(what: 'state' | 'settings' | 'frost' | 'clear' | 'hidden' | 'shelved', patch?: DesktopState) => void>()
@@ -151,7 +151,7 @@ export function seeThrough(isSolid: (x: number, y: number) => boolean): void {
 }
 
 /** A right-click opens the widget's menu - its settings, its place, hiding it - which the app shows: its own menu in
- *  the WRLD tab, the system's on the desktop. Not one the page answers itself (a song's menu), nor in a field.
+ *  the VAMP tab, the system's on the desktop. Not one the page answers itself (a song's menu), nor in a field.
  *  `partAt` names a part with a menu of its own at a point (the player's lyrics). */
 export function menuOnRightClick(partAt?: (x: number, y: number) => WidgetPart | null): void {
   document.addEventListener('contextmenu', (event) => {
@@ -180,7 +180,7 @@ export function dragToMove(from: (target: Element) => boolean): void {
       page.drag('start')
       page.dragTo?.(press.x, press.y)
     }
-    // In the WRLD tab the frame is moved by the tab, told where the pointer goes.
+    // In the VAMP tab the frame is moved by the tab, told where the pointer goes.
     page.dragTo?.(e.screenX, e.screenY)
   })
   const end = (): void => {

@@ -1,4 +1,4 @@
-# player.juicewrldapi.com
+# meerkatologyx.github.io
 # Everything under these paths is either per-user (liked songs, wrapped, local
 # library, settings), an authoring surface (editor/admin/contributor), or a
 # one-off share link - none of it belongs in an index. lib/seo.ts also sends
@@ -27,4 +27,4 @@ User-agent: Slackbot-LinkExpanding
 Allow: /
 Disallow: /auth/
 
-Sitemap: https://player.juicewrldapi.com/sitemap.xml
+Sitemap: https://meerkatologyx.github.io/carti-unreleased/sitemap.xml

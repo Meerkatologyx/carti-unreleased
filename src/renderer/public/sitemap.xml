@@ -11,42 +11,42 @@
 -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://player.juicewrldapi.com/</loc>
+    <loc>https://meerkatologyx.github.io/carti-unreleased/</loc>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://player.juicewrldapi.com/files</loc>
+    <loc>https://meerkatologyx.github.io/carti-unreleased/files</loc>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://player.juicewrldapi.com/wrld</loc>
+    <loc>https://meerkatologyx.github.io/carti-unreleased/vamp</loc>
     <changefreq>daily</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://player.juicewrldapi.com/heardle</loc>
+    <loc>https://meerkatologyx.github.io/carti-unreleased/heardle</loc>
     <changefreq>daily</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://player.juicewrldapi.com/wordle</loc>
+    <loc>https://meerkatologyx.github.io/carti-unreleased/wordle</loc>
     <changefreq>daily</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://player.juicewrldapi.com/docs</loc>
+    <loc>https://meerkatologyx.github.io/carti-unreleased/docs</loc>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
-    <loc>https://player.juicewrldapi.com/statistics</loc>
+    <loc>https://meerkatologyx.github.io/carti-unreleased/statistics</loc>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
-    <loc>https://player.juicewrldapi.com/download</loc>
+    <loc>https://meerkatologyx.github.io/carti-unreleased/download</loc>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>

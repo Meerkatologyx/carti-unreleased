@@ -1,15 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Check, ImageIcon, FolderSearch, Loader2 } from 'lucide-react'
 import { useStore } from '../store/useStore'
-import { JWApiSong, resolvePrefCoverUrl, smallCoverUrl, coverSearchQueries } from '../lib/juicewrldApi'
+import { CatalogSong, resolvePrefCoverUrl, smallCoverUrl, coverSearchQueries } from '../lib/catalogApi'
 import FilePickerModal from './FilePickerModal'
 import { searchCoverImages } from '../lib/coverSuggestions'
 
-export interface CoverVersionEntry { song: JWApiSong }
+export interface CoverVersionEntry { song: CatalogSong }
 
 // The cover-picking half of Personalize's "Custom cover" section - grid of
 // this song's own/sibling covers, an inline title search, a file browser, and
-// a paste-URL fallback. Extracted out of SongPrefsSection so WRLD's cover
+// a paste-URL fallback. Extracted out of SongPrefsSection so VAMP's cover
 // long-press sheet can offer the exact same picker without the rest of
 // Personalize (name/default-version/playcount) around it.
 export default function CoverEditor({

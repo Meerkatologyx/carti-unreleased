@@ -5,11 +5,11 @@ import { getToken, type AccountUser } from './userApi'
 // Passkeys (WebAuthn): sign in without a password, and the account's list of
 // them. See docs/08-accounts.md "Passkeys" in the backend.
 //
-// Passkeys belong to juicewrldapi.com, and the server only accepts prompts run
-// on https://juicewrldapi.com or https://player.juicewrldapi.com. On the
+// Passkeys belong to meerkatologyx.github.io, and the server only accepts prompts run
+// on https://meerkatologyx.github.io or https://meerkatologyx.github.io/carti-unreleased. On the
 // website the page is already there, so the browser's own prompt runs in place.
 // The desktop app loads from file://, so main.js opens a small window that
-// Chromium treats as https://player.juicewrldapi.com and runs the prompt there
+// Chromium treats as https://meerkatologyx.github.io/carti-unreleased and runs the prompt there
 // (electron/passkey.js). Either way the origin is fixed - the API base from
 // Settings → Developer only changes where these requests go, so a server with a
 // different relying party ID can't be used for passkeys here. The Android and
@@ -59,11 +59,11 @@ const desktopBridge = (): Required<PasskeyBridge> | null => {
   return b?.passkeySupport && b.passkeyCeremony ? (b as Required<PasskeyBridge>) : null
 }
 
-const WEB_PASSKEY_HOSTS = new Set(['juicewrldapi.com', 'player.juicewrldapi.com'])
+const WEB_PASSKEY_HOSTS = new Set(['meerkatologyx.github.io', 'meerkatologyx.github.io'])
 
 function browserSupport(): PasskeySupport {
   if (!WEB_PASSKEY_HOSTS.has(location.hostname) || !window.isSecureContext) {
-    return { ceremonies: false, reason: 'Passkeys only work on player.juicewrldapi.com in a browser.' }
+    return { ceremonies: false, reason: 'Passkeys only work on meerkatologyx.github.io in a browser.' }
   }
   if (typeof PublicKeyCredential === 'undefined' || !navigator.credentials) {
     return { ceremonies: false, reason: 'This browser does not support passkeys.' }

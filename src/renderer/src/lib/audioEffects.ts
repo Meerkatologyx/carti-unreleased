@@ -1,5 +1,5 @@
 // Shared Web Audio post-processing chain for every playable <audio> element
-// (both Player slots + the 999FM element). Elements are routed through:
+// (both Player slots + the Vamp FM element). Elements are routed through:
 //
 //   MediaElementSource → chainInput ─→ preamp → 10-band EQ → cut filter → saturation
 //                                   │    → compressor → mono → width → balance → 8D pan

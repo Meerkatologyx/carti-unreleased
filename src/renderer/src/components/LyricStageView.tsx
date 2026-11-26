@@ -9,7 +9,7 @@ import { usePlayClock } from '../desktop/playClock'
 import { seekAudio } from './Player'
 import type { SyncedLyricLine } from '../types'
 
-// WRLD's lyrics in one of the iJWA styles (Settings > Desktop > Lyric style): the app's own lyrics, offset and play
+// VAMP's lyrics in one of the iJWA styles (Settings > Desktop > Lyric style): the app's own lyrics, offset and play
 // clock, sung by the style picked. Line-timed lyrics get their words paced over each line; untimed ones over the song.
 
 /** The styles were laid out for a box about this big; a bigger one sets everything larger. */
@@ -35,13 +35,13 @@ export default function LyricStageView({ look, trackId, title, artist, duration,
   const fonts = useStore((s) => s.desktop.lyrics.fonts)
   // The app's lyric size and colors, for the styles that follow them.
   const tune = useStore(useShallow((s): LyricTune => ({ size: s.lyricsScale, active: s.lyricsColorActive, inactive: s.lyricsColorInactive })))
-  // A line clicked plays the song from it - not on 999 FM, which can't be moved.
+  // A line clicked plays the song from it - not on Vamp FM, which can't be moved.
   const radioFmActive = useStore((s) => s.radioFmActive)
   const seek = useMemo(() => (radioFmActive ? undefined : (seconds: number) => seekAudio(Math.max(seconds, 0))), [radioFmActive])
   const colors = useAlbumColors(artUrl)
   const clock = usePlayClock()
   const [scale, setScale] = useState(1)
-  // In sight: the page shown, and the stage laid out. WRLD keeps its own layout mounted but hidden under the Widgets
+  // In sight: the page shown, and the stage laid out. VAMP keeps its own layout mounted but hidden under the Widgets
   // layout, and its phone layout hidden on a wide window; a stage there waits instead of drawing words no one sees.
   const [seen, setSeen] = useState(false)
 

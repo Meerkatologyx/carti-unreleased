@@ -4,17 +4,17 @@
 // shared type, since desktop (useMultiSelect Map) and mobile (a plain Set)
 // use different selection models.
 //
-// Backend ZIP jobs are disabled (see ZIP_OPERATIONS_ENABLED in juicewrldApi.ts),
+// Backend ZIP jobs are disabled (see ZIP_OPERATIONS_ENABLED in catalogApi.ts),
 // so the archive is built client-side instead (lib/clientZip): directories are
 // expanded recursively via listFilesRecursive, keeping their folder structure
 // inside the ZIP. If the browser can only build it in memory and it's too big,
 // falls back to downloading each file individually.
 import { useState } from 'react'
-import { buildStreamUrl, JWApiFileEntry, listFilesRecursive } from '../lib/juicewrldApi'
+import { buildStreamUrl, CatalogFileEntry, listFilesRecursive } from '../lib/catalogApi'
 import { ZipStatus } from '../lib/apiFilesShared'
 import { openZipTarget, saveItems, ZipItem, ZipProgress } from '../lib/clientZip'
 
-export function useApiFilesZip(opts: { activeChannel: string; useCdn: boolean; getSelectedEntries: () => JWApiFileEntry[] }): {
+export function useApiFilesZip(opts: { activeChannel: string; useCdn: boolean; getSelectedEntries: () => CatalogFileEntry[] }): {
   zipStatus: ZipStatus
   zipProgress: ZipProgress | null
   resetZip: () => void
@@ -31,7 +31,7 @@ export function useApiFilesZip(opts: { activeChannel: string; useCdn: boolean; g
     setTimeout(() => setZipStatus('idle'), 3000)
   }
 
-  const downloadEntries = async (entries: JWApiFileEntry[], archiveName: string): Promise<void> => {
+  const downloadEntries = async (entries: CatalogFileEntry[], archiveName: string): Promise<void> => {
     if (entries.length === 0) return
     // Before any await - the save dialog needs the click's user activation.
     const target = await openZipTarget(archiveName)

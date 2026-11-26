@@ -6,7 +6,7 @@
 import { useStore } from '../store/useStore'
 import { authHeaders } from './apiClient'
 import { getToken } from './userApi'
-import { routeUrl } from './juicewrldApi'
+import { routeUrl } from './catalogApi'
 import { errorMessage } from './format'
 import type { DonorFile, DonorQuota } from './donorFilesApi'
 

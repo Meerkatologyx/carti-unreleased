@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { ChevronDown, ChevronUp, ImageIcon, Music2, RotateCcw, FolderSearch } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { useShallow } from 'zustand/react/shallow'
-import { resolvePrefCoverUrl, smallCoverUrl, buildImageUrl, loadAllSongs, type JWApiSong } from '../lib/juicewrldApi'
+import { resolvePrefCoverUrl, smallCoverUrl, buildImageUrl, loadAllSongs, type CatalogSong } from '../lib/catalogApi'
 import { loadEraFullNames, eraFullName, listEras } from '../lib/eras'
 import FilePickerModal from './FilePickerModal'
 
@@ -16,7 +16,7 @@ import FilePickerModal from './FilePickerModal'
 
 /** The cover most of an era's unreleased songs show today, so each row can
  *  show what a pick would replace. */
-function defaultEraCovers(songs: JWApiSong[]): Record<string, string> {
+function defaultEraCovers(songs: CatalogSong[]): Record<string, string> {
   const counts: Record<string, Record<string, number>> = {}
   for (const s of songs) {
     const era = s.era?.name

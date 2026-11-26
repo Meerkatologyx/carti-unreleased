@@ -1,12 +1,12 @@
-// 999 FM live chat over REST. Reading needs no account; the live lines come
+// Vamp FM live chat over REST. Reading needs no account; the live lines come
 // over the chat socket (radioChatSocket.ts). Moderation is admin + 2FA only,
-// the server answers anyone else with 403. Backend: juicewrld/radio_chat.py,
+// the server answers anyone else with 403. Backend: the radio server,
 // docs/06-999-fm.md "Live chat".
 import { RADIO_API_BASE } from './apiServers'
 import { authedRequest } from './apiClient'
 import { getToken } from './userApi'
 
-// Server limits (juicewrld/radio_chat.py).
+// Server limits (the radio server).
 export const RADIO_CHAT_MAX_TEXT = 300
 export const RADIO_CHAT_MAX_NAME = 24
 export const RADIO_CHAT_MIN_NAME = 2

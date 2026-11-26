@@ -20,13 +20,13 @@ const PING_MS = 25_000
 
 // Same pairing as the other sockets: which route the proxy upgrades depends on
 // deployment, so rotate through both on handshake failure.
-const WS_PATHS = ['/juicewrld/ws/notifications/', '/ws/notifications/']
+const WS_PATHS = ['/api/ws/notifications/', '/ws/notifications/']
 
 function wsUrl(path: string): string {
-  const env = import.meta.env.VITE_JWAPI_WS as string | undefined
+  const env = import.meta.env.VITE_CATALOG_API_WS as string | undefined
   const origin = env
     ? env.replace(/\/$/, '')
-    : CHAT_API_BASE.replace(/\/juicewrld\/?$/, '').replace(/^http/, 'ws')
+    : CHAT_API_BASE.replace(/\/carti\/?$/, '').replace(/^http/, 'ws')
   return `${origin}${path}`
 }
 

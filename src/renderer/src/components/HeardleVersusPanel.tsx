@@ -2,7 +2,7 @@ import { MotionOverlay } from './MotionOverlay'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Check, Loader2, Music2, Pause, Play, Search, SkipForward, Swords, Trophy, Volume2, X } from 'lucide-react'
 import { useStorePick } from '../store/useStore'
-import { smallCoverUrl, CATEGORY_LABELS } from '../lib/juicewrldApi'
+import { smallCoverUrl, CATEGORY_LABELS } from '../lib/catalogApi'
 import {
   connectMatchSocket,
   pollMatchQueue,

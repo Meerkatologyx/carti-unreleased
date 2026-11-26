@@ -1,5 +1,5 @@
 // Builds ZIP archives in the browser now that backend ZIP jobs are disabled
-// (see ZIP_OPERATIONS_ENABLED in juicewrldApi.ts). Every file is fetched from
+// (see ZIP_OPERATIONS_ENABLED in catalogApi.ts). Every file is fetched from
 // its stream URL (the API sends Access-Control-Allow-Origin) and fed into
 // client-zip, which stores entries uncompressed - audio is already
 // compressed, so deflating it again would burn CPU for nothing.

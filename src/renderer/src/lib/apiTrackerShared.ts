@@ -1,4 +1,4 @@
-import type { JWApiSong } from './juicewrldApi'
+import type { CatalogSong } from './catalogApi'
 import { locateFuzzy } from './lyricSearch'
 
 // Pure logic shared by ApiTrackerView.desktop.tsx and ApiTrackerView.mobile.tsx -
@@ -73,7 +73,7 @@ export const DEFAULT_ERA_COLOR: EraColor = { text: 'text-text-muted', bg: 'bg-su
 // group makes the whole group "Released", even if other versions are
 // unreleased/session/unsurfaced; same logic cascades down the list).
 export const GROUP_CATEGORY_PRIORITY: Category[] = ['released', 'unreleased', 'recording_session', 'unsurfaced']
-export function groupCategory(members: { item: JWApiSong }[]): Category {
+export function groupCategory(members: { item: CatalogSong }[]): Category {
   const present = new Set(members.map(m => m.item.category as Category))
   return GROUP_CATEGORY_PRIORITY.find(c => present.has(c)) ?? 'unsurfaced'
 }

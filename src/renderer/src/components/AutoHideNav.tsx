@@ -37,9 +37,9 @@ export default function AutoHideNav({ position, autoHide = true, pill = false, c
   children: React.ReactNode
 }): JSX.Element {
   const hotZonePx = useStore((s) => s.autoHideNavZone)
-  // The floating nav sits at z-40, above WRLD's fullscreen portal (z-30) -
+  // The floating nav sits at z-40, above VAMP's fullscreen portal (z-30) -
   // step out of the way entirely while that immersive view is up.
-  const wrldFullscreen = useStore((s) => s.wrldFullscreen)
+  const vampFullscreen = useStore((s) => s.vampFullscreen)
   const [hovered, setHovered] = useState(false)
   const open = !autoHide || hovered
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -89,7 +89,7 @@ export default function AutoHideNav({ position, autoHide = true, pill = false, c
   }, [autoHide, hovered])
 
   // A top pill floats over the page, so publish where it reaches (bottom and
-  // left/right edges) - page overlays pinned to the top (WRLD's visualizer
+  // left/right edges) - page overlays pinned to the top (VAMP's visualizer
   // toolbar) drop below it only when they'd actually run into it.
   useEffect(() => {
     const pillEl = wrapRef.current?.firstElementChild
@@ -113,9 +113,9 @@ export default function AutoHideNav({ position, autoHide = true, pill = false, c
       for (const v of ['--nav-pill-top', '--nav-pill-left', '--nav-pill-right']) root.style.removeProperty(v)
       window.dispatchEvent(new Event(NAV_PILL_EVENT))
     }
-  }, [pill, position, wrldFullscreen])
+  }, [pill, position, vampFullscreen])
 
-  if (wrldFullscreen) return <></>
+  if (vampFullscreen) return <></>
   return (
     <>
       {autoHide && (

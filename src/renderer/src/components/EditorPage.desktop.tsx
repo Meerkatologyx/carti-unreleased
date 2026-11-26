@@ -7,7 +7,7 @@ import {
 import FilePickerModal from './FilePickerModal'
 import ThemedSelect from './ThemedSelect'
 import { useStore } from '../store/useStore'
-import { buildImageUrl, toSiteRelativeImageUrl, songToTrack, CATEGORY_LABELS } from '../lib/juicewrldApi'
+import { buildImageUrl, toSiteRelativeImageUrl, songToTrack, CATEGORY_LABELS } from '../lib/catalogApi'
 import * as userApi from '../lib/userApi'
 import type { EditorApplication } from '../lib/userApi'
 import { versionsEnabled } from '../lib/versionsApi'

@@ -256,13 +256,13 @@ const RECONNECT_DELAYS_MS = [1000, 2000, 5000, 10000, 30000]
 const PING_MS = 30_000
 // Which route the proxy upgrades depends on the deployment; rotate through
 // both on handshake failure, like the other sockets.
-const WS_PATHS = ['/juicewrld/ws/admin/logs/', '/ws/admin/logs/']
+const WS_PATHS = ['/api/ws/admin/logs/', '/ws/admin/logs/']
 
 function wsUrl(path: string): string {
-  const env = import.meta.env.VITE_JWAPI_WS as string | undefined
+  const env = import.meta.env.VITE_CATALOG_API_WS as string | undefined
   const origin = env
     ? env.replace(/\/$/, '')
-    : baseFor('/accounts').replace(/\/juicewrld\/?$/, '').replace(/^http/, 'ws')
+    : baseFor('/accounts').replace(/\/carti\/?$/, '').replace(/^http/, 'ws')
   return `${origin}${path}`
 }
 

@@ -62,7 +62,7 @@ export function UserCardHost({ children }: { children: ReactNode }): JSX.Element
   )
 }
 
-// Callers outside chat (999 FM chat, Heardle) may know only an id and a name;
+// Callers outside chat (Vamp FM chat, Heardle) may know only an id and a name;
 // the profile fills in whatever they left blank.
 function withProfile(user: ChatUserBrief, p: PublicProfile | undefined): ChatUserBrief {
   if (!p) return user

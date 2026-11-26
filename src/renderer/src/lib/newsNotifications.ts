@@ -10,7 +10,7 @@
 // All of it is inert until NEWS_ENABLED (see newsApi) - the poll returns nothing
 // and the profile push no-ops, so this ships dormant with the rest of the
 // prepared frontend.
-import { routeUrl } from './juicewrldApi'
+import { routeUrl } from './catalogApi'
 import { getToken } from './userApi'
 import { apiRequest, authHeaders } from './apiClient'
 import { fetchNews, NEWS_ENABLED, type NewsItem } from './newsApi'

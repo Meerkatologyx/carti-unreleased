@@ -1,6 +1,6 @@
 import { BarChart3 } from 'lucide-react'
 import { useStore } from '../store/useStore'
-import { CATEGORY_LABELS, CATEGORY_COLORS } from '../lib/juicewrldApi'
+import { CATEGORY_LABELS, CATEGORY_COLORS } from '../lib/catalogApi'
 import { useStatisticsData } from '../hooks/useStatisticsData'
 import {
   CATEGORY_ORDER, LIST_MAX_HEIGHT_DESKTOP,

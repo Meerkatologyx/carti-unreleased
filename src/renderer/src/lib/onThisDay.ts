@@ -1,11 +1,11 @@
-import { loadAllSongs, normalizeForSearch, type JWApiSong } from './juicewrldApi'
+import { loadAllSongs, normalizeForSearch, type CatalogSong } from './catalogApi'
 import { MIN_PLAUSIBLE_RECORD_YEAR } from './apiTrackerShared'
 
 // "On this day": what happened in the catalogue on one calendar day in past
 // years - songs recorded, first previewed, surfaced or released that day.
 //
 // The five date fields are free text, one or more labelled dates each:
-// "Recorded\nAugust 1-2, 2016.", "Juice's Vocals\nMay 5, 2018.\nFile
+// "Recorded\nAugust 1-2, 2016.", "Carti's Vocals\nMay 5, 2018.\nFile
 // Exported\nJune 24, 2021.", "Surfaced January 25th 2026". Every exact date is
 // read together with the words in front of it, and those words decide what
 // kind of event it was; the field's own meaning only fills in when there are
@@ -26,11 +26,11 @@ export interface SongDate {
   /** 1-12 */
   month: number
   day: number
-  /** The words in front of the date, e.g. "Juice's Vocals". May be empty. */
+  /** The words in front of the date, e.g. "Carti's Vocals". May be empty. */
   label: string
 }
 
-const DATE_FIELDS: { get: (s: JWApiSong) => string | null | undefined; kind: DayEventKind | null }[] = [
+const DATE_FIELDS: { get: (s: CatalogSong) => string | null | undefined; kind: DayEventKind | null }[] = [
   { get: (s) => s.record_dates, kind: 'recorded' },
   { get: (s) => s.preview_date, kind: 'previewed' },
   { get: (s) => s.date_leaked, kind: 'surfaced' },
@@ -64,10 +64,10 @@ const cleanLabel = (s: string): string => s
   .replace(/\s*(?:recorded\s+)?on$/i, '')
   .replace(/\s+/g, ' ')
 
-const datesCache = new WeakMap<JWApiSong, SongDate[]>()
+const datesCache = new WeakMap<CatalogSong, SongDate[]>()
 
 /** Every exact date in a song's date fields, one per day (a range gives each of its days). */
-export function songDates(song: JWApiSong): SongDate[] {
+export function songDates(song: CatalogSong): SongDate[] {
   const hit = datesCache.get(song)
   if (hit) return hit
   const out: SongDate[] = []
@@ -107,8 +107,8 @@ export interface DayEntry {
   title: string
   /** Every row with this event that day (versions of the song, its session),
    *  ones with audio first - `songs[0]` is the one an entry plays. */
-  songs: JWApiSong[]
-  /** The words in front of each date, e.g. "Juice's Vocals". */
+  songs: CatalogSong[]
+  /** The words in front of each date, e.g. "Carti's Vocals". */
   labels: string[]
 }
 
@@ -120,16 +120,16 @@ export interface DayYear {
 const VERSION_TAG = /\s*[([]v\d+[)\]]\s*$/i
 export const baseTitle = (name: string): string => name.replace(VERSION_TAG, '').trim() || name
 
-export const hasAudio = (song: JWApiSong): boolean => !!song.path
-const isSession = (song: JWApiSong): boolean => song.category === 'recording_session'
+export const hasAudio = (song: CatalogSong): boolean => !!song.path
+const isSession = (song: CatalogSong): boolean => song.category === 'recording_session'
 
-const songOrder = (a: JWApiSong, b: JWApiSong): number =>
+const songOrder = (a: CatalogSong, b: CatalogSong): number =>
   Number(hasAudio(b)) - Number(hasAudio(a))
   || Number(isSession(a)) - Number(isSession(b))
   || a.name.localeCompare(b.name, undefined, { numeric: true })
 
 /** What happened on `month`/`day` (month 1-12) in each past year, newest year first. */
-export function eventsOnDay(songs: JWApiSong[], month: number, day: number, now = new Date()): DayYear[] {
+export function eventsOnDay(songs: CatalogSong[], month: number, day: number, now = new Date()): DayYear[] {
   const entries = new Map<string, DayEntry & { year: number }>()
   for (const song of songs) {
     for (const d of songDates(song)) {
@@ -157,9 +157,9 @@ export function eventsOnDay(songs: JWApiSong[], month: number, day: number, now 
 }
 
 /** The day as a queue: each entry's song with audio, oldest year first, each song once. */
-export function dayQueue(years: DayYear[]): JWApiSong[] {
+export function dayQueue(years: DayYear[]): CatalogSong[] {
   const seen = new Set<number>()
-  const out: JWApiSong[] = []
+  const out: CatalogSong[] = []
   for (const { entries } of [...years].reverse()) {
     for (const { songs: [song] } of entries) {
       if (hasAudio(song) && !seen.has(song.id)) { seen.add(song.id); out.push(song) }
@@ -185,21 +185,21 @@ function titleList(titles: string[]): string {
   return `${titles[0]}, ${titles[1]} and ${titles.length - 2} more`
 }
 
-// "Herbo's Vocals" is someone else's part of the song; "Juice's Vocals",
+// "Herbo's Vocals" is someone else's part of the song; "Carti's Vocals",
 // "Second Verse" and a bare "Recorded" are his.
-const isJuicesPart = (label: string): boolean => !/\w['’]/.test(label) || /juice/i.test(label)
+const isCartisPart = (label: string): boolean => !/\w['’]/.test(label) || /carti/i.test(label)
 
-/** One sentence for the top of the card. Juice in the studio leads when he
+/** One sentence for the top of the card. Carti in the studio leads when he
  *  was there that day; otherwise the most recent year's news does. `isToday`
  *  false (a day picked from the calendar) says "in 2018" instead of "8 years
  *  ago today". */
 export function dayHeadline(years: DayYear[], isToday = true, now = new Date()): string | null {
   const whenOf = (year: number): string => (isToday ? yearsAgo(year, now) : `in ${year}`)
   for (const { year, entries } of years) {
-    const his = entries.filter((e) => e.kind === 'recorded' && (e.labels.length === 0 || e.labels.some(isJuicesPart)))
+    const his = entries.filter((e) => e.kind === 'recorded' && (e.labels.length === 0 || e.labels.some(isCartisPart)))
     if (his.length) {
       const when = whenOf(year)
-      return `${when[0].toUpperCase()}${when.slice(1)}, Juice recorded ${titleList(his.map((e) => e.title))}.`
+      return `${when[0].toUpperCase()}${when.slice(1)}, Carti recorded ${titleList(his.map((e) => e.title))}.`
     }
   }
   const latest = years[0]
@@ -226,11 +226,11 @@ const CACHE_KEY = 'unreleased:onthisday'
 const pad = (n: number): string => String(n).padStart(2, '0')
 const dayKey = (month: number, day: number): string => `${pad(month)}-${pad(day)}`
 
-export function peekDaySongs(month: number, day: number): { songs: JWApiSong[]; ts: number } | null {
+export function peekDaySongs(month: number, day: number): { songs: CatalogSong[]; ts: number } | null {
   try {
     const raw = localStorage.getItem(CACHE_KEY)
     if (!raw) return null
-    const cached = JSON.parse(raw) as { day: string; ts: number; songs: JWApiSong[] }
+    const cached = JSON.parse(raw) as { day: string; ts: number; songs: CatalogSong[] }
     return cached.day === dayKey(month, day) && Array.isArray(cached.songs) ? { songs: cached.songs, ts: cached.ts } : null
   } catch {
     return null
@@ -238,7 +238,7 @@ export function peekDaySongs(month: number, day: number): { songs: JWApiSong[]; 
 }
 
 /** The catalogue rows with something on `month`/`day`. Today's are kept for the next visit. */
-export async function loadDaySongs(month: number, day: number, now = new Date()): Promise<JWApiSong[]> {
+export async function loadDaySongs(month: number, day: number, now = new Date()): Promise<CatalogSong[]> {
   const all = await loadAllSongs()
   const songs = all.filter((s) => songDates(s).some((d) => d.month === month && d.day === day))
   if (month === now.getMonth() + 1 && day === now.getDate()) {

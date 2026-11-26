@@ -4,18 +4,18 @@
 import { useState } from 'react'
 import { fileToTrack } from '../lib/apiFilesShared'
 import { getMediaType } from '../lib/fileTypes'
-import { JWApiFileEntry } from '../lib/juicewrldApi'
+import { CatalogFileEntry } from '../lib/catalogApi'
 import { Track } from '../types'
 import { useTrackChannel } from './useTrackChannel'
 
 export function usePlayFileEntry(
-  entries: JWApiFileEntry[],
+  entries: CatalogFileEntry[],
   playTrack: (track: Track, queue: Track[]) => void,
-): { playing: string | null; handlePlay: (entry: JWApiFileEntry) => Promise<void> } {
+): { playing: string | null; handlePlay: (entry: CatalogFileEntry) => Promise<void> } {
   const [playing, setPlaying] = useState<string | null>(null)
   const { resolveTrackChannel, activeChannel } = useTrackChannel()
 
-  const handlePlay = async (entry: JWApiFileEntry): Promise<void> => {
+  const handlePlay = async (entry: CatalogFileEntry): Promise<void> => {
     if (playing === entry.path) return
     setPlaying(entry.path)
     try {

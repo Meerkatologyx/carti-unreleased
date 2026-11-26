@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { X, ImagePlus, Loader2, AlertCircle, Send, ImageOff, Search } from 'lucide-react'
 import { ModalOverlay, LockToggle } from './Modal'
 import { useStore } from '../store/useStore'
-import { buildImageUrl, searchSongs, type JWApiSong } from '../lib/juicewrldApi'
+import { buildImageUrl, searchSongs, type CatalogSong } from '../lib/catalogApi'
 import {
   checkCoverArtFile, submitCoverArt, COVER_ART_MAX_NOTES, COVER_ART_TYPES, type CoverArtTarget,
 } from '../lib/coverArtApi'
@@ -23,7 +23,7 @@ export default function CoverArtSubmitModal(): JSX.Element | null {
 // The search step for a dialog opened without a song (Home → Tools).
 function SongSearch({ onPick }: { onPick: (target: CoverArtTarget) => void }): JSX.Element {
   const [query, setQuery] = useState('')
-  const [results, setResults] = useState<JWApiSong[]>([])
+  const [results, setResults] = useState<CatalogSong[]>([])
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {

@@ -11,8 +11,8 @@ import { displayName } from '../store/chatStore'
 import { discordHandle, errorMessage } from '../lib/format'
 import * as userApi from '../lib/userApi'
 import type { EditorApplication, SongEditProposal, AdminUser, ProposalStatus } from '../lib/userApi'
-import { apiFetch, songToTrack } from '../lib/juicewrldApi'
-import type { JWApiSong } from '../lib/juicewrldApi'
+import { apiFetch, songToTrack } from '../lib/catalogApi'
+import type { CatalogSong } from '../lib/catalogApi'
 import {
   relativeTime, shortDate, STATUS_STYLE, StatusChip, Avatar, Empty, AppSection,
   QueueSearch, ProposalDiff,
@@ -588,7 +588,7 @@ function ProposalsTab({ proposals, status, setStatus, onChanged, onReviewed, cha
     setPlayError(null)
     setLoadingSongId(songId)
     try {
-      const song = await apiFetch<JWApiSong>(`/songs/${songId}/`)
+      const song = await apiFetch<CatalogSong>(`/songs/${songId}/`)
       // An unsurfaced song is a real catalog entry with no file behind it -
       // the proposal is still reviewable, there's just nothing to play.
       if (!song.path) { setPlayError('No file on this song to play'); return }

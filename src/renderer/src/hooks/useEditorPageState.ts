@@ -2,7 +2,7 @@
 // mobile wrap this in their own JSX/layout - keep behavior here.
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useStorePick } from '../store/useStore'
-import { apiFetch, JWApiSong, JWApiEra } from '../lib/juicewrldApi'
+import { apiFetch, CatalogSong, CatalogEra } from '../lib/catalogApi'
 import * as userApi from '../lib/userApi'
 import { isPrimaryChannelSlug } from './useChannelRoles'
 import { invalidateLyricsCache } from '../components/Player'
@@ -50,7 +50,7 @@ export function useEditorPageState(initialSongId: number | null = null) {
   const [application, setApplication] = useState<EditorApplication | null>(null)
   const [appLoading, setAppLoading]   = useState(false)
 
-  const [song,    setSong]    = useState<JWApiSong | null>(null)
+  const [song,    setSong]    = useState<CatalogSong | null>(null)
   const [loading, setLoading] = useState(false)
   // Set when a manual load (Edit click / proposal open) fails, so the
   // "nothing to edit" effect below doesn't silently bounce the user to My
@@ -58,7 +58,7 @@ export function useEditorPageState(initialSongId: number | null = null) {
   // like clicking Edit just redirected there for no reason.
   const [loadError, setLoadError] = useState<string | null>(null)
   const lastLoadIdRef = useRef<number | null>(null)
-  const [eras,    setEras]    = useState<JWApiEra[]>([])
+  const [eras,    setEras]    = useState<CatalogEra[]>([])
   // Set synchronously the instant a manual load (Edit click / proposal open)
   // is kicked off, before the async fetch resolves into `song`. Without this,
   // there's a render in between where pendingEditorSongId has already been
@@ -139,7 +139,7 @@ export function useEditorPageState(initialSongId: number | null = null) {
   // This song's own version label plus the group's shared version title -
   // linking songs together happens from the Tracker's multi-select "Link
   // versions" action (see ApiTrackerView.tsx), not here. These write
-  // straight to juicewrldapi.com's /versions/ table (see lib/versionsApi.ts),
+  // straight to meerkatologyx.github.io's /versions/ table (see lib/versionsApi.ts),
   // not through its proposal/review system, hence the separate save button
   // below rather than piggybacking on "Submit proposal". Version is
   // per-song ("v1", "TV Mix"); version title is written to every song in
@@ -159,7 +159,7 @@ export function useEditorPageState(initialSongId: number | null = null) {
   const [showTitleSuggestions, setShowTitleSuggestions] = useState(false)
   const titleDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const baseline = (s: JWApiSong | null): Record<string, unknown> => {
+  const baseline = (s: CatalogSong | null): Record<string, unknown> => {
     if (!s) return {}
     return {
       // `name` is the API's own canonical title - NOT track_titles[0]. They
@@ -201,7 +201,7 @@ export function useEditorPageState(initialSongId: number | null = null) {
     }
   }
 
-  const populate = useCallback((s: JWApiSong): void => {
+  const populate = useCallback((s: CatalogSong): void => {
     setName(s.name)
     setArtists(s.credited_artists || '')
     setAlbum(s.album ?? s.era?.name ?? '')
@@ -247,7 +247,7 @@ export function useEditorPageState(initialSongId: number | null = null) {
     setLoading(true)
     setLoadError(null)
     try {
-      const s = await apiFetch<JWApiSong>(`/songs/${id}/`)
+      const s = await apiFetch<CatalogSong>(`/songs/${id}/`)
       if (lastLoadIdRef.current !== id) return false
       setSong(s)
       populate(s)

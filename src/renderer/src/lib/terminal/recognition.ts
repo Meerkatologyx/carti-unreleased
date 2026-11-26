@@ -1,5 +1,5 @@
 import { useStore } from '../../store/useStore'
-import { getSongsByIds, parseDuration } from '../juicewrldApi'
+import { getSongsByIds, parseDuration } from '../catalogApi'
 import { checkRecognition, identifyClip } from '../recognitionApi'
 import { canCaptureSystemAudio, recordRecognitionClip, type RecognitionSource } from '../recognitionCapture'
 import { RECOGNITION_SECONDS, validateRecognitionClip } from '../recognitionContract'

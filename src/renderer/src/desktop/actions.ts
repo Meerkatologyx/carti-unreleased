@@ -1,7 +1,7 @@
 // Desktop's switches, for the hotkeys, the terminal and the tray: the light on or off, the widgets out or away, the
 // desk cleared, the next light or lyric style. Each says what it did, for whoever asked to show.
 import { useStore } from '../store/useStore'
-import { useVizStore, wrldEdgeLook } from '../store/vizStore'
+import { useVizStore, vampEdgeLook } from '../store/vizStore'
 import { ls } from '../lib/persist'
 import { LOOKS, lookOf } from './light/looks'
 import { LYRIC_LOOKS, lyricLookOf } from './lyrics/looks'
@@ -47,7 +47,7 @@ export function clearDesk(on?: boolean): string {
   return on === false ? 'Everything back' : on === true ? 'Desk cleared' : 'Clear desk toggled'
 }
 
-/** A light picked: the screen light's look, or off Windows, where there's no screen light, WRLD's Edge light. */
+/** A light picked: the screen light's look, or off Windows, where there's no screen light, VAMP's Edge light. */
 export function pickLight(id: string): string {
   const look = lookOf(id)
   if (desktopWindowsSupported()) useStore.getState().setDesktop({ light: { look: look.id } })
@@ -57,7 +57,7 @@ export function pickLight(id: string): string {
 
 /** The light after the one picked (or before it), round the list. */
 export function stepLight(step = 1): string {
-  const current = desktopWindowsSupported() ? useStore.getState().desktop.light.look : wrldEdgeLook()
+  const current = desktopWindowsSupported() ? useStore.getState().desktop.light.look : vampEdgeLook()
   const at = current ? lookOf(current).number : step > 0 ? -1 : 0
   return pickLight(LOOKS[(at + step + LOOKS.length) % LOOKS.length].id)
 }

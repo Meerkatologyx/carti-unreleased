@@ -3,7 +3,7 @@ import { useResizablePanel } from '../hooks/useResizablePanel'
 import { X, Music, ChevronUp, ChevronDown } from 'lucide-react'
 import { useStorePick } from '../store/useStore'
 import LyricsDisplay from './LyricsDisplay'
-import { smallCoverUrl } from '../lib/juicewrldApi'
+import { smallCoverUrl } from '../lib/catalogApi'
 import { ProgressiveCover } from './ProgressiveCover'
 import { useLyricsVisible, lyricsLoading } from '../lib/lyrics'
 

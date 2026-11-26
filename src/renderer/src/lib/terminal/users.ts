@@ -4,7 +4,7 @@ import { conversationTitle, displayName, roomKey, useChatStore } from '../../sto
 import { splitForwardRef } from '../chatForwardRef'
 import { splitReplyRef } from '../chatReplyRef'
 import { adminGetUser, adminListUsers, getNowPlaying, getPublicProfile, type AdminUser } from '../userApi'
-import { getSongsByIds } from '../juicewrldApi'
+import { getSongsByIds } from '../catalogApi'
 import { termAccess } from './access'
 import { fail, profileLink, profileLinkPadded, type TermCommand } from './types'
 

@@ -75,7 +75,7 @@ export const HOTKEY_ACTIONS: readonly HotkeyAction[] = [
   // ── Navigation ────────────────────────────────────────────────────────────
   { id: 'view-tracker',     label: 'Go to Tracker',             category: 'Navigation', defaultBinding: 'Alt+1' },
   { id: 'view-playlists',   label: 'Go to Playlists',           category: 'Navigation', defaultBinding: 'Alt+2' },
-  { id: 'view-wrld',        label: 'Go to WRLD',                category: 'Navigation', defaultBinding: 'Alt+4' },
+  { id: 'view-vamp',        label: 'Go to VAMP',                category: 'Navigation', defaultBinding: 'Alt+4' },
   { id: 'view-admin',       label: 'Go to Admin / Editor profile', category: 'Navigation', defaultBinding: 'Alt+5' },
   { id: 'open-settings',    label: 'Open settings',             category: 'Navigation', defaultBinding: 'Ctrl+,' },
   { id: 'open-diagnostics', label: 'Open diagnostics',          category: 'Navigation', defaultBinding: '' },
@@ -83,7 +83,7 @@ export const HOTKEY_ACTIONS: readonly HotkeyAction[] = [
   { id: 'focus-search',     label: 'Focus search box',          category: 'Navigation', defaultBinding: 'Ctrl+F' },
   { id: 'next-light',        label: 'Next light',                category: 'Navigation', defaultBinding: '' },
   { id: 'next-lyric-style',  label: 'Next lyric style',          category: 'Navigation', defaultBinding: '' },
-  { id: 'wrld-widgets',      label: 'WRLD widgets layout',       category: 'Navigation', defaultBinding: '' },
+  { id: 'vamp-widgets',      label: 'VAMP widgets layout',       category: 'Navigation', defaultBinding: '' },
   { id: 'open-terminal',    label: 'Open terminal', category: 'Navigation', defaultBinding: 'Ctrl+`' },
 ] as const
 

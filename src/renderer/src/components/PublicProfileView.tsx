@@ -15,7 +15,7 @@ import {
 import type { PublicProfile, PlaylistSummary, PlaylistDetail, NowPlayingState, AdminUser, AccountUser } from '../lib/userApi'
 import { playlistItemsToTracks } from '../lib/playlistItems'
 import { compApproveBlockedReason } from '../lib/compProposalShared'
-import { getSongsByIds, songToTrack, buildImageUrl } from '../lib/juicewrldApi'
+import { getSongsByIds, songToTrack, buildImageUrl } from '../lib/catalogApi'
 import { Track } from '../types'
 import { AlbumArtThumbnail } from './AlbumArtThumbnail'
 import SongContextMenu, { SongContextMenuState } from './SongContextMenu'
@@ -476,7 +476,7 @@ export default function PublicProfileView(): JSX.Element {
         <User size={40} className="opacity-20" />
         <p className="text-subhead md:text-sm md:tracking-normal">Profile not found.</p>
         <button
-          onClick={() => setActiveView(previousView && previousView !== 'public-profile' ? previousView : 'wrld')}
+          onClick={() => setActiveView(previousView && previousView !== 'public-profile' ? previousView : 'vamp')}
           className="flex items-center gap-1.5 text-accent md:text-text-muted hover:text-text-primary text-body md:text-sm md:tracking-normal max-md:active:opacity-60 transition-colors mt-1"
         >
           <ChevronLeft size={15} /> Back to app
@@ -560,7 +560,7 @@ export default function PublicProfileView(): JSX.Element {
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-y-auto px-5 py-6 pb-player">
       <button
-        onClick={() => setActiveView(previousView && previousView !== 'public-profile' ? previousView : 'wrld')}
+        onClick={() => setActiveView(previousView && previousView !== 'public-profile' ? previousView : 'vamp')}
         className="flex items-center gap-1.5 self-start text-accent md:text-text-muted hover:text-text-primary text-body md:text-sm md:tracking-normal max-md:active:opacity-60 transition-colors mb-4"
       >
         <ChevronLeft size={15} /> Back to app

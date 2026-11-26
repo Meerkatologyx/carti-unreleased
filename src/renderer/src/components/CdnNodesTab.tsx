@@ -7,7 +7,7 @@ import CdnWorldMap from './CdnWorldMap'
 import { CdnBucketChip, CdnSyncBadge, CdnStatsStrip, CdnNodeNotices, CdnNodeFacts, CdnNodeActions, CdnNodeEventHistory, CdnCountryChips, countryFlag, nodeLocation } from './cdnNodesShared'
 
 // Admin-only roster of distributed-CDN nodes (the volunteer machines running
-// jwa-cdn-node). Nodes register anonymously and serve nothing until approved
+// cdn-node). Nodes register anonymously and serve nothing until approved
 // here; the server also pulls them on its own after repeated hash reports.
 export default function CdnNodesTab(): JSX.Element {
   const {

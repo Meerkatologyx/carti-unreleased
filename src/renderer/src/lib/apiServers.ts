@@ -7,18 +7,18 @@
 // `/radio` rules too.
 //
 // Every lib/*Api.ts file builds its own `${BASE}/...` constants at import
-// time (see juicewrldApi.ts), so a change here only takes effect on next
+// time (see catalogApi.ts), so a change here only takes effect on next
 // load - the setters reload for that reason.
 
 // Carti fork: there is no API server - lib/cartiApi.ts answers this base in the browser.
-export const DEFAULT_JWAPI_BASE = new URL('api', new URL(import.meta.env.BASE_URL || '/', location.origin)).href
+export const DEFAULT_CATALOG_API_BASE = new URL('api', new URL(import.meta.env.BASE_URL || '/', location.origin)).href
 
-const MAIN_KEY = 'jwapi_base_override'
-const RULES_KEY = 'jwapi_route_rules'
+const MAIN_KEY = 'catalog_api_base_override'
+const RULES_KEY = 'catalog_api_route_rules'
 // Pre-rules per-subsystem overrides, folded into rules on first read.
 const LEGACY_KEYS: Record<string, string> = {
-  jwapi_base_override_chat: '/chat',
-  jwapi_base_override_radio: '/radio',
+  catalog_api_base_override_chat: '/chat',
+  catalog_api_base_override_radio: '/radio',
 }
 
 /** Requests whose path (relative to the API base) starts with `prefix` go to
@@ -50,7 +50,7 @@ export const KNOWN_ROUTE_PREFIXES: { prefix: string; label: string }[] = [
 
 const stripSlash =(s: string): string => s.trim().replace(/\/+$/, '')
 
-// Bases are fed to `new URL()` at import time (JWAPI_HOST, cdnWebrtc's
+// Bases are fed to `new URL()` at import time (CATALOG_API_HOST, cdnWebrtc's
 // WS_BASE), so a stored value without a scheme - `staging.example.com` -
 // would throw before React mounts and leave a blank page with no way back
 // to Settings. Anything that isn't an absolute http(s) URL is ignored.
@@ -111,7 +111,7 @@ export function getRouteRules(): RouteRule[] {
   return readRules()
 }
 
-export const JWAPI_BASE = readMain() ?? DEFAULT_JWAPI_BASE
+export const CATALOG_API_BASE = readMain() ?? DEFAULT_CATALOG_API_BASE
 
 // Longest prefix first, so `/cdn/admin` beats `/cdn` when both are set.
 const RULES = readRules().sort((a, b) => b.prefix.length - a.prefix.length)
@@ -122,7 +122,7 @@ export function baseFor(path: string): string {
   for (const r of RULES) {
     if (path === r.prefix || path.startsWith(`${r.prefix}/`) || path.startsWith(`${r.prefix}?`)) return r.base
   }
-  return JWAPI_BASE
+  return CATALOG_API_BASE
 }
 
 /** Full URL for an API path, with route rules applied. */

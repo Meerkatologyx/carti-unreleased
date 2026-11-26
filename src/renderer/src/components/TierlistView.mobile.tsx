@@ -11,7 +11,7 @@ import {
 } from 'lucide-react'
 import { useStorePick } from '../store/useStore'
 import type { HeardleSong } from '../lib/heardle'
-import { smallCoverUrl } from '../lib/juicewrldApi'
+import { smallCoverUrl } from '../lib/catalogApi'
 import { TIER_COLOR_PRESETS } from '../lib/tierlist'
 import type { Tier, DropPosition } from '../lib/tierlist'
 import { Sheet } from './mobile/Sheet'
@@ -179,7 +179,7 @@ export default function TierlistView(): JSX.Element {
     'setActiveView', 'setHeroBleedTop', 'previousView')
 
   // Lets GameBackdrop's wash paint full-bleed under the status bar instead of
-  // stopping at the shell's usual inset - matches WRLD's ownsTopInset trick.
+  // stopping at the shell's usual inset - matches VAMP's ownsTopInset trick.
   // The corner buttons and the switcher's top clearance compensate below.
   // Always true: mobile's nav bar is bottom-only now (see BottomNav), so the
   // shell always reserves this inset itself.
@@ -314,7 +314,7 @@ export default function TierlistView(): JSX.Element {
       >
         <button
           // See HeardleView.mobile.tsx's back button - same reasoning: Home,
-          // not WRLD, is where mobile actually enters this game from now.
+          // not VAMP, is where mobile actually enters this game from now.
           onClick={() => setActiveView(previousView ?? 'home')}
           aria-label="Back"
           className="glass-button w-11 h-11 flex items-center justify-center rounded-full text-text-primary active:opacity-60 transition-opacity"

@@ -1,6 +1,6 @@
 import { useEffect, useCallback, useState, useRef } from 'react'
 import { X, ChevronLeft, ChevronRight, AlertCircle, Download, Loader2, ZoomIn, ZoomOut } from 'lucide-react'
-import { smallCoverUrl } from '../lib/juicewrldApi'
+import { smallCoverUrl } from '../lib/catalogApi'
 import { syncThemeColorMeta } from '../lib/themeEffects'
 import { useEscapeToClose } from '../hooks/useEscapeToClose'
 

@@ -3,7 +3,7 @@ import type { CompBatchItem, CompBatchSubmitted, CompTagChanges } from './userAp
 import { stageCompFiles } from './compChunkedUpload'
 import { COMP_UPLOADS_CHANGED, queueCompUploads } from './compUploads'
 import { errorMessage } from './format'
-import { apiFetch, listFilesRecursive, listSubtree, parseBrowseEntries, type JWApiBrowseResponse, type JWApiFileEntry } from './juicewrldApi'
+import { apiFetch, listFilesRecursive, listSubtree, parseBrowseEntries, type CatalogBrowseResponse, type CatalogFileEntry } from './catalogApi'
 
 // Proposes the file changes the Files tab makes by drag-and-drop and its
 // context menu. Moves and new folders carry no file body - a move is two
@@ -52,11 +52,11 @@ export async function existingCompPaths(folder: string, relPaths: string[], chan
     return (await listSubtree(path, channel)) ?? await listFilesRecursive(path, channel)
   })
   if (looseFiles) {
-    lookups.push(apiFetch<JWApiBrowseResponse>('/files/browse/', { path: folder || undefined, channel }).then(parseBrowseEntries))
+    lookups.push(apiFetch<CatalogBrowseResponse>('/files/browse/', { path: folder || undefined, channel }).then(parseBrowseEntries))
   }
 
   const found = new Set<string>()
-  for (const entries of await Promise.all(lookups.map((p) => p.catch((): JWApiFileEntry[] => [])))) {
+  for (const entries of await Promise.all(lookups.map((p) => p.catch((): CatalogFileEntry[] => [])))) {
     for (const e of entries) if (e.type === 'file') found.add(e.path)
   }
   return found

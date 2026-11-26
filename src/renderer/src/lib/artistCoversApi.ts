@@ -3,14 +3,14 @@
 // `Cover Arts/<artist_folder>/` in the community channel of Files, and uploads
 // and removes covers there with no review.
 import { routeUrl } from './apiServers'
-import { buildStreamUrl } from './juicewrldApi'
+import { buildStreamUrl } from './catalogApi'
 import { getToken } from './userApi'
 import { apiRequest, authHeaders, authedRequest, defaultParseError } from './apiClient'
 
 const BASE = routeUrl('/accounts/artist/covers')
 
 export interface ArtistCover {
-  /** File name inside the folder, e.g. `Lucid Dreams alt.png`. */
+  /** File name inside the folder, e.g. `Magnolia alt.png`. */
   name: string
   /** Full Files path, `Cover Arts/<folder>/<name>`. */
   path: string

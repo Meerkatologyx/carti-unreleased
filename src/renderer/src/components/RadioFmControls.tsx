@@ -2,12 +2,12 @@ import { useCallback, useEffect, useState } from 'react'
 import { Search, SkipForward, ThumbsDown, ThumbsUp, X } from 'lucide-react'
 import { useStorePick } from '../store/useStore'
 import { getActiveRadioClient } from '../lib/radioSocketService'
-import { useRadioSuggest, useRadioVoteCountdown } from '../hooks/useWrldCore'
+import { useRadioSuggest, useRadioVoteCountdown } from '../hooks/useVampCore'
 import { SearchHelpButton } from './SearchHelpPopover'
 
-// 999 FM's listener controls: the vote (skip or queue), suggesting the next
-// song, up next and coming up. WRLD's FM panel (Radio tab) and the 999 FM
-// widget in WRLD's Widgets layout both show it. Styled for WRLD's dark backdrop.
+// Vamp FM's listener controls: the vote (skip or queue), suggesting the next
+// song, up next and coming up. VAMP's FM panel (Radio tab) and the Vamp FM
+// widget in VAMP's Widgets layout both show it. Styled for VAMP's dark backdrop.
 
 export default function RadioFmControls(): JSX.Element {
   const {
@@ -16,7 +16,7 @@ export default function RadioFmControls(): JSX.Element {
   const {
     suggestQuery, setSuggestQuery, suggestResults, suggestLoading,
     proposed, proposeError, handlePropose, dismissProposed,
-  } = useRadioSuggest('Tune in to 999 FM first - proposals only count from listeners')
+  } = useRadioSuggest('Tune in to Vamp FM first - proposals only count from listeners')
   const [voteError, setVoteError] = useState(false)
   const { myVote, setMyVote, localSecondsLeft } = useRadioVoteCountdown(
     radioFmVote?.active, radioFmVote?.seconds_left, () => setVoteError(false),
@@ -24,7 +24,7 @@ export default function RadioFmControls(): JSX.Element {
 
   // Time the warning out like the propose error below it. The rising-edge reset
   // above only fires when a brand new ballot arrives, which can be a long way
-  // off - long enough for "tune in to 999 FM" to still be sitting there after
+  // off - long enough for "tune in to Vamp FM" to still be sitting there after
   // the listener has done exactly that.
   useEffect(() => {
     if (!voteError) return
@@ -67,7 +67,7 @@ export default function RadioFmControls(): JSX.Element {
           {radioFmVote.votes_needed != null && <span> · need {radioFmVote.votes_needed}</span>}
         </p>
         {voteError && (
-          <p className="text-red-400/80 text-xs">Vote didn't send - tune in to 999 FM and try again.</p>
+          <p className="text-red-400/80 text-xs">Vote didn't send - tune in to Vamp FM and try again.</p>
         )}
         <div className="flex gap-2">
           <button
@@ -100,7 +100,7 @@ export default function RadioFmControls(): JSX.Element {
       </button>
     )}
     {voteError && !radioFmVote?.active && (
-      <p className="text-red-400/80 text-xs">Tune in to 999 FM to start a vote.</p>
+      <p className="text-red-400/80 text-xs">Tune in to Vamp FM to start a vote.</p>
     )}
 
     {/* Suggest */}
@@ -129,7 +129,7 @@ export default function RadioFmControls(): JSX.Element {
               <input
                 type="text" value={suggestQuery}
                 onChange={(e) => setSuggestQuery(e.target.value)}
-                placeholder='Search, or producers:"Nick Mira"…'
+                placeholder='Search, or producers:"Pierre Bourne"…'
                 className="w-full bg-white/5 text-white/80 text-sm rounded-xl py-2 pl-8 pr-3 border border-white/10 focus:outline-none focus:border-white/25 transition-colors"
                 style={{ colorScheme: 'dark' }}
               />

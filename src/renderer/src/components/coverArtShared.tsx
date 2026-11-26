@@ -2,7 +2,7 @@
 // review queue (Admin → Cover art).
 import { useEffect, useState } from 'react'
 import { ImageOff, Loader2 } from 'lucide-react'
-import { buildImageUrl } from '../lib/juicewrldApi'
+import { buildImageUrl } from '../lib/catalogApi'
 import type { CoverArtSubmission } from '../lib/coverArtApi'
 import { useCoverArtImage } from '../hooks/useCoverArtImage'
 

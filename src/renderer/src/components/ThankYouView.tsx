@@ -15,7 +15,7 @@ export default function ThankYouView(): JSX.Element {
   const { setActiveView, previousView } = useStorePick('setActiveView', 'previousView')
   // Back to wherever this was opened from (Settings, most likely), like the
   // app's other pushed pages.
-  const backView = previousView && previousView !== 'thanks' ? previousView : 'wrld'
+  const backView = previousView && previousView !== 'thanks' ? previousView : 'vamp'
   const [page, setPage] = useState<ThanksPageContent>(() => resolveThanks(null))
 
   useEffect(() => {

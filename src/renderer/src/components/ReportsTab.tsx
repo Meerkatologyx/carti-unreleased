@@ -1,7 +1,7 @@
 import { Loader2, CheckCircle, RotateCcw, Hash, Calendar, MessageSquare, Music2, ChevronLeft } from 'lucide-react'
 import * as reportsApi from '../lib/reportsApi'
 import type { SongReportRow, SongReportStatus } from '../lib/reportsApi'
-import { buildImageUrl } from '../lib/juicewrldApi'
+import { buildImageUrl } from '../lib/catalogApi'
 import { StatusChip, Empty, AppSection, relativeTime, shortDate, STATUS_STYLE } from './adminShared'
 import { useReportsTabState, REPORT_FILTERS } from '../hooks/useReportsTabState'
 

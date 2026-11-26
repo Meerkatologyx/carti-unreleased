@@ -10,11 +10,11 @@ import {
   NAV_ITEMS, orderedNavControls, orderedNavItems,
 } from '../navItems'
 import type { ViewType } from '../../types'
-import { DEFAULT_JWAPI_BASE, JWAPI_BASE, getServerOverride, getRouteRules, normalizePrefix, setRouteRules, setServerOverride } from '../apiServers'
+import { DEFAULT_CATALOG_API_BASE, CATALOG_API_BASE, getServerOverride, getRouteRules, normalizePrefix, setRouteRules, setServerOverride } from '../apiServers'
 import cdnService from '../cdn'
 import { useSandboxStore } from '../../components/Modal'
 import { useChatStore } from '../../store/chatStore'
-import { useVizStore, wrldEdgeLook, type VizCycle } from '../../store/vizStore'
+import { useVizStore, vampEdgeLook, type VizCycle } from '../../store/vizStore'
 import type { MusicVideoChoice } from '../musicVideos'
 import { VISUALIZERS, type Boost, type Quality } from '../viz'
 import { LOOKS } from '../../desktop/light/looks'
@@ -101,7 +101,7 @@ const SETTINGS: Setting[] = [
   bool('gradients', 'Accent gradients on the shell', () => st().gradientsEnabled, (v) => st().setGradientsEnabled(v)),
   bool('surface-gradients', 'Gradients on small surfaces too', () => st().surfaceGradientsEnabled, (v) => st().setSurfaceGradientsEnabled(v)),
   bool('glass-refraction', 'Player bar and pill nav bend what is behind their edges, like glass (Chromium only)', () => st().glassRefraction, (v) => st().setGlassRefraction(v)),
-  bool('wrld-theme-bg', 'WRLD tab uses the theme instead of the cover', () => st().wrldThemeBackground, (v) => st().setWrldThemeBackground(v)),
+  bool('vamp-theme-bg', 'VAMP tab uses the theme instead of the cover', () => st().vampThemeBackground, (v) => st().setVampThemeBackground(v)),
   bool('full-era-names', 'Show full era names', () => st().fullEraNames, (v) => st().setFullEraNames(v)),
   bool('prefer-og', 'Play the OG version when one is linked', () => st().preferOgVersion, (v) => st().setPreferOgVersion(v)),
   bool('rotate-covers', 'Rotate suggested covers on each play', () => st().rotateSuggestedCovers, (v) => st().setRotateSuggestedCovers(v)),
@@ -146,17 +146,17 @@ const SETTINGS: Setting[] = [
   bool('media-overlay', 'Windows media overlay (desktop app)', () => st().mediaOverlayEnabled, (v) => st().setMediaOverlayEnabled(v)),
   bool('sandbox', 'Dock modals into a collapsible pill instead of a centered popup', () => useSandboxStore.getState().sandboxEnabled, (v) => useSandboxStore.getState().setSandboxEnabled(v)),
   bool('playlist-hero', 'Blurred cover art behind a playlist header (for the active light/dark skin)', () => (getSkin(st().theme).dark ? st().playlistHeroEnabledDark : st().playlistHeroEnabledLight), (v) => st().setPlaylistHeroEnabled(v)),
-  choice('viz', 'WRLD visualizer', () => VISUALIZERS.map((v) => ({ value: v.id, label: v.name })), () => vz().vizMode, (v) => vz().selectMode(v, true)),
-  choice('viz-edge', 'Edge light round the WRLD visualizer (on its own with the visualizer off); a look picked is the screen light\'s too', () => [{ value: 'none', label: 'none' }, ...LOOKS.map((l) => ({ value: l.id, label: l.title }))], () => wrldEdgeLook() ?? 'none', (v) => vz().setVizEdgeOverlay(v === 'none' ? null : v)),
+  choice('viz', 'VAMP visualizer', () => VISUALIZERS.map((v) => ({ value: v.id, label: v.name })), () => vz().vizMode, (v) => vz().selectMode(v, true)),
+  choice('viz-edge', 'Edge light round the VAMP visualizer (on its own with the visualizer off); a look picked is the screen light\'s too', () => [{ value: 'none', label: 'none' }, ...LOOKS.map((l) => ({ value: l.id, label: l.title }))], () => vampEdgeLook() ?? 'none', (v) => vz().setVizEdgeOverlay(v === 'none' ? null : v)),
   choice('viz-quality','Visualizer quality', pills('low', 'medium', 'high', 'ultra'), () => vz().vizQuality, (v) => vz().setVizQuality(v as Quality)),
   choice('viz-boost', 'Visualizer input boost', pills('off', 'auto', '2', '4', '8'), () => vz().vizBoost, (v) => vz().setVizBoost(v as Boost)),
   choice('viz-cycle', 'Switch visualizer automatically', pills('off', 'track', 'album'), () => vz().vizCycle, (v) => vz().setVizCycle(v as VizCycle)),
-  choice('wrld-videos', 'A released song’s video from Files in place of the WRLD visualizer: off, music videos (a visualizer when a song has none), or lyric videos too', pills('off', 'music', 'all'), () => vz().wrldVideos, (v) => vz().setWrldVideos(v as MusicVideoChoice)),
-  bool('wrld-widgets', 'WRLD shows the desktop player, playlist and clock instead of its own player', () => vz().wrldWidgets, (v) => vz().setWrldWidgets(v)),
-  bool('wrld-fm', 'The 999 FM card (votes, suggestions, chat) in WRLD’s widgets while 999 FM is on, or opened without it', () => vz().wrldFm, (v) => vz().setWrldFm(v)),
-  bool('wrld-fm-sound', 'Play the notification sound for new 999 FM chat lines and votes in WRLD’s 999 FM card', () => vz().wrldFmSound, (v) => vz().setWrldFmSound(v)),
-  bool('wrld-fm-open', 'Keep the 999 FM card up in WRLD’s widgets without tuning in', () => vz().wrldFmOpen, (v) => vz().setWrldFmOpen(v)),
-  bool('viz-artwork', 'WRLD background and visualizer use colours from the artwork', () => vz().vizUseArtwork, (v) => vz().setVizUseArtwork(v)),
+  choice('vamp-videos', 'A released song’s video from Files in place of the VAMP visualizer: off, music videos (a visualizer when a song has none), or lyric videos too', pills('off', 'music', 'all'), () => vz().vampVideos, (v) => vz().setVampVideos(v as MusicVideoChoice)),
+  bool('vamp-widgets', 'VAMP shows the desktop player, playlist and clock instead of its own player', () => vz().vampWidgets, (v) => vz().setVampWidgets(v)),
+  bool('vamp-fm', 'The Vamp FM card (votes, suggestions, chat) in VAMP’s widgets while Vamp FM is on, or opened without it', () => vz().vampFm, (v) => vz().setVampFm(v)),
+  bool('vamp-fm-sound', 'Play the notification sound for new Vamp FM chat lines and votes in VAMP’s Vamp FM card', () => vz().vampFmSound, (v) => vz().setVampFmSound(v)),
+  bool('vamp-fm-open', 'Keep the Vamp FM card up in VAMP’s widgets without tuning in', () => vz().vampFmOpen, (v) => vz().setVampFmOpen(v)),
+  bool('viz-artwork', 'VAMP background and visualizer use colours from the artwork', () => vz().vizUseArtwork, (v) => vz().setVizUseArtwork(v)),
   choice('audio-output', 'Audio output device (default = system)', () => [{ value: 'default', label: 'system default' }, ...audioDevices.map((d) => ({ value: d.deviceId, label: d.label || `Device ${d.deviceId.slice(0, 6)}` }))], () => st().audioOutput || 'default', (v) => st().setAudioOutput(v === 'default' ? '' : v)),
   choice('notification-sound', 'Sound for chat and news notifications', () => NOTIFICATION_SOUNDS.map((x) => ({ value: x.id, label: x.label })), () => getNotificationSoundId(), (v) => { setNotificationSoundId(v); playNotificationSound(v) }),
   bool('lastfm', 'Last.fm scrobbling (connect it in Settings first)', () => st().lastfmEnabled, (v) => { if (!st().lastfmUser) fail('connect Last.fm in Settings > Playback first'); st().setLastfmEnabled(v) }),
@@ -545,18 +545,18 @@ export const SETTINGS_COMMANDS: TermCommand[] = [
       if (!verb || verb === 'show') {
         const rules = getRouteRules()
         const how = getServerOverride() ? '' : ' (default)'
-        ctx.print(`API ${JWAPI_BASE}${how}${rules.length ? `\n${rules.map((r) => `  ${r.prefix.padEnd(14)} -> ${r.base}`).join('\n')}` : '\nno route rules'}`)
+        ctx.print(`API ${CATALOG_API_BASE}${how}${rules.length ? `\n${rules.map((r) => `  ${r.prefix.padEnd(14)} -> ${r.base}`).join('\n')}` : '\nno route rules'}`)
         return
       }
       if (verb === 'set') {
         const url = (rest[0] ?? '').trim().replace(/\/+$/, '')
-        if (!isHttpUrl(url)) fail('usage: api set <url>  (a full http(s) address, e.g. https://staging.example.com/juicewrld)')
+        if (!isHttpUrl(url)) fail('usage: api set <url>  (a full http(s) address, e.g. https://staging.example.com/carti)')
         ctx.print(`API base -> ${url} - reloading…`, 'ok')
         reloadAfter(() => setServerOverride(url))
         return
       }
       if (verb === 'reset') {
-        if (!getServerOverride() && getRouteRules().length === 0) { ctx.print(`already on the default (${DEFAULT_JWAPI_BASE})`, 'dim'); return }
+        if (!getServerOverride() && getRouteRules().length === 0) { ctx.print(`already on the default (${DEFAULT_CATALOG_API_BASE})`, 'dim'); return }
         ctx.print('API base and route rules cleared - reloading…', 'ok')
         reloadAfter(() => { setRouteRules([]); setServerOverride(null) })
         return
@@ -564,7 +564,7 @@ export const SETTINGS_COMMANDS: TermCommand[] = [
       if (verb === 'rule') {
         const prefix = normalizePrefix(rest[0] ?? '')
         const base = (rest[1] ?? '').trim().replace(/\/+$/, '')
-        if (!prefix || !isHttpUrl(base)) fail('usage: api rule <prefix> <url>  (e.g. api rule /cdn https://cdn.example.com/juicewrld)')
+        if (!prefix || !isHttpUrl(base)) fail('usage: api rule <prefix> <url>  (e.g. api rule /cdn https://cdn.example.com/carti)')
         ctx.print(`${prefix} -> ${base} - reloading…`, 'ok')
         reloadAfter(() => setRouteRules([...getRouteRules().filter((r) => r.prefix !== prefix), { prefix, base }]))
         return

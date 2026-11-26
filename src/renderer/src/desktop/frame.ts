@@ -1,5 +1,5 @@
-// The widgets in the WRLD tab are the desktop's own pages in frames: what passes between a frame and the tab
-// (components/WrldWidgets.tsx), which answers it as the main process answers a window on the desktop.
+// The widgets in the VAMP tab are the desktop's own pages in frames: what passes between a frame and the tab
+// (components/VampWidgets.tsx), which answers it as the main process answers a window on the desktop.
 
 /** Every message either way carries this, set to true: anything else posted to the page isn't ours. */
 export const FRAME_MARK = '__unreleasedDesktop'

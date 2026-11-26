@@ -1,5 +1,5 @@
 // The lyrics sung in one of the iJWA styles, in a box of the page: the fisheye or a style on LyricScene, made anew
-// when the style changes. Used by WRLD's lyrics and by the desktop player.
+// when the style changes. Used by VAMP's lyrics and by the desktop player.
 import './lyrics.css'
 import { WordBlock } from './wordblock'
 import { SCENES } from './styles'

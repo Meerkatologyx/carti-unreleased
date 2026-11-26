@@ -28,7 +28,7 @@
 .circle svg { width: calc(17px * var(--s)); height: calc(17px * var(--s)); }
 /* The versions button, while the song has no other versions. */
 .circle.away { display: none; }
-/* 999 FM: lit while it's on, faded while it's off the air. */
+/* Vamp FM: lit while it's on, faded while it's off the air. */
 .circle.on { background: rgba(255, 255, 255, 0.24); color: #fff; }
 .circle:disabled { opacity: 0.4; }
 .circle:disabled:hover { transform: none; }
@@ -255,6 +255,6 @@
 #menu button.menu-title:hover { color: rgba(255, 255, 255, 0.85); }
 #menu .menu-note { padding: calc(7px * var(--s)) calc(10px * var(--s)); font-size: calc(12px * var(--s)); color: rgba(255, 255, 255, 0.45); }
 
-/* In the WRLD tab: no desk to clear, and the app it would open is the one it's in. */
+/* In the VAMP tab: no desk to clear, and the app it would open is the one it's in. */
 .in-tab [data-action="clear"], .in-tab .cover-arrow { display: none; }
 .in-tab .cover-button { pointer-events: none; }

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Loader2, Search, Copy } from 'lucide-react'
-import { apiFetch, JWApiSong } from '../lib/juicewrldApi'
+import { apiFetch, CatalogSong } from '../lib/catalogApi'
 
 // Most new AddSongModal entries are another version of a song that already
 // exists, so the fast path is "start from that one and change what
@@ -9,7 +9,7 @@ import { apiFetch, JWApiSong } from '../lib/juicewrldApi'
 // was identical except for touch-vs-hover states and slightly taller result
 // rows, both handled here via `variant` instead of forking the file.
 export interface CopyFromSongProps {
-  onCopy: (song: JWApiSong) => void
+  onCopy: (song: CatalogSong) => void
   copiedFrom: string | null
   onClear: () => void
   /** 'mobile' uses active: states (no hover) and taller result rows,
@@ -22,7 +22,7 @@ export default function CopyFromSong({ onCopy, copiedFrom, onClear, variant = 'd
   const isMobile = variant === 'mobile'
   const [query, setQuery] = useState('')
   const [debounced, setDebounced] = useState('')
-  const [results, setResults] = useState<JWApiSong[]>([])
+  const [results, setResults] = useState<CatalogSong[]>([])
   const [loading, setLoading] = useState(false)
   const [loadingId, setLoadingId] = useState<number | null>(null)
 
@@ -35,7 +35,7 @@ export default function CopyFromSong({ onCopy, copiedFrom, onClear, variant = 'd
     if (debounced.length < 2) { setResults([]); return }
     let cancelled = false
     setLoading(true)
-    apiFetch<{ results: JWApiSong[] }>('/songs/', { search: debounced, page_size: 8 })
+    apiFetch<{ results: CatalogSong[] }>('/songs/', { search: debounced, page_size: 8 })
       .then(d => { if (!cancelled) setResults(d.results ?? []) })
       .catch(() => { if (!cancelled) setResults([]) })
       .finally(() => { if (!cancelled) setLoading(false) })
@@ -44,9 +44,9 @@ export default function CopyFromSong({ onCopy, copiedFrom, onClear, variant = 'd
 
   // The list endpoint returns trimmed rows (no lyrics/credits), so the pick
   // has to be re-fetched in full before its fields can be copied across.
-  const pick = async (row: JWApiSong): Promise<void> => {
+  const pick = async (row: CatalogSong): Promise<void> => {
     setLoadingId(row.id)
-    try { onCopy(await apiFetch<JWApiSong>(`/songs/${row.id}/`)) }
+    try { onCopy(await apiFetch<CatalogSong>(`/songs/${row.id}/`)) }
     catch { onCopy(row) }
     finally { setLoadingId(null); setQuery(''); setDebounced(''); setResults([]) }
   }

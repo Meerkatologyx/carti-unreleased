@@ -7,7 +7,7 @@
 // holds ~300 entries for the entire app, so a few hundred played songs evict
 // each other (and everything else) and the next visit refetches the lot. A
 // small number of unknown ids still goes straight through individual
-// requests (getSongsByIds, juicewrldApi.ts).
+// requests (getSongsByIds, catalogApi.ts).
 //
 // For a genuinely large unknown set this instead mirrors lib/heardle's pool
 // cache: page the catalogue in bulk, slim each row down to the fields the
@@ -17,8 +17,8 @@
 // those raw would blow the offline cache out.
 
 import { apiRequest, untilAborted } from './apiClient'
-import { routeUrl, getSongsByIds, songToTrack, loadAllSongs } from './juicewrldApi'
-import type { JWApiSong, JWApiPaginatedResponse } from './juicewrldApi'
+import { routeUrl, getSongsByIds, songToTrack, loadAllSongs } from './catalogApi'
+import type { CatalogSong, CatalogPaginatedResponse } from './catalogApi'
 import type { Track } from '../types'
 
 /** A song trimmed to what the stats page reads. Full rows are ~3.3KB each
@@ -31,7 +31,7 @@ export interface StatsSong {
   length: string
   credited_artists: string
   producers: string
-  category: JWApiSong['category']
+  category: CatalogSong['category']
   image_url: string | null
   album?: string | null
   /** Era trimmed to what's displayed/grouped on - the API's own row also
@@ -39,7 +39,7 @@ export interface StatsSong {
   era: { id: number; name: string } | null
 }
 
-export function slimSong(song: JWApiSong): StatsSong {
+export function slimSong(song: CatalogSong): StatsSong {
   return {
     id: song.id,
     name: song.name,
@@ -62,7 +62,7 @@ export function statsSongToTrack(s: StatsSong): Track {
   return songToTrack({
     ...s,
     // songToTrack's display title comes from `name` alone (see its own
-    // comment) - this only exists to satisfy JWApiSong's shape.
+    // comment) - this only exists to satisfy CatalogSong's shape.
     track_titles: [],
     era: s.era,
     album: s.album ?? null,
@@ -88,7 +88,7 @@ const PAGE_CONCURRENCY = 6
 
 // Below this many unknown ids, fetching them individually (getSongsByIds -
 // there's no real batch-by-id endpoint any more, see its comment in
-// juicewrldApi.ts) is cheaper than paging the whole catalogue - a user who's
+// catalogApi.ts) is cheaper than paging the whole catalogue - a user who's
 // played a handful of songs shouldn't pull 2.5k rows to learn about six of
 // them. Above it, ~25 requests for the whole catalogue beats firing that many
 // individual song requests at once.
@@ -118,8 +118,8 @@ function writeCache(songs: StatsSong[]): void {
   }
 }
 
-async function fetchPage(page: number, signal?: AbortSignal): Promise<JWApiPaginatedResponse> {
-  return apiRequest<JWApiPaginatedResponse>(
+async function fetchPage(page: number, signal?: AbortSignal): Promise<CatalogPaginatedResponse> {
+  return apiRequest<CatalogPaginatedResponse>(
     `${routeUrl('/songs/')}?page=${page}&page_size=${PAGE_SIZE}`,
     { signal },
   )

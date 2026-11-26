@@ -556,10 +556,10 @@ export default function NewsView(): JSX.Element {
         <div className="flex items-center gap-2 md:gap-3 mb-3 md:mb-4">
           {/* Phones: the round glass back button every pushed mobile page uses. */}
           <span className="md:hidden shrink-0">
-            <BackButton onClick={() => setActiveView(previousView && previousView !== 'news' ? previousView : 'wrld')} />
+            <BackButton onClick={() => setActiveView(previousView && previousView !== 'news' ? previousView : 'vamp')} />
           </span>
           <button
-            onClick={() => setActiveView(previousView && previousView !== 'news' ? previousView : 'wrld')}
+            onClick={() => setActiveView(previousView && previousView !== 'news' ? previousView : 'vamp')}
             title="Back"
             aria-label="Back"
             className="hidden md:block p-1 -ml-1 rounded-lg text-text-muted hover:text-text-primary hover:bg-surface-overlay transition-colors shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"

@@ -7,8 +7,8 @@ import {
 } from 'lucide-react'
 import { useStorePick } from '../store/useStore'
 import { Avatar } from './adminShared'
-import { getSongById, songToTrack, smallCoverUrl, CATEGORY_LABELS } from '../lib/juicewrldApi'
-import type { JWApiSong } from '../lib/juicewrldApi'
+import { getSongById, songToTrack, smallCoverUrl, CATEGORY_LABELS } from '../lib/catalogApi'
+import type { CatalogSong } from '../lib/catalogApi'
 import { eraFullName, loadEraFullNames } from '../lib/eras'
 import {
   MIN_TRIES, MAX_TRIES, POOL_LABELS, DEFAULT_SETTINGS,
@@ -491,7 +491,7 @@ export default function HeardleView(): JSX.Element {
   }, [categoryKey])
 
   // The era filter narrows what's already loaded - no refetch, and the guess
-  // dropdown narrows with it, which is the point: a Goodbye & Good Riddance
+  // dropdown narrows with it, which is the point: a Die Lit
   // round shouldn't autocomplete songs that can't be the answer.
   const eraKey = rules.eras.join(',')
   const playablePool = useMemo(
@@ -738,7 +738,7 @@ export default function HeardleView(): JSX.Element {
         style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
       >
         <button
-          onClick={() => setActiveView(previousView && previousView !== 'heardle' ? previousView : 'wrld')}
+          onClick={() => setActiveView(previousView && previousView !== 'heardle' ? previousView : 'vamp')}
           title="Back"
           className="p-2.5 rounded-xl text-text-muted hover:text-text-primary hover:bg-surface-overlay transition-colors"
         >
@@ -782,7 +782,7 @@ export default function HeardleView(): JSX.Element {
           <div className="text-center mb-6">
             <h1 className="text-text-primary text-4xl sm:text-5xl font-black tracking-tight inline-flex items-start gap-1">
               Playboi Carti Heardle
-              <span className="text-accent text-sm font-mono font-bold mt-1">999</span>
+              <span className="text-accent text-sm font-mono font-bold mt-1">*</span>
             </h1>
             <p className="mt-2 text-[11px] font-mono lowercase tracking-[0.18em] text-text-muted">
               name the song from its opening seconds

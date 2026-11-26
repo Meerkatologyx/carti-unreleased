@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { JWApiSong } from '../lib/juicewrldApi'
+import type { CatalogSong } from '../lib/catalogApi'
 import { prefLabel } from '../lib/versionPrefs'
 import { loadVersionGroupEntries, type SongVersionEntry } from '../lib/songVersions'
 import type { VersionPrefMember } from './useVersionPrefToggles'
@@ -45,7 +45,7 @@ export function useVersionEntries(songId: number | null): { entries: SongVersion
 }
 
 export interface SongVersionOption {
-  song: JWApiSong
+  song: CatalogSong
   /** The label preferences key it by (lib/versionPrefs prefLabel); null = it
    *  can be neither preferred nor excluded. */
   version: string | null
@@ -66,7 +66,7 @@ const toOption = ({ song, meta }: SongVersionEntry): SongVersionOption => {
 }
 
 /** The playable sibling versions of `songId` - shared by the context menu's
- *  Change-version panel and WRLD's version notch so both list the same songs
+ *  Change-version panel and VAMP's version notch so both list the same songs
  *  from the same cache. Unplayable ones are left out, since switching to or
  *  starring one would break playback.
  *

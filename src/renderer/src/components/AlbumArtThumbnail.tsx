@@ -1,7 +1,7 @@
 import { Music2 } from 'lucide-react'
 import { useState } from 'react'
 import { Track } from '../types'
-import { fullCoverUrl, smallCoverUrl, sizedCoverUrl } from '../lib/juicewrldApi'
+import { fullCoverUrl, smallCoverUrl, sizedCoverUrl } from '../lib/catalogApi'
 import { imageLoadAttrs, markImageLoaded } from '../lib/loadedImages'
 
 interface Props {
@@ -11,7 +11,7 @@ interface Props {
   shimmer?: boolean
   rootMargin?: string
   // Fill the parent instead of taking a fixed size - for callers that wrap the
-  // thumbnail in their own sized box (mini player, queue, WRLD tab). Those
+  // thumbnail in their own sized box (mini player, queue, VAMP tab). Those
   // wrappers are rem-based already, so filling them scales just the same.
   fill?: boolean
   // Load immediately instead of lazily. Set by callers whose list is already

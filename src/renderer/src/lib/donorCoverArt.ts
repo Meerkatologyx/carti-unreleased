@@ -7,7 +7,7 @@
 //
 // MP3 (ID3v2) only. FLAC/M4A/OGG keep their art elsewhere in the container;
 // those files get null here and fall back to the generic tile.
-import { routeUrl } from './juicewrldApi'
+import { routeUrl } from './catalogApi'
 import { authHeaders } from './apiClient'
 import { getToken } from './userApi'
 import { extensionOf } from './donorFilesApi'

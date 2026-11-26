@@ -180,7 +180,7 @@ self.addEventListener('fetch', (event) => {
     return
   }
   // Only same-origin, except covers saved by offline downloads (see above),
-  // which images fall back to when the network fails. The juicewrldapi.com
+  // which images fall back to when the network fails. The meerkatologyx.github.io
   // API goes straight to the network - the app has its own localStorage
   // cache for API responses, and we never want to serve stale songs/metadata.
   if (url.origin !== self.location.origin) {

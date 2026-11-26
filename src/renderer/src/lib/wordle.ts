@@ -39,7 +39,7 @@ export function clampTries(tries: number): number {
 
 /** A title flattened to the letters that go in the tiles: normalizeTitle's
  *  rules (apostrophes dropped, punctuation to spaces, case folded) with the
- *  spaces closed up. "All Girls Are The Same" → "ALLGIRLSARETHESAME".
+ *  spaces closed up. "Whole Lotta Red" → "ALLGIRLSARETHESAME".
  *
  *  Bracketed trailers go first. Two thirds of the released catalogue carries
  *  one - "(feat. Playboi Carti)", "(Extended Outro)", "[v1]" - and they're
@@ -56,7 +56,7 @@ export function titleKey(title: string): string {
     .toUpperCase()
 }
 
-/** Titles carrying digits ("734", "Lucid Dreams 2") are out: a row of tiles
+/** Titles carrying digits ("734", "Magnolia 2") are out: a row of tiles
  *  reads as letters, and a stray numeral turns the letter tracker into a lie
  *  about what's left to try. The digits stay in the key so two titles that
  *  differ only by one don't collide - they're simply never playable. */
@@ -73,8 +73,8 @@ export interface WordleEntry {
 /** Every song in a pool that can be an answer or a guess, one per distinct row
  *  of letters.
  *
- *  The catalogue files the same title several times over - "Lucid Dreams" next
- *  to "Lucid Dreams (Extended Outro)" - and once the trailers are stripped
+ *  The catalogue files the same title several times over - "Magnolia" next
+ *  to "Magnolia (Extended Outro)" - and once the trailers are stripped
  *  those are the same tiles. Offering both would be offering the same guess
  *  twice, so each key keeps a single representative: the plainest name (fewest
  *  characters), ties broken by id. That tiebreak has to be total and
@@ -119,7 +119,7 @@ export function guessOptions(entries: WordleEntry[], length: number): HeardleSon
 }
 
 /** Dropdown candidates, narrowed to titles that fit the board. Search itself is
- *  Heardle's, so aliases still find their song ("agats" → All Girls Are The
+ *  Heardle's, so aliases still find their song ("wlr" → All Girls Are The
  *  Same) - but only when that song's own name is the right length, since the
  *  tiles are filled from the name. */
 export function searchOptions(

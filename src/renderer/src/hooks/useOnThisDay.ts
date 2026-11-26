@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { loadAllSongs, type JWApiSong } from '../lib/juicewrldApi'
+import { loadAllSongs, type CatalogSong } from '../lib/catalogApi'
 import { eventsOnDay, loadDaySongs, peekDaySongs, type DayYear } from '../lib/onThisDay'
 import { runWhenIdle } from '../lib/platform'
 
@@ -31,7 +31,7 @@ export function useOnThisDay(): OnThisDay {
   const isToday = month === today.getMonth() + 1 && day === today.getDate()
   const key = `${month}-${day}`
 
-  const [rows, setRows] = useState<{ key: string; songs: JWApiSong[]; ts: number } | null>(() => {
+  const [rows, setRows] = useState<{ key: string; songs: CatalogSong[]; ts: number } | null>(() => {
     const cached = peekDaySongs(month, day)
     return cached && { key, ...cached }
   })

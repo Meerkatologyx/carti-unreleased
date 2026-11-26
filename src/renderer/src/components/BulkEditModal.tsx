@@ -7,11 +7,11 @@ import {
 import { useStore } from '../store/useStore'
 import * as userApi from '../lib/userApi'
 import { useShallow } from 'zustand/react/shallow'
-import { apiFetch, getSongById, getCompFileTags, loadAllSongs, CATEGORY_LABELS } from '../lib/juicewrldApi'
-import type { CompFileTags } from '../lib/juicewrldApi'
+import { apiFetch, getSongById, getCompFileTags, loadAllSongs, CATEGORY_LABELS } from '../lib/catalogApi'
+import type { CompFileTags } from '../lib/catalogApi'
 import { proposeTagEdits } from '../lib/compFileChanges'
 import { OPTIONAL_SONG_FIELDS } from '../lib/trackerFields'
-import type { JWApiSong, JWApiEra } from '../lib/juicewrldApi'
+import type { CatalogSong, CatalogEra } from '../lib/catalogApi'
 import { useCanContribute, useCanEdit } from '../hooks/useChannelRoles'
 import { getVersionMetaForSongs, getOwnVersionMeta, setOwnVersionTitle, linkSongVersion, setGroupVersionTitle } from '../lib/versionsApi'
 import type { SongVersionMeta } from '../lib/versionsApi'
@@ -153,7 +153,7 @@ function modesFor<T>(f: BulkField<T>): Mode[] {
 
 /* ── Value combination ─────────────────────────────────────────────────────── */
 
-// Credits are free text holding comma-separated names ("Nick Mira, Taz
+// Credits are free text holding comma-separated names ("Pierre Bourne, F1LTHY
 // Taylor") - the same convention the Tracker's producers tab splits on.
 const splitList = (v: string): string[] => v.split(',').map(s => s.trim()).filter(Boolean)
 const joinList = (parts: string[]): string => parts.join(', ')
@@ -226,7 +226,7 @@ const VERSION_TITLE_NOTE =
  *  default. Same pairwise-merge as the Tracker's "Link versions" button
  *  (linking each song to the first one merges all of their groups), plus the
  *  title write "Link versions" leaves as a follow-up prompt. */
-async function linkAndTitle(songs: JWApiSong[], title: string): Promise<void> {
+async function linkAndTitle(songs: CatalogSong[], title: string): Promise<void> {
   if (songs.length < 2) return
   const [first, ...rest] = songs
   for (const s of rest) await linkSongVersion(first.id, s.id)
@@ -236,10 +236,10 @@ async function linkAndTitle(songs: JWApiSong[], title: string): Promise<void> {
 }
 
 function apiFields(
-  eras: JWApiEra[],
+  eras: CatalogEra[],
   versionMeta: Map<number, SongVersionMeta> | null,
   refreshVersionMeta: () => Promise<void>,
-): BulkField<JWApiSong>[] {
+): BulkField<CatalogSong>[] {
   return [
     { key: 'category', label: 'Category', kind: 'select', group: 'Details', modes: ['set'], read: s => s.category || '',
       options: Object.keys(CATEGORY_LABELS).map(v => ({ value: v, label: CATEGORY_LABELS[v] })) },
@@ -283,7 +283,7 @@ function apiFields(
       } },
 
     { key: 'credited_artists', label: 'Artists', kind: 'list', group: 'Credits', placeholder: 'Playboi Carti, Lil Uzi Vert', read: s => s.credited_artists || '' },
-    { key: 'producers', label: 'Producers', kind: 'list', group: 'Credits', placeholder: 'Nick Mira, Taz Taylor', read: s => s.producers || '' },
+    { key: 'producers', label: 'Producers', kind: 'list', group: 'Credits', placeholder: 'Pierre Bourne, F1LTHY', read: s => s.producers || '' },
     { key: 'engineers', label: 'Engineers', kind: 'list', group: 'Credits', read: s => s.engineers || '' },
     { key: 'recording_locations', label: 'Location', kind: 'text', group: 'Credits', placeholder: 'Studio / city', read: s => s.recording_locations || '' },
 
@@ -356,7 +356,7 @@ export default function BulkEditModal(): JSX.Element | null {
   }, [target])
 
 
-  const [eras, setEras] = useState<JWApiEra[]>([])
+  const [eras, setEras] = useState<CatalogEra[]>([])
   // Which version group each selected song sits in, and that group's shared
   // title. One cached bulk fetch for the whole selection rather than a lookup
   // per song. Null until it lands, which keeps the field disabled instead of
@@ -370,14 +370,14 @@ export default function BulkEditModal(): JSX.Element | null {
   // would overwrite what's really there. Swap any such rows for complete ones
   // (the shared catalogue copy keeps every field but lyrics) before the form
   // opens; null while that's loading.
-  const [songs, setSongs] = useState<JWApiSong[] | null>(null)
+  const [songs, setSongs] = useState<CatalogSong[] | null>(null)
   useEffect(() => {
     if (target?.kind !== 'api') { setSongs(null); return }
-    const trimmed = (s: JWApiSong): boolean => OPTIONAL_SONG_FIELDS.some(k => !(k in s))
+    const trimmed = (s: CatalogSong): boolean => OPTIONAL_SONG_FIELDS.some(k => !(k in s))
     if (!target.songs.some(trimmed)) { setSongs(target.songs); return }
     let stale = false
     setSongs(null)
-    loadAllSongs().catch(() => [] as JWApiSong[])
+    loadAllSongs().catch(() => [] as CatalogSong[])
       .then(all => {
         const byId = new Map(all.map(s => [s.id, s]))
         return Promise.all(target.songs.map(s => !trimmed(s) ? s : byId.get(s.id) ?? getSongById(s.id)))
@@ -413,7 +413,7 @@ export default function BulkEditModal(): JSX.Element | null {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [target])
 
-  const apiSpec = useMemo<BulkSpec<JWApiSong> | null>(() => {
+  const apiSpec = useMemo<BulkSpec<CatalogSong> | null>(() => {
     if (target?.kind !== 'api' || !songs) return null
 
     return {

@@ -6,7 +6,7 @@ import EditorPage from '../components/EditorPage'
 import AdminPage from '../components/AdminPage'
 import EditorProfileView from '../components/EditorProfileView'
 import DocsPage from '../components/DocsPage'
-import WrldView from '../components/WrldView'
+import VampView from '../components/VampView'
 import HeardleView from '../components/HeardleView'
 import WordleView from '../components/WordleView'
 import TierlistView from '../components/TierlistView'
@@ -33,7 +33,7 @@ import ApiFilesView from '../components/ApiFilesView'
 // lazyView (not React's lazy) so a chunk that vanished in a redeploy triggers
 // a reload instead of an error card - see lib/lazyView.
 export {
-  ApiTrackerView, EditorPage, AdminPage, EditorProfileView, DocsPage, WrldView, HeardleView,
+  ApiTrackerView, EditorPage, AdminPage, EditorProfileView, DocsPage, VampView, HeardleView,
   WordleView, TierlistView, StatsView, StatisticsView, HomeView, Settings, PlaylistsView, ApiFilesView,
 }
 
@@ -72,7 +72,7 @@ const LOADERS: Partial<Record<ViewType, () => Promise<unknown>>> = {
   'editor-profile': EditorProfileView.preload,
   'not-found': () => import('../components/NotFoundView'),
   docs: DocsPage.preload,
-  wrld: WrldView.preload,
+  vamp: VampView.preload,
   albums: () => import('../components/AlbumsView'),
   news: () => import('../components/NewsView'),
   heardle: HeardleView.preload,

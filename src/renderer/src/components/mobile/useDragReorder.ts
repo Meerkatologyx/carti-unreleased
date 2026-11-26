@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 
 // Touch drag-to-reorder for a plain (non-virtualized) list of fixed-height
-// rows - the Playlists detail's reorder mode, the WRLD queue sheet, and
+// rows - the Playlists detail's reorder mode, the VAMP queue sheet, and
 // Settings' nav-tabs list all had up/down arrow buttons instead, because
 // HTML5 drag events (dragstart/dragover/drop) never fire on touch at all.
 // This is the real gesture: press a row's grip handle and drag it into place.

@@ -18,17 +18,17 @@ export const EXISTING_COVERS: Record<string, string[]> = {
   cdn: ['cdnAdminApi.fetchCdnNodes', 'cdnAdminApi.fetchCdnStats', 'cdnAdminApi.updateCdnNode', 'cdnAdminApi.deleteCdnNode'],
   // app.ts
   logout: ['userApi.logout'],
-  channel: ['juicewrldApi.fetchChannels'],
+  channel: ['catalogApi.fetchChannels'],
   version: ['appVersion.fetchRunningCommit'],
   // library.ts, player.ts, fun.ts, index.ts (lookup)
-  song: ['juicewrldApi.getSongById', 'juicewrldApi.getSongsByIds'],
+  song: ['catalogApi.getSongById', 'catalogApi.getSongsByIds'],
   // (fetchTrackerCatalog: the Tracker's list is the same server-side search)
-  find: ['juicewrldApi.searchSongs', 'juicewrldApi.resolveTitleToSong', 'juicewrldApi.fetchTrackerCatalog'],
-  juicesay: ['juicewrldApi.loadAllSongsWithLyricsAbortable'],
+  find: ['catalogApi.searchSongs', 'catalogApi.resolveTitleToSong', 'catalogApi.fetchTrackerCatalog'],
+  cartisay: ['catalogApi.loadAllSongsWithLyricsAbortable'],
   // same catalogue + searchLyrics as the Lyrics tab's hook
-  lyricfind: ['juicewrldApi.loadAllSongsWithLyricsAbortable', 'useLyricSearch.useLyricSearch'],
+  lyricfind: ['catalogApi.loadAllSongsWithLyricsAbortable', 'useLyricSearch.useLyricSearch'],
   // the raw escape hatch reaches any endpoint by hand
-  http: ['juicewrldApi.apiFetch'],
+  http: ['catalogApi.apiFetch'],
   // comp staging download goes through this helper
   comp: ['userApi.fetchAuthedBlob'],
 }

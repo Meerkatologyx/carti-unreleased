@@ -8,7 +8,7 @@ import { CategoryBadge, eraSwatch } from '../lib/statisticsShared'
 import { useSongChart } from '../hooks/useSongChart'
 import { useContentMotion } from '../hooks/useContentMotion'
 import { showAppToast } from '../lib/appToast'
-import type { JWApiPlaysStats } from '../lib/juicewrldApi'
+import type { CatalogPlaysStats } from '../lib/catalogApi'
 import { AlbumArtThumbnail } from './AlbumArtThumbnail'
 import ThemedSelect from './ThemedSelect'
 
@@ -126,7 +126,7 @@ function ChartRow({ song, full, metrics, barMetric, max, movement, onPlay, onCon
 }
 
 export default function SongChartCard({ playStats, onOpenEra, onContextMenu }: {
-  playStats: JWApiPlaysStats | null
+  playStats: CatalogPlaysStats | null
   onOpenEra: (era: string) => void
   onContextMenu: (id: number, cover: StatsSong | undefined, e: React.MouseEvent) => void
 }): JSX.Element | null {

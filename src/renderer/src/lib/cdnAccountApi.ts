@@ -1,5 +1,5 @@
 // A signed-in user's own CDN nodes - the ones they linked to their account
-// from the node app (jwa-cdn-node, Setup > Account, by pasting their auth
+// from the node app (cdn-node, Setup > Account, by pasting their auth
 // token there). Linking itself happens in the node app, since claiming needs
 // the node's API key and the app never shows it.
 //
@@ -7,7 +7,7 @@
 // their Allow headers): GET accounts/nodes/, GET/PATCH/DELETE
 // accounts/nodes/{node_id}/. The response bodies aren't documented anywhere
 // yet, so the list is unwrapped defensively and every stat field is optional.
-import { routeUrl } from './juicewrldApi'
+import { routeUrl } from './catalogApi'
 import { authedRequest } from './apiClient'
 import { getToken } from './userApi'
 import type { CdnNodeStatus } from './cdnAdminApi'
