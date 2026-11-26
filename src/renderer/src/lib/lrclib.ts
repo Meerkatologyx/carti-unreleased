@@ -10,7 +10,8 @@
 import type { CatalogSong } from './catalogApi'
 
 const API = 'https://lrclib.net/api/search'
-const CACHE_KEY = 'lrclib:'
+// v2: earlier misses came from the old, stricter matching - don't keep them.
+const CACHE_KEY = 'lrclib2:'
 /** Found lyrics are kept a month; a miss is retried after a day (LRCLIB grows). */
 const HIT_TTL = 30 * 24 * 3600 * 1000
 const MISS_TTL = 24 * 3600 * 1000
@@ -31,16 +32,27 @@ const norm = (s: string): string => s.toLowerCase()
   .replace(/['’‘`]/g, '').replace(/\$/g, 's').replace(/&/g, 'and')
   .replace(/[^\p{L}\p{N}]+/gu, ' ').trim()
 
-/** "⭐ Ye - CITY OF GOD [V23] (feat. X)" → { artist: "Ye", title: "CITY OF GOD" }. */
-function searchTerms(song: CatalogSong): { title: string; artist: string | null } {
-  let title = song.name
-    .replace(/^[^\p{L}\p{N}(]+/u, '') // tracker tags: ⭐ 🥉 ✨ 🗑️ …
-    .replace(/\[[^\]]*\]|\([^)]*\)|\*/g, '') // [V2], (feat. …), (Remix), *
+/** Remixes, sped-up/slowed edits, live cuts, instrumentals: not the song's own lyrics/timing. */
+const VARIANT = /\b(remix|sped|slowed|reverb|live|instrumental|acapella|a cappella|nightcore|8d|cover|mashup)\b/i
+
+/** A title with tracker tags (⭐ 🥉 ✨ 🗑️ …), [V2]-style brackets, (…) asides and * removed. */
+function bareTitle(name: string): string {
+  return name
+    .replace(/^[^\p{L}\p{N}(]+/u, '')
+    .replace(/\[[^\]]*\]|\([^)]*\)|\*/g, '')
     .replace(/\s+/g, ' ').trim()
-  let artist: string | null = null
+}
+
+/** What to search for, in order. "Ye - CITY OF GOD" is either a song by Ye or a
+ *  Carti song with a dash in its name ("Long Time - Intro"), so both are tried:
+ *  the whole title as Carti's first, then the split. */
+function searchTerms(song: CatalogSong): { title: string; artist: string | null }[] {
+  const title = bareTitle(song.name)
+  if (!title) return []
+  const out: { title: string; artist: string | null }[] = [{ title, artist: null }]
   const m = /^(.+?) - (.+)$/.exec(title)
-  if (m) { artist = m[1].trim(); title = m[2].trim() }
-  return { title, artist }
+  if (m) out.push({ title: m[2].trim(), artist: m[1].trim() })
+  return out
 }
 
 function seconds(length: string | null | undefined): number | null {
@@ -84,25 +96,40 @@ export function findLyrics(song: CatalogSong): Promise<FoundLyrics | null> {
 }
 
 async function lookup(song: CatalogSong): Promise<FoundLyrics | null> {
-  const { title, artist } = searchTerms(song)
-  if (!title) return null
+  for (const terms of searchTerms(song)) {
+    const found = await lookupTerms(song, terms.title, terms.artist)
+    if (found) return found
+  }
+  return null
+}
+
+async function lookupTerms(song: CatalogSong, title: string, artist: string | null): Promise<FoundLyrics | null> {
   const q = new URLSearchParams({ track_name: title, artist_name: artist ?? 'Playboi Carti' })
   const res = await fetch(`${API}?${q}`, { headers: { 'Lrclib-Client': 'Carti Unreleased' } })
   if (!res.ok) throw new Error(`LRCLIB ${res.status}`)
   const results = (await res.json()) as LrclibResult[]
 
   const want = norm(title)
+  const variant = VARIANT.test(song.name)
   const artists = [artist, 'playboi carti', ...song.credited_artists.split(',')].filter(Boolean).map((a) => norm(a!))
-  const length = seconds(song.length)
-  const fits = results.filter((r) =>
+  const same = results.filter((r) =>
     !r.instrumental
     && (r.plainLyrics || r.syncedLyrics)
     && norm(r.trackName.replace(/\([^)]*\)|\[[^\]]*\]/g, '')) === want
-    && artists.some((a) => a && norm(r.artistName).includes(a))
-    && (length == null || Math.abs(r.duration - length) <= LENGTH_SLACK_S))
+    // A remix's words and timing aren't the original's, and the other way round.
+    && VARIANT.test(r.trackName) === variant
+    && artists.some((a) => a && norm(r.artistName).includes(a)))
+  if (!same.length) return null
+
+  const length = seconds(song.length)
+  const off = (r: LrclibResult): number => (length == null ? 0 : Math.abs(r.duration - length))
+  // Leaks come in many cuts of one title, so their length has to agree. A
+  // released song is one song: the sheet's length is sometimes its video's,
+  // so any length will do there - the closest is still preferred.
+  const fits = song.category === 'released' ? same : same.filter((r) => off(r) <= LENGTH_SLACK_S)
   if (!fits.length) return null
   // Timed lyrics first, then the closest length.
-  fits.sort((a, b) => (+!!b.syncedLyrics - +!!a.syncedLyrics) || (length == null ? 0 : Math.abs(a.duration - length) - Math.abs(b.duration - length)))
+  fits.sort((a, b) => (+!!b.syncedLyrics - +!!a.syncedLyrics) || (off(a) - off(b)))
   const best = fits[0]
   return { lyrics: best.plainLyrics || null, syncedLyrics: best.syncedLyrics || null }
 }
