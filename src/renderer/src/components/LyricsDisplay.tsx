@@ -1,0 +1,233 @@
+import React, { memo, useEffect, useRef, useMemo, useState } from 'react'
+import { Download, Sparkles } from 'lucide-react'
+import { useShallow } from 'zustand/react/shallow'
+import { parseLrc, getCurrentLineIndex, isLrcFormat, downloadSyncedLyrics, splitAdLibs, splitColorWords, ADLIB_OPACITY } from '../lib/lyrics'
+import { useStore, IS_FLOAT_WINDOW } from '../store/useStore'
+import { trackIdToSongId } from '../lib/userApi'
+import { isDonorStreamUrl } from '../lib/donorPlayback'
+import { seekAudio, getAudioCurrentTime } from './Player'
+import ContextMenu from './ContextMenu'
+import WordLyricLine from './WordLyricLine'
+
+interface LyricsDisplayProps {
+  /** Playback-clock source for synced-line highlighting. Defaults to the live
+   *  audio element - pop-out windows (no local audio) pass an interpolated
+   *  clock built from the synced currentTime instead. */
+  getTime?: () => number
+  /** Called when a synced line is clicked. Defaults to seeking the local
+   *  audio element - pop-outs send a seek command to the main window. */
+  onSeek?: (time: number) => void
+  /** Tighter type sizes/padding for small surfaces like the mini player. */
+  compact?: boolean
+  /** Show these lyrics instead of the current track's (e.g. 999 FM's matched
+   *  song, which never populates currentTrackFull). */
+  override?: { lyrics: string | null; syncedLyrics: string | null } | null
+}
+
+// Memoized: the panels around it re-render on every play/pause and queue change, and it reads
+// what it shows from the store itself.
+export default memo(function LyricsDisplay({ getTime, onSeek, compact, override }: LyricsDisplayProps = {}): JSX.Element {
+  const { currentTrackFull, account, lyricsOffset, lyricsScale, lyricsAlign, lyricsBlur, lyricsBlurAmount, lyricsColorActive, lyricsColorInactive } = useStore(useShallow(s => ({
+    currentTrackFull: s.currentTrackFull,
+    account: s.account,
+    lyricsOffset: s.lyricsOffset,
+    lyricsScale: s.lyricsScale,
+    lyricsAlign: s.lyricsAlign,
+    lyricsBlur: s.lyricsBlur,
+    lyricsBlurAmount: s.lyricsBlurAmount,
+    lyricsColorActive: s.lyricsColorActive,
+    lyricsColorInactive: s.lyricsColorInactive,
+  })))
+
+  // null = auto, i.e. the theme's own text colors.
+  const activeColor = lyricsColorActive ?? 'var(--text-primary)'
+  const inactiveColor = lyricsColorInactive ?? 'var(--text-muted)'
+
+  const containerRef = useRef<HTMLDivElement>(null)
+  const activeRef = useRef<HTMLDivElement>(null)
+
+  const lyrics = override ? override.lyrics : currentTrackFull?.lyrics
+  const syncedLyrics = override ? override.syncedLyrics : currentTrackFull?.syncedLyrics
+
+  const rawLyrics = syncedLyrics || lyrics
+  const isSynced = rawLyrics ? isLrcFormat(rawLyrics) : false
+
+  const syncedLines = useMemo(() => {
+    if (rawLyrics && isSynced) return parseLrc(rawLyrics)
+    return []
+  }, [rawLyrics, isSynced])
+
+  // Driven by requestAnimationFrame against the LIVE audio.currentTime rather
+  // than the Zustand-stored value (which only updates on the native
+  // 'timeupdate' event, ~4x/sec) - that throttling is what made the active
+  // line snap every ~250ms instead of transitioning smoothly.
+  const [currentLineIdx, setCurrentLineIdx] = useState(-1)
+  const lineIdxRef = useRef(-1)
+
+  useEffect(() => {
+    if (!isSynced || syncedLines.length === 0) {
+      setCurrentLineIdx(-1)
+      lineIdxRef.current = -1
+      return
+    }
+    let raf = 0
+    const timeSource = getTime ?? getAudioCurrentTime
+    const tick = (): void => {
+      const idx = getCurrentLineIndex(syncedLines, timeSource() - lyricsOffset)
+      if (idx !== lineIdxRef.current) {
+        lineIdxRef.current = idx
+        setCurrentLineIdx(idx)
+      }
+      raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [isSynced, syncedLines, lyricsOffset, getTime])
+
+  useEffect(() => {
+    if (activeRef.current && containerRef.current) {
+      activeRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  }, [currentLineIdx])
+
+  const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null)
+  const isEditor = account?.is_editor || account?.is_administrator
+  // Donors can have Whisper write them. Not in a pop-out (no dialog there) or
+  // over 999 FM's lyrics, which aren't the playing track's.
+  const canGenerate = !!account?.is_donor && !IS_FLOAT_WINDOW && !override && !!currentTrackFull && !currentTrackFull.lyricsPending
+    && !!currentTrackFull.streamUrl && (!!currentTrackFull.path || isDonorStreamUrl(currentTrackFull.streamUrl))
+
+  // Right-click → "Download synced lyrics" - only offered for LRC-format
+  // lyrics (the .lrc file needs the timestamps; plain unsynced text has
+  // nothing worth exporting in that format).
+  const handleContextMenu = (e: React.MouseEvent): void => {
+    if (!isSynced || !rawLyrics) return
+    e.preventDefault()
+    setMenuPos({ x: e.clientX, y: e.clientY })
+  }
+  const downloadMenu = menuPos && rawLyrics && (
+    <ContextMenu
+      x={menuPos.x}
+      y={menuPos.y}
+      onClose={() => setMenuPos(null)}
+      items={[{
+        icon: Download,
+        label: 'Download synced lyrics',
+        onSelect: () => downloadSyncedLyrics(currentTrackFull?.title ?? 'lyrics', currentTrackFull?.artist ?? '', rawLyrics),
+      }]}
+    />
+  )
+
+  if (!rawLyrics) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-3 text-center px-8">
+        <div className="text-5xl opacity-20">♪</div>
+        <p className="text-text-muted text-sm">No lyrics available</p>
+        {isEditor && (
+          <p className="text-text-muted text-xs">
+            Right-click a track → "Edit info & lyrics" to add lyrics
+          </p>
+        )}
+        {canGenerate && (
+          <button
+            onClick={() => useStore.getState().openLyricsGen({ track: currentTrackFull, songId: trackIdToSongId(currentTrackFull.id), tab: 'create' })}
+            className="mt-1 inline-flex items-center gap-1.5 h-8 px-3.5 rounded-full text-xs font-semibold bg-accent/15 text-accent hover:bg-accent/25 transition-colors"
+          >
+            <Sparkles size={13} /> Generate lyrics
+          </button>
+        )}
+      </div>
+    )
+  }
+
+  if (isSynced && syncedLines.length > 0) {
+    return (
+      <div
+        ref={containerRef}
+        onContextMenu={handleContextMenu}
+        // no-scrollbar, not a <style> rule: an unscoped ::-webkit-scrollbar
+        // rule hid every scrollbar in the app while synced lyrics were up.
+        className={`h-full overflow-y-auto no-scrollbar ${compact ? 'py-10 px-5 space-y-3' : 'py-16 px-8 space-y-4'}`}
+        style={{ WebkitTapHighlightColor: 'transparent' } as React.CSSProperties}
+      >
+        {syncedLines.map((line, i) => {
+          const isActive = i === currentLineIdx
+          const isPast = i < currentLineIdx
+
+          if (!line.text) {
+            return <div key={i} className="h-4" />
+          }
+
+          // Every line except the one playing - played and upcoming alike.
+          const isBlurred = !isActive && lyricsBlur
+          const lineStyle: React.CSSProperties = {
+            opacity: isActive ? 1 : isPast ? 0.35 : 0.2,
+            color: isActive ? activeColor : inactiveColor,
+            filter: isBlurred ? `blur(${lyricsBlurAmount.toFixed(2)}px)` : 'none',
+            transition: 'opacity 0.35s ease, color 0.35s ease, filter 0.35s ease',
+            fontSize: `${(compact ? 1.125 : 1.5) * lyricsScale}rem`,
+            textAlign: lyricsAlign,
+            fontFamily: 'var(--font-lyrics)',
+            // iOS Safari's tap-highlight overlay on this clickable line can get
+            // stuck showing (a known WebKit quirk when a touch is interrupted by
+            // the container's own scrolling) and, since the highlight repaints
+            // independently of React, it only clears once something else forces
+            // this element to repaint - which is exactly what happens when a
+            // line's own opacity/color/filter changes as it goes active → past.
+            // Lines that never go active never repaint, so a stuck highlight on
+            // one of them lingers indefinitely. Disabling the highlight outright
+            // is the standard fix.
+            WebkitTapHighlightColor: 'transparent',
+          }
+
+          return (
+            <div
+              key={i}
+              ref={isActive ? activeRef : undefined}
+              onClick={() => (onSeek ?? seekAudio)(line.time)}
+              className="lyric-line leading-snug cursor-pointer font-bold"
+              style={lineStyle}
+            >
+              {line.words ? (
+                <WordLyricLine words={line.words} active={isActive} getTime={getTime ?? getAudioCurrentTime} offset={lyricsOffset} />
+              ) : splitAdLibs(line.text).map((seg, si) => (
+                <span key={si} style={seg.adLib ? { opacity: ADLIB_OPACITY } : undefined}>
+                  {splitColorWords(seg.text).map((cseg, ci) => (
+                    cseg.color
+                      ? <span key={ci} style={{ color: cseg.color }}>{cseg.text}</span>
+                      : cseg.text
+                  ))}
+                </span>
+              ))}
+            </div>
+          )
+        })}
+        <div className="h-32" />
+        {downloadMenu}
+      </div>
+    )
+  }
+
+  return (
+    <div className={`h-full overflow-y-auto ${compact ? 'py-6 px-5' : 'py-8 px-8'}`}>
+      <pre
+        className="whitespace-pre-wrap"
+        style={{
+          // Unsynced lyrics have no "sung yet" state, so they follow the
+          // upcoming/played color (auto keeps the old secondary text tone).
+          color: lyricsColorInactive ?? 'var(--text-secondary)',
+          fontFamily: 'var(--font-lyrics)',
+          fontSize: `${(compact ? 0.75 : 0.875) * lyricsScale}rem`,
+          // Unitless so line spacing tracks the chosen size (the old fixed
+          // leading-6/8 cramped lines once the font grew past default).
+          lineHeight: compact ? 2 : 2.3,
+          textAlign: lyricsAlign,
+        }}
+      >
+        {splitAdLibs(rawLyrics).map((seg, si) => (
+          <span key={si} style={seg.adLib ? { opacity: ADLIB_OPACITY } : undefined}>{seg.text}</span>
+        ))}
+      </pre>
+    </div>
+  )
+})

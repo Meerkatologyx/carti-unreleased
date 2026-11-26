@@ -1,0 +1,56 @@
+{
+  "name": "unreleased",
+  "version": "2.3.3",
+  "description": "A music player for Juice WRLD",
+  "scripts": {
+    "dev": "vite --port 5173 --strictPort --host",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "docs:check-drift": "node scripts/check-docs-drift.mjs",
+    "terminal:check-coverage": "node scripts/check-terminal-coverage.mjs",
+    "social-preview": "node server/social-preview.mjs"
+  },
+  "keywords": [],
+  "author": "leanwrldd",
+  "license": "MIT",
+  "private": true,
+  "dependencies": {
+    "@types/qrcode": "^1.5.6",
+    "browser-id3-writer": "^6.4.0",
+    "client-zip": "^2.5.1",
+    "jsmediatags": "^3.9.7",
+    "music-metadata": "^11.13.0",
+    "node-id3": "^0.2.9",
+    "qrcode": "^1.5.4",
+    "remark-breaks": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.2.0",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.20",
+    "emoji-datasource-apple": "^16.0.0",
+    "ffmpeg-static": "^5.3.0",
+    "html-to-image": "^1.11.11",
+    "libsodium-wrappers": "^0.8.4",
+    "lucide-react": "^0.469.0",
+    "postcss": "^8.5.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
+    "sharp": "^0.35.5",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.7.2",
+    "vite": "^6.3.5",
+    "youtube-dl-exec": "^3.1.9",
+    "zustand": "^5.0.14"
+  },
+  "overrides": {
+    "js-yaml": "4.3.1",
+    "@discordjs/rest": {
+      "undici": "6.28.0"
+    }
+  }
+}

@@ -1,0 +1,1570 @@
+/* Josefin Sans powers the sidebar wordmark and the "Display" font choice
+   (lib/fonts.ts) - the body weights are here for the latter, which needs more
+   than the wordmark's hairline 100/200. Every other selectable font is a
+   system stack, so this stays the only webfont and its failure to load just
+   falls through to the next family in the stack.
+   Self-hosted (public/fonts/) rather than @import'd from Google Fonts so the
+   app doesn't ping Google's CDN with the user's IP on every launch. Files are
+   Josefin Sans v34, latin + latin-ext subsets only. */
+@font-face {
+  font-family: 'Josefin Sans';
+  font-style: italic;
+  font-weight: 100;
+  font-display: swap;
+  src: url('/fonts/josefin-sans-latin-ext-100italic.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Josefin Sans';
+  font-style: italic;
+  font-weight: 100;
+  font-display: swap;
+  src: url('/fonts/josefin-sans-latin-100italic.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Josefin Sans';
+  font-style: normal;
+  font-weight: 100 700;
+  font-display: swap;
+  src: url('/fonts/josefin-sans-latin-ext-variable.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Josefin Sans';
+  font-style: normal;
+  font-weight: 100 700;
+  font-display: swap;
+  src: url('/fonts/josefin-sans-latin-variable.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── Light theme ────────────────────────────────────────────────────────────────
+   NOTE: these :root/.dark blocks are only the first-paint fallback (and the
+   values Tailwind's color-scheme relies on before React mounts). The live
+   palette - including these two classic themes and every other skin - is
+   defined in lib/skins.ts and written onto <html> as inline vars by App.tsx.
+   Change palettes there, not here. */
+:root {
+  /* Without this, native controls (mainly <select> dropdown popups) follow
+     the OS's own dark/light preference instead of this app's theme toggle -
+     e.g. OS in dark mode + app in light mode renders the popup with a dark
+     native background while the <option> text still inherits this theme's
+     (black) color, making it unreadable. */
+  color-scheme: light;
+  /* Font stacks - first-paint defaults; useThemeEffects overwrites these with
+     the user's picks (lib/fonts.ts). --font-app also backs Tailwind's
+     `font-sans`, which preflight applies to <html>. */
+  --font-app: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-lyrics: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --surface: #ffffff;
+  --surface-raised: #f5f5f5;
+  --surface-overlay: #ebebeb;
+  --surface-highest: #e0e0e0;
+  --sidebar: #f0f0f0;
+  --titlebar: #e8e8e8;
+  --text-primary: #121212;
+  --text-secondary: #535353;
+  --text-muted: #6b6b6b;
+  --border: rgba(0, 0, 0, 0.08);
+  --scrollbar: #cccccc;
+  --accent: #1db954;
+  --accent-rgb: 29 185 84;
+  --accent-hover: #1ed760;
+  --accent-hover-rgb: 30 215 96;
+}
+
+/* ─── Dark theme ─────────────────────────────────────────────────────────────── */
+.dark {
+  color-scheme: dark;
+  --surface: #121212;
+  --surface-raised: #1a1a1a;
+  --surface-overlay: #242424;
+  --surface-highest: #2a2a2a;
+  --sidebar: #000000;
+  --titlebar: #000000;
+  --text-primary: #ffffff;
+  --text-secondary: #b3b3b3;
+  --text-muted: #6b6b6b;
+  --border: rgba(255, 255, 255, 0.08);
+  --scrollbar: #404040;
+}
+
+/* ─── Palette cross-fade ─────────────────────────────────────────────────────────
+   A skin swap (or the Now Playing skin reacting to a new song's cover art)
+   writes the new palette inside a view transition of type 'palette' - see
+   paintPalette in lib/themeEffects.ts. The browser cross-fades a snapshot of
+   the old frame into the live new one, so nothing restyles mid-fade. These
+   vars used to be transitioned directly, which restyled the whole app every
+   frame and made switching laggy.
+   The vars stay registered as typed properties: getComputedStyle readers
+   (syncThemeColorMeta, the visualizer, DesktopPicker) get them back in their
+   computed form. */
+@property --surface { syntax: '<color>'; inherits: true; initial-value: #ffffff; }
+@property --surface-raised { syntax: '<color>'; inherits: true; initial-value: #f5f5f5; }
+@property --surface-overlay { syntax: '<color>'; inherits: true; initial-value: #ebebeb; }
+@property --surface-highest { syntax: '<color>'; inherits: true; initial-value: #e0e0e0; }
+@property --sidebar { syntax: '<color>'; inherits: true; initial-value: #f0f0f0; }
+@property --titlebar { syntax: '<color>'; inherits: true; initial-value: #e8e8e8; }
+@property --text-primary { syntax: '<color>'; inherits: true; initial-value: #121212; }
+@property --text-secondary { syntax: '<color>'; inherits: true; initial-value: #535353; }
+@property --text-muted { syntax: '<color>'; inherits: true; initial-value: #6b6b6b; }
+@property --border { syntax: '<color>'; inherits: true; initial-value: rgba(0, 0, 0, 0.08); }
+@property --scrollbar { syntax: '<color>'; inherits: true; initial-value: #cccccc; }
+@property --accent { syntax: '<color>'; inherits: true; initial-value: #1db954; }
+@property --accent-hover { syntax: '<color>'; inherits: true; initial-value: #1ed760; }
+@property --accent-rgb { syntax: '<number>+'; inherits: true; initial-value: 29 185 84; }
+@property --accent-hover-rgb { syntax: '<number>+'; inherits: true; initial-value: 30 215 96; }
+
+/* Clicks and hovers pass through to the live page while the snapshot fades. */
+html:active-view-transition-type(palette)::view-transition { pointer-events: none; }
+html:active-view-transition-type(palette)::view-transition-old(root),
+html:active-view-transition-type(palette)::view-transition-new(root) {
+  animation-duration: 450ms;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* A dialog growing or shrinking (ModalOverlay's `expanded`) cross-fades the same way. */
+html:active-view-transition-type(panel-resize)::view-transition { pointer-events: none; }
+html:active-view-transition-type(panel-resize)::view-transition-old(root),
+html:active-view-transition-type(panel-resize)::view-transition-new(root) {
+  animation-duration: 450ms;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ─── Gradient surfaces ──────────────────────────────────────────────────────────
+   Two independent opt-ins, both toggled by useThemeEffects:
+     .gradients          → Settings → Appearance → "App gradients"
+     .surface-gradients  → Settings → Appearance → "Control gradients"
+   (the class names predate the UI labels; the storage keys are load-bearing
+   for already-saved preferences, so only the labels were reworded.)
+   Accent-tinted washes layered as background-image on
+   top of the existing flat background-color, so no skin's palette changes -
+   and because they ride rgb(var(--accent-rgb) / α), they recolor with the
+   accent, follow the Now Playing skin's per-song accent, and animate through
+   the same registered-property cross-fade as everything else. */
+
+/* App shell: a glow from the top-right + a faint answering one bottom-left.
+   Sidebar/player paint over their own strips, so this reads as depth behind
+   the main content area. */
+.app-shell { height: var(--app-height); }
+
+html.gradients .app-shell {
+  background-image:
+    radial-gradient(100% 80% at 100% 0%, rgb(var(--accent-rgb) / 0.09), transparent 55%),
+    radial-gradient(80% 70% at 0% 100%, rgb(var(--accent-rgb) / 0.08), transparent 55%);
+}
+
+/* Sidebar: wash fading downward from the top. */
+html.gradients .app-sidebar {
+  background-image: linear-gradient(180deg, rgb(var(--accent-rgb) / 0.10), rgb(var(--accent-rgb) / 0.03) 45%, transparent 75%);
+}
+
+/* Player bar: mirror of the sidebar, rising from the bottom edge. Grouped
+   with the controls below rather than the shell above - it reads as a
+   control strip, not as app chrome, so it follows that toggle. */
+html.surface-gradients .app-player {
+  background-image: linear-gradient(0deg, rgb(var(--accent-rgb) / 0.10), transparent 80%);
+}
+
+/* Accent-filled controls get a subtle two-tone sheen (hover-accent → accent).
+   background-image over Tailwind's background-color, so `bg-accent` keeps
+   working everywhere - tiny dots/indicators just look flat, buttons look lit. */
+html.gradients .bg-accent {
+  background-image: linear-gradient(135deg, rgb(var(--accent-hover-rgb) / 1), rgb(var(--accent-rgb) / 1) 70%);
+}
+
+/* Flat surface-overlay boxes (view-toggle groups, search bars, badges, menu
+   panels, etc.) get a faint wash too, so they don't read as flatly
+   inconsistent next to the gradients above - top-down like the sidebar's,
+   not diagonal like bg-accent's, since these are mostly small/wide pills
+   where a diagonal reads as an odd, randomly-placed highlight rather than
+   "lit from the same direction as everything else". Much fainter than the
+   others since surface-overlay covers far more of the UI at once.
+
+   Its own `surface-gradients` class (Settings → Appearance → Surface
+   gradients), independent of `gradients` above - bg-surface-overlay is used
+   everywhere, so someone who wants the big shell/sidebar/player washes
+   doesn't necessarily want every small pill tinted too. Off by default
+   behavior is just the flat --surface-overlay color, same as before either
+   setting existed. */
+html.surface-gradients .bg-surface-overlay {
+  background-image: linear-gradient(180deg, rgb(var(--accent-rgb) / 0.10), transparent 75%);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* Every full-height box (html/body/#root and .app-shell) sizes off this, so
+   the dvh/lvh choice is made once. See main.tsx for why installed apps need
+   the other unit. */
+html { --app-height: 100dvh; }
+html.standalone { --app-height: 100lvh; }
+
+/* Top inset for anything that parks itself below the status bar, with a bit
+   of breathing room past it: iOS softens the top band of the screen in every
+   installed web app (not something this page causes or can turn off - see the
+   status-bar meta in index.html), and nothing moves content out of that band
+   entirely, so this just keeps titles and icon buttons off the worst of it.
+
+   Measured on a 59px-inset iPhone: the blur is total for the first ~60px,
+   fades through ~75px, and is gone by ~90px - i.e. it runs about 30px past
+   the inset itself. 1.6 lands just clear of that (~94px). Only those last
+   ~30px are a real cost; the 59px below the status bar was never usable
+   anyway. Dial the factor down to reclaim space at the price of a softer
+   first line.
+
+   The multiplier is what gates it - deliberately, rather than a standalone
+   check. The inset is only non-zero where content actually renders under a
+   status bar, so scaling it adds room exactly there and stays 0×n = 0 on
+   desktop and in browser tabs. */
+html { --top-inset: calc(env(safe-area-inset-top, 0px) * 1.6); }
+
+html, body, #root {
+  height: var(--app-height);
+  width: 100%;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  /* Belt-and-suspenders: if either value still under-reports on some
+     device, this makes any exposed strip blend in instead of showing as an
+     obvious black bar. */
+  background: var(--surface, #121212);
+}
+
+/* Same wash as .app-shell (above), mirrored onto html/body/#root themselves.
+   iOS standalone mode extends content under the status bar/notch via
+   safe-area insets, and .app-shell doesn't always cover that sliver - without
+   this, Gradient Surfaces users see a flat patch there instead of the glow
+   the rest of the shell has. Keeping both copies in sync is fine: they're
+   cheap and only one is ever visible at a time. */
+html.gradients,
+html.gradients body,
+html.gradients #root {
+  background-image:
+    radial-gradient(100% 80% at 100% 0%, rgb(var(--accent-rgb) / 0.09), transparent 55%),
+    radial-gradient(80% 70% at 0% 100%, rgb(var(--accent-rgb) / 0.08), transparent 55%);
+}
+
+/* Same gap, same fix, for WRLD: its dark blurred-cover backdrop is the only
+   thing under that sliver while it's open, so leaking through to the raw
+   `var(--surface)` below reads as a wrong-colored (and theme-following)
+   patch sitting on top of an otherwise dark, immersive screen - much more
+   jarring than the Gradient Surfaces case above, since WRLD's backdrop is
+   always dark regardless of the active theme. `wrld-active` is toggled on
+   <html> for exactly as long as WrldView is mounted (mobile only - desktop
+   never fills the safe-area top inset this way). Can't replicate the actual
+   blurred-cover art here (this paints behind everything, before React has
+   anything to sample from), so a plain dark tone is the fix: close enough
+   to blend, and always closer than the theme surface color it replaces. */
+html.wrld-active,
+html.wrld-active body,
+html.wrld-active #root {
+  background: #000;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+/* Thin scrollbar inset from the edge, for rounded popovers */
+.slim-scroll { scrollbar-width: thin; scrollbar-color: var(--scrollbar) transparent; }
+.slim-scroll::-webkit-scrollbar { width: 10px; }
+.slim-scroll::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: 8px; border: 3px solid transparent; background-clip: content-box; }
+.slim-scroll::-webkit-scrollbar-thumb:hover { background: var(--text-muted); background-clip: content-box; }
+
+/* Page scrollbar for the glass chrome: a short pill inset from the window
+   edge, nearly invisible until the pointer is over the page.
+   Views that scroll under the window chrome (.scroll-under) get it on their
+   .pb-player scroller. The track is shortened with two empty end buttons so
+   it starts below the min/max/close buttons and ends above the player bar.
+   A scroller that starts below the window buttons (a list under a fixed
+   header) sets --scroll-top-inset: 0px to drop that clearance. */
+:is(.glass-scroll, .scroll-under .pb-player)::-webkit-scrollbar { width: 14px; height: 14px; }
+:is(.glass-scroll, .scroll-under .pb-player)::-webkit-scrollbar-track { background: transparent; }
+:is(.glass-scroll, .scroll-under .pb-player)::-webkit-scrollbar-thumb {
+  background: transparent;
+  background-clip: content-box;
+  border: 4px solid transparent;
+  border-radius: 999px;
+  transition: background-color 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+}
+:is(.glass-scroll, .scroll-under .pb-player):hover::-webkit-scrollbar-thumb {
+  background-color: color-mix(in srgb, var(--text-muted) 38%, transparent);
+}
+:is(.glass-scroll, .scroll-under .pb-player)::-webkit-scrollbar-thumb:hover,
+:is(.glass-scroll, .scroll-under .pb-player)::-webkit-scrollbar-thumb:active {
+  background-color: color-mix(in srgb, var(--text-muted) 70%, transparent);
+}
+:is(.glass-scroll, .scroll-under .pb-player)::-webkit-scrollbar-button:vertical:start:decrement {
+  display: block; height: var(--scroll-top-inset, 40px); background: transparent;
+}
+@media (min-width: 768px) {
+  .scroll-under .pb-player::-webkit-scrollbar-button:vertical:end:increment {
+    display: block; height: var(--player-dock, 0px); background: transparent;
+  }
+}
+
+/* Draggable titlebar */
+.titlebar-drag { -webkit-app-region: drag; }
+.titlebar-no-drag { -webkit-app-region: no-drag; }
+
+/* Hide scrollbar utility */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Number inputs: drop the OS-drawn spin buttons, which render as light grey
+   arrows on the dark fields. Arrow keys and the wheel still step the value. */
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type='number'] { -moz-appearance: textfield; appearance: textfield; }
+
+/* Range input */
+input[type='range'] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+  /* Taller than the thumb so the vertical grab/drag area is more forgiving
+     than the visible 4px track - dragging slightly off-track shouldn't feel
+     like losing the slider. */
+  height: 20px;
+  display: block;
+  padding: 0;
+  margin: 0;
+}
+input[type='range']::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--surface-overlay);
+}
+/* Firefox draws none of the -webkit- pseudo-elements, so every rule below is
+   mirrored onto its -moz- counterpart. Keep the two in separate blocks: one
+   unrecognized pseudo-element invalidates a whole selector list, so merging
+   them would drop the styling in both engines. */
+input[type='range']::-moz-range-track {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--surface-overlay);
+}
+input[type='range']::-moz-focus-outer {
+  border: 0;
+}
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 12px;
+  width: 12px;
+  border-radius: 50%;
+  background: var(--text-primary);
+  margin-top: -4px; /* centers 12px thumb on 4px track */
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+/* Keep the thumb visible for the whole drag - :hover alone drops out the
+   moment the cursor strays vertically off the thin track, which reads as
+   the slider "slipping away" even though the drag (native pointer capture)
+   is still tracking correctly. :active persists for the whole mouse-down. */
+input[type='range']:hover::-webkit-slider-thumb,
+input[type='range']:active::-webkit-slider-thumb {
+  opacity: 1;
+}
+/* Firefox centers the thumb on the track itself, so no margin-top here - and
+   it draws a border on the default thumb that has to be cleared. */
+input[type='range']::-moz-range-thumb {
+  height: 12px;
+  width: 12px;
+  border: none;
+  border-radius: 50%;
+  background: var(--text-primary);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+input[type='range']:hover::-moz-range-thumb,
+input[type='range']:active::-moz-range-thumb {
+  opacity: 1;
+}
+/* Touch devices have no :hover at all, so a hover-gated thumb never becomes
+   visible except mid-drag (:active) - on a bare slider with no accent fill
+   (anything not wrapped in .progress-track/.eq-band, e.g. the crossfade
+   duration slider) that left nothing on screen at all until the user's
+   finger was already on it. Mobile browsers correctly report (hover: none)
+   for a touchscreen, so this only affects touch, not mouse/trackpad. */
+@media (hover: none) {
+  input[type='range']::-webkit-slider-thumb {
+    opacity: 1;
+  }
+  input[type='range']::-moz-range-thumb {
+    opacity: 1;
+  }
+}
+
+.progress-track input[type='range']::-webkit-slider-runnable-track {
+  background: linear-gradient(to right, var(--accent) var(--val, 0%), var(--surface-overlay) var(--val, 0%));
+}
+.progress-track input[type='range']::-moz-range-track {
+  background: linear-gradient(to right, var(--accent) var(--val, 0%), var(--surface-overlay) var(--val, 0%));
+}
+/* Preserve gradient on disabled range (FM live bar) */
+.progress-track input[type='range']:disabled::-webkit-slider-runnable-track {
+  background: linear-gradient(to right, var(--accent) var(--val, 0%), var(--surface-overlay) var(--val, 0%));
+}
+.progress-track input[type='range']:disabled::-moz-range-track {
+  background: linear-gradient(to right, var(--accent) var(--val, 0%), var(--surface-overlay) var(--val, 0%));
+}
+
+/* Song still loading: a soft highlight sweeps along the player's progress
+   line. Sits over the line, so the bar itself keeps its position. --sweep is
+   the highlight's color: the accent by default, the line's own color on the
+   mobile bars (which paint their progress in the text color). */
+.player-loading {
+  --sweep: rgb(var(--accent-rgb) / 0.75);
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.player-loading--text {
+  --sweep: color-mix(in srgb, var(--text-primary) 70%, transparent);
+}
+.player-loading--range {
+  top: 50%;
+  bottom: auto;
+  height: 4px;
+  margin-top: -2px;
+  border-radius: 2px;
+}
+.player-loading.on { opacity: 1; }
+.player-loading::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 40%;
+  background: linear-gradient(to right, transparent, var(--sweep), transparent);
+  transform: translateX(-100%);
+  animation: player-loading-sweep 1.3s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  animation-play-state: paused;
+}
+.player-loading.on::after { animation-play-state: running; }
+@keyframes player-loading-sweep {
+  to { transform: translateX(250%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .player-loading::after {
+    animation: none;
+    transform: none;
+    width: 100%;
+    background: var(--sweep);
+    opacity: 0.45;
+  }
+}
+
+/* Equalizer band sliders. Unlike seek/volume, a band's setting has to be
+   readable at a glance without hovering each one - so the thumb stays
+   visible, and the track fills from the 0 dB center out to the current
+   gain (--lo/--hi are the low/high ends of that span, set by the panel). */
+.eq-band input[type='range']::-webkit-slider-thumb { opacity: 1; }
+.eq-band input[type='range']::-webkit-slider-runnable-track {
+  background: linear-gradient(
+    to right,
+    var(--surface-overlay) var(--lo, 50%),
+    var(--accent) var(--lo, 50%),
+    var(--accent) var(--hi, 50%),
+    var(--surface-overlay) var(--hi, 50%)
+  );
+}
+.eq-band input[type='range']:disabled::-webkit-slider-thumb { opacity: 0.5; }
+.eq-band input[type='range']::-moz-range-thumb { opacity: 1; }
+.eq-band input[type='range']::-moz-range-track {
+  background: linear-gradient(
+    to right,
+    var(--surface-overlay) var(--lo, 50%),
+    var(--accent) var(--lo, 50%),
+    var(--accent) var(--hi, 50%),
+    var(--surface-overlay) var(--hi, 50%)
+  );
+}
+.eq-band input[type='range']:disabled::-moz-range-thumb { opacity: 0.5; }
+
+/* Synced lyrics */
+.lyric-active { color: var(--text-primary); font-weight: 700; font-size: 1.25rem; }
+.lyric-past   { color: var(--text-muted); }
+.lyric-future { color: var(--text-secondary); }
+
+/* ─── Animations ─────────────────────────────────────────────────────────────── */
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fade-in-fast {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes slide-in-right {
+  from { opacity: 0; transform: translateX(24px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-slide-in-right {
+  animation: slide-in-right 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-slide-up {
+  animation: slide-up 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-scale-in {
+  animation: scale-in 0.2s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* ─── Bottom sheet ──────────────────────────────────────────────────────────────
+   components/mobile/Sheet - the sheet slides its full height up from the bottom
+   edge while the scrim fades. The entrance class is *removed* once it finishes
+   (see Sheet.tsx): with fill-mode `both` the animation's final transform would
+   outrank the inline one the drag-to-dismiss gesture writes.
+   Sheet.tsx's EXIT_MS is kept in sync with the sheet-out duration below.
+   sheet-out composites (`add`) onto that inline offset instead of replacing
+   it, so a sheet swiped away carries on down from where the finger let go
+   rather than jumping back up to its resting spot first. */
+@keyframes sheet-in {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+@keyframes sheet-out {
+  from { transform: translateY(0); }
+  to   { transform: translateY(100%); }
+}
+@keyframes scrim-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.animate-sheet-in  { animation: sheet-in 0.26s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.animate-sheet-out { animation: sheet-out 0.2s cubic-bezier(0.4, 0, 1, 1) both; animation-composition: add; }
+.animate-scrim-in  { animation: scrim-in 0.2s ease both; }
+.animate-scrim-out { animation: scrim-in 0.18s ease reverse both; }
+
+/* Playing-track equalizer bars - the animated "this row is the one you're
+   hearing" marker used in place of a static icon in file/track lists. */
+@keyframes eq-bar {
+  0%, 100% { transform: scaleY(0.35); }
+  50%      { transform: scaleY(1); }
+}
+.eq-bar {
+  transform-origin: bottom;
+  animation: eq-bar 0.9s ease-in-out infinite;
+}
+
+/* Mobile WRLD's blurred-cover backdrop, never quite still - Apple Music's
+   now-playing background drifts the same way. Scale never drops below 1.08,
+   so the translate never uncovers an edge. Transform only, on its own layer. */
+@keyframes wrld-backdrop-drift {
+  0%   { transform: scale(1.08) translate(0, 0); }
+  33%  { transform: scale(1.18) translate(-3%, 2%); }
+  66%  { transform: scale(1.12) translate(3%, -2%); }
+  100% { transform: scale(1.08) translate(0, 0); }
+}
+.wrld-backdrop-drift {
+  animation: wrld-backdrop-drift 36s ease-in-out infinite;
+  will-change: transform;
+}
+@media (prefers-reduced-motion: reduce) {
+  .wrld-backdrop-drift { animation: none; }
+}
+
+@keyframes slide-in-right {
+  from { transform: translateX(18px); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+.animate-slide-in-right {
+  animation: slide-in-right 0.28s cubic-bezier(0.25, 1, 0.5, 1) both;
+}
+
+/* Track lists cascading in on arrival (hooks/useCascade puts .rows-cascade on
+   the rows' parent for a moment). Only the first couple of dozen rows - the
+   ones on screen - stagger; animating hundreds at once would just cost. */
+@keyframes row-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.rows-cascade > :nth-child(-n+24) { animation: row-in 0.36s cubic-bezier(0.33, 0, 0.15, 1) both; }
+.rows-cascade > :nth-child(2)  { animation-delay:  16ms; }
+.rows-cascade > :nth-child(3)  { animation-delay:  32ms; }
+.rows-cascade > :nth-child(4)  { animation-delay:  48ms; }
+.rows-cascade > :nth-child(5)  { animation-delay:  64ms; }
+.rows-cascade > :nth-child(6)  { animation-delay:  80ms; }
+.rows-cascade > :nth-child(7)  { animation-delay:  96ms; }
+.rows-cascade > :nth-child(8)  { animation-delay: 112ms; }
+.rows-cascade > :nth-child(9)  { animation-delay: 128ms; }
+.rows-cascade > :nth-child(10) { animation-delay: 144ms; }
+.rows-cascade > :nth-child(11) { animation-delay: 158ms; }
+.rows-cascade > :nth-child(12) { animation-delay: 172ms; }
+.rows-cascade > :nth-child(13) { animation-delay: 186ms; }
+.rows-cascade > :nth-child(14) { animation-delay: 198ms; }
+.rows-cascade > :nth-child(15) { animation-delay: 210ms; }
+.rows-cascade > :nth-child(n+16):nth-child(-n+24) { animation-delay: 220ms; }
+
+/* Art loading shimmer */
+.art-shimmer {
+  background: linear-gradient(90deg, var(--surface-overlay) 25%, var(--surface-highest) 50%, var(--surface-overlay) 75%);
+  background-size: 400px 100%;
+  animation: shimmer 1.4s infinite linear;
+}
+
+/* View transition wrapper */
+.view-enter {
+  animation: fade-in 0.2s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* ─── WRLD queue panel ───────────────────────────────────────────────────────── */
+
+/* Whole-panel entrance: rises + fades + settles from a hair under scale */
+@keyframes wrld-queue-in {
+  from { opacity: 0; transform: translateY(18px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0)    scale(1); }
+}
+.animate-wrld-queue-in {
+  animation: wrld-queue-in 0.38s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* ─── WRLD side panel (lyrics / queue / FM radio) ───────────────────────────────
+   The toolbar's panel toggle. The player column glides between centred and the
+   left half (a transform, run from WrldView - SPLIT_GLIDE_MS), while the panel
+   slides in from the right behind it. Closing keeps the panel mounted just long
+   enough for wrld-panel-out (PANEL_EXIT_MS) while the player glides back.
+   Curves here start gently and settle long rather than the expo-out used
+   elsewhere, which put most of the motion in the first ~100ms and read as a
+   snap. Only transform and opacity animate, and no text is scaled - scaled
+   text re-rasterises and shimmers. */
+@keyframes wrld-panel-in {
+  0%   { opacity: 0; transform: translateX(40px); }
+  55%  { opacity: 1; }
+  100% { opacity: 1; transform: translateX(0); }
+}
+@keyframes wrld-panel-out {
+  from { opacity: 1; transform: translateX(0); }
+  to   { opacity: 0; transform: translateX(32px); }
+}
+.animate-wrld-panel-in  { animation: wrld-panel-in 0.6s cubic-bezier(0.33, 0, 0.15, 1) 0.1s both; }
+.animate-wrld-panel-out { animation: wrld-panel-out 0.36s cubic-bezier(0.4, 0, 0.6, 1) both; pointer-events: none; }
+
+/* Swapping views inside the open panel (lyrics <-> queue, radio <-> lyrics) is
+   a crossfade: the old view lifts away, and the new one rises in once it has
+   mostly gone. Only on a swap - a view arriving with the panel itself doesn't
+   animate on its own (WrldPanelLayer). VIEW_EXIT_MS in WrldView matches
+   wrld-view-out. */
+@keyframes wrld-view-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes wrld-view-out {
+  from { opacity: 1; transform: translateY(0); }
+  to   { opacity: 0; transform: translateY(-6px); }
+}
+.animate-wrld-view-in  { animation: wrld-view-in 0.46s cubic-bezier(0.33, 0, 0.15, 1) 0.14s both; }
+.animate-wrld-view-out { animation: wrld-view-out 0.22s cubic-bezier(0.4, 0, 0.6, 1) both; pointer-events: none; }
+
+/* The toggle's own icon (lyrics / queue / radio) turns in when it changes. */
+@keyframes wrld-icon-swap {
+  from { opacity: 0; transform: scale(0.7) rotate(-30deg); }
+  to   { opacity: 1; transform: scale(1)   rotate(0); }
+}
+.animate-wrld-icon-swap { display: inline-flex; animation: wrld-icon-swap 0.38s cubic-bezier(0.3, 1.25, 0.5, 1) both; }
+
+/* ─── Sliding nav highlight ────────────────────────────────────────────────────
+   hooks/useSlidingIndicator: one highlight behind the nav items, moved onto the
+   active one. z-index -1 inside the nav's own stacking context (it's `isolate`)
+   sits it behind the items but over the nav's background. margin: 0 because a
+   space-y sibling rule would otherwise push it off by a gap. Size and position
+   are written inline; this is how they move. */
+.nav-indicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  margin: 0 !important;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0;
+  will-change: transform;
+  transition:
+    transform 0.38s cubic-bezier(0.4, 0, 0.2, 1),
+    width 0.38s cubic-bezier(0.4, 0, 0.2, 1),
+    height 0.38s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.2s ease;
+}
+
+/* ─── Playlist grid quick view ─────────────────────────────────────────────────
+   PlaylistsView's card grids. Row spacing is each item's bottom margin instead
+   of row-gap: the quick-view panel sits in a full-width row of its own, and a
+   row-gap would surround even an empty row - so opening one jumped everything
+   below by a gap before the panel had grown at all. The grid's negative margin
+   takes back the last row's, leaving the spacing after the grid as it was. */
+.pl-grid {
+  position: relative;
+  --pl-col-gap: 1rem;
+  --pl-row-gap: 1.5rem;
+  column-gap: var(--pl-col-gap);
+  row-gap: 0;
+  margin-bottom: calc(-1 * var(--pl-row-gap));
+}
+.pl-grid > * { margin-bottom: var(--pl-row-gap); }
+
+/* GridPanelSlot uses its natural height. Displaced tiles slide with
+   useListMotion; the panel itself only fades. */
+.pl-grid-panel {
+  overflow: hidden;
+  margin-top: calc(var(--pl-row-gap) * -0.5);
+}
+.pl-grid-panel-inner {
+  position: relative;
+  padding-top: 0.625rem;
+  opacity: 0;
+  transition: opacity 0.48s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.pl-grid-panel-inner.is-open { opacity: 1; }
+.pl-grid-panel.is-closing .pl-grid-panel-inner { transition-duration: 0.24s; }
+.pl-grid-caret-track {
+  position: absolute;
+  z-index: 1;
+  top: calc(0.625rem - 7px);
+  left: 0;
+  width: 100%;
+  pointer-events: none;
+  transition: transform 0.48s cubic-bezier(0.4, 0, 0.2, 1);
+}
+/* A rotated square on top of the panel's top border: its own top/left borders
+   draw the notch and its fill hides the border line underneath. */
+.pl-grid-caret {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 14px;
+  height: 14px;
+  margin-left: -7px;
+  z-index: 1;
+  transform: rotate(45deg);
+  border-top: 1px solid var(--border);
+  border-left: 1px solid var(--border);
+  border-top-left-radius: 3px;
+}
+/* Over a glass panel the caret's fill would stack on the panel's own veil,
+   so only its top half (the part above the panel) is drawn. Inside a docked
+   pane the nested panel is a plain fill (see .glass-pane .glass-pane). */
+.pl-grid-caret.is-glass {
+  background-color: var(--glass-pane);
+  border-color: var(--glass-rim);
+  clip-path: polygon(0 0, 100% 0, 0 100%);
+}
+.glass-pane .pl-grid-caret.is-glass { background-color: var(--fill); }
+
+/* Per-row reveal, staggered - layered on top of the panel entrance so the
+   list cascades in. `backwards` (not `both`) so the fill state is dropped
+   once the animation ends, leaving the drag-reorder transforms free to apply. */
+@keyframes wrld-row-in {
+  from { opacity: 0; transform: translateX(16px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.wrld-q-row { animation: wrld-row-in 0.34s cubic-bezier(0.16, 1, 0.3, 1) backwards; }
+.wrld-q-row:nth-child(1)   { animation-delay:  40ms; }
+.wrld-q-row:nth-child(2)   { animation-delay:  62ms; }
+.wrld-q-row:nth-child(3)   { animation-delay:  82ms; }
+.wrld-q-row:nth-child(4)   { animation-delay: 100ms; }
+.wrld-q-row:nth-child(5)   { animation-delay: 116ms; }
+.wrld-q-row:nth-child(6)   { animation-delay: 130ms; }
+.wrld-q-row:nth-child(7)   { animation-delay: 142ms; }
+.wrld-q-row:nth-child(8)   { animation-delay: 152ms; }
+.wrld-q-row:nth-child(9)   { animation-delay: 160ms; }
+.wrld-q-row:nth-child(10)  { animation-delay: 166ms; }
+.wrld-q-row:nth-child(n+11) { animation-delay: 172ms; }
+
+/* Menu / flyout entrance, also used by Transfers. A fade keeps text crisp
+   and leaves anchored menus in place, including ones flipped above a trigger. */
+@keyframes menu-pop {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.animate-menu-pop {
+  animation: menu-pop 0.45s cubic-bezier(0.4, 0, 0.2, 1) backwards;
+}
+
+/* A full page pushed over a phone screen (the notifications page). */
+@keyframes m-page-in {
+  from { opacity: 0; transform: translateX(32px); }
+  to   { opacity: 1; transform: none; }
+}
+.animate-m-page-in {
+  animation: m-page-in 0.42s cubic-bezier(0.33, 0, 0.15, 1) both;
+}
+
+/* Settings disclosures only arrive in response to expanding a section. */
+@keyframes disclosure-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: none; }
+}
+.animate-disclosure-in {
+  animation: disclosure-in 0.48s cubic-bezier(0.4, 0, 0.2, 1) backwards;
+}
+
+/* Shared switch thumbs, checkmarks, disclosure arrows and transfer progress.
+   Keep their motion off layout: no left/width or transition-all. */
+.control-motion {
+  transition-property: transform, opacity;
+  transition-duration: 0.45s;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Glass menus - the look of the new-style WRLD player's own menu
+   (desktop/pages/player.css, #menu): a see-through pane blurring what's
+   behind it, a light rim, and rows as rounded pills inside a padded edge.
+   Mixed from the skin's colors so it reads on every theme. The 4px padding
+   matches placeFlyout's `ir.top - 4`, which lines a flyout's first row up
+   with the row that opened it. Rows take `menu-glass-row`. */
+.menu-glass {
+  --menu-glass-fill: color-mix(in srgb, var(--text-primary) 10%, transparent);
+  background: var(--surface);
+  background: color-mix(in srgb, var(--surface) 72%, transparent);
+  -webkit-backdrop-filter: blur(24px) saturate(1.6);
+  backdrop-filter: blur(24px) saturate(1.6);
+  border-radius: 12px;
+  padding: 4px;
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--text-primary) 14%, transparent),
+    0 10px 28px rgb(0 0 0 / 0.35);
+}
+.menu-glass-row { border-radius: 8px; }
+.menu-glass-row:hover:not(:disabled),
+.menu-glass-row:focus-visible,
+.menu-glass-row.is-open {
+  background: var(--menu-glass-fill);
+  outline: none;
+}
+@media (prefers-reduced-transparency: reduce) {
+  .menu-glass {
+    background: var(--surface);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+/* ─── iOS-style mobile chrome ─────────────────────────────────────────────────
+   Fills and hairlines mixed from the skin's own text color, the way iOS's
+   systemFill/separator are, so every skin (custom ones included) gets them
+   without new skin vars. --fill backs search fields, gray buttons, chips and
+   the tab bar's selection pill; --fill-strong is their pressed state. */
+:root {
+  --fill: color-mix(in srgb, var(--text-primary) 9%, transparent);
+  --fill-strong: color-mix(in srgb, var(--text-primary) 16%, transparent);
+  --separator: var(--border);
+  /* Inset-grouped cells (mobile/Grouped) and the raised thumb of a segmented
+     control. Light skins: a faint gray card, a surface-colored thumb. Dark
+     skins lift both further off the page, as iOS does (#1c1c1e cells and a
+     #636366-ish thumb on black). */
+  --grouped: color-mix(in srgb, var(--text-primary) 5%, var(--surface));
+  --control-thumb: var(--surface);
+}
+.dark {
+  --grouped: color-mix(in srgb, var(--text-primary) 11%, var(--surface));
+  --control-thumb: color-mix(in srgb, var(--text-primary) 36%, var(--surface));
+}
+
+/* iOS hairlines: inset to where a row's text starts and running to its right
+   edge, drawn between rows only. --row-inset is the leading content's width
+   (an icon badge plus its gap); grouped rows bleed to the card's edges with
+   -mx-4 px-4, so their line starts after that padding too. */
+.grouped-row { position: relative; }
+.grouped-row::after {
+  content: '';
+  position: absolute;
+  left: calc(1rem + var(--row-inset, 0px));
+  right: 0;
+  bottom: 0;
+  height: 0.5px;
+  background: var(--separator);
+  pointer-events: none;
+}
+.grouped-row:last-child::after { display: none; }
+/* Song and playlist rows (mobile/ListRow): virtualized rows aren't DOM
+   siblings in order, so every row draws its own line under the text. */
+.list-row::after {
+  content: '';
+  position: absolute;
+  left: 4.75rem;
+  right: 0;
+  bottom: 0;
+  height: 0.5px;
+  background: var(--separator);
+  pointer-events: none;
+}
+/* Sheet action rows: a line between neighbours, none above a group gap. */
+.sheet-item { position: relative; }
+.sheet-item + .sheet-item::before {
+  content: '';
+  position: absolute;
+  left: var(--row-inset, 1.25rem);
+  right: 0;
+  top: 0;
+  height: 0.5px;
+  background: var(--separator);
+  pointer-events: none;
+}
+
+/* Room for the floating tab bar + mini player at the end of a mobile
+   scroller, so its last rows can scroll clear of the glass. --dock-h is
+   published by BottomNav. Mobile widths only (the same cutoff as
+   useIsMobile), so a view desktop shares keeps its own padding there. */
+@media (max-width: 767px) {
+  .pb-dock { padding-bottom: calc(var(--dock-h, 0px) + 1rem); }
+  /* The same inset hairline for rows a view shares with desktop (chat lists,
+     admin queues): drawn on phones only, starting --row-inset in. */
+  .m-hairline { position: relative; }
+  .m-hairline::after {
+    content: '';
+    position: absolute;
+    left: var(--row-inset, 1rem);
+    right: 0;
+    bottom: 0;
+    height: 0.5px;
+    background: var(--separator);
+    pointer-events: none;
+  }
+  /* .glass-thick for a panel desktop shares (the notification center): it
+     overrides that panel's own background, border and shadow on phones. */
+  .m-glass-thick {
+    background: color-mix(in srgb, var(--glass-base) 84%, transparent);
+    -webkit-backdrop-filter: blur(30px) saturate(1.8);
+    backdrop-filter: blur(30px) saturate(1.8);
+    border-color: transparent;
+    box-shadow:
+      inset 0 0 0 0.5px var(--glass-rim),
+      inset 0 1px 0 var(--glass-edge),
+      0 12px 40px rgb(0 0 0 / 0.3);
+  }
+  @media (prefers-reduced-transparency: reduce) {
+    .m-glass-thick {
+      background: var(--surface-raised);
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+    }
+  }
+}
+
+/* ─── Glass chrome ────────────────────────────────────────────────────────────
+   The iOS 26 / Apple Music look, on every skin and at every width (phones
+   included, since 2026-11-13): chrome floats as rounded panes
+   with a hairline rim and a brighter top edge, and the pieces with moving
+   content behind them (the player bar, the pill nav, the notification and
+   transfer panels, toasts, the dialog scrim) frost it with a backdrop blur.
+   Fills and rims are mixed from the skin's own text color, the way iOS's
+   systemFill/separator are, so custom skins get them without new skin vars.
+
+   backdrop-filter makes its element the containing block for position:fixed
+   descendants. Put it straight on an element only when nothing inside
+   positions itself against the window: ContextMenu, Modal and the Themed*
+   pickers portal out, but NavPillGrip's drop targets, ClampedMenu and many
+   views' popovers don't. A pane that may hold one of those takes
+   .glass-backdrop, which blurs from a ::before layer instead. That layer
+   loses its blur while an ancestor is fading (opacity < 1 makes the ancestor
+   the backdrop root), so animated popovers use the direct classes. */
+:root {
+  --glass-rim: color-mix(in srgb, var(--text-primary) 12%, transparent);
+  --glass-edge: color-mix(in srgb, #fff 12%, transparent);
+  /* What every glass fill is mixed from: the skin's surface with a hint of
+     the accent. Light skins lift it toward white, so glass sits brighter than
+     the page the way iOS light glass does; dark skins keep it dark. */
+  --glass-accent: rgb(var(--accent-rgb));
+  --glass-base: color-mix(in srgb, var(--glass-accent) 9%, color-mix(in srgb, #fff 55%, var(--surface)));
+  /* The light an edge of glass catches: bright along the top-left, a faint
+     shade along the bottom-right (.glass-specular). */
+  --glass-spec-hi: rgb(255 255 255 / 0.9);
+  --glass-spec-lo: rgb(0 0 0 / 0.08);
+  /* A soft gloss down from a pane's top edge. */
+  --glass-sheen: rgb(255 255 255 / 0.45);
+  /* Docked panes: a frosted white veil on light skins. */
+  --glass-pane: color-mix(in srgb, color-mix(in srgb, var(--glass-accent) 8%, #fff) 52%, transparent);
+  --glass-pane-shadow: 0 10px 30px rgb(0 0 0 / 0.08), 0 1px 3px rgb(0 0 0 / 0.05);
+}
+.dark {
+  --glass-base: color-mix(in srgb, var(--glass-accent) 10%, var(--surface-raised));
+  --glass-spec-hi: rgb(255 255 255 / 0.32);
+  --glass-spec-lo: rgb(255 255 255 / 0.1);
+  --glass-sheen: rgb(255 255 255 / 0.06);
+  /* Dark skins: smoked glass, darker than what's behind it, so text on it
+     keeps its contrast however bright the cover is. */
+  --glass-pane: color-mix(in srgb, color-mix(in srgb, var(--glass-accent) 12%, #000) 28%, transparent);
+  --glass-pane-shadow: 0 12px 36px rgb(0 0 0 / 0.35), 0 1px 3px rgb(0 0 0 / 0.2);
+}
+
+/* A see-through pane over whatever moves beneath it. */
+.glass {
+  background: var(--surface-raised);
+  background: color-mix(in srgb, var(--glass-base) 62%, transparent);
+  -webkit-backdrop-filter: blur(22px) saturate(1.8);
+  backdrop-filter: blur(22px) saturate(1.8);
+  box-shadow:
+    inset 0 0 0 0.5px var(--glass-rim),
+    inset 0 1px 0 var(--glass-edge),
+    0 8px 28px rgb(0 0 0 / 0.22);
+}
+/* Denser, for panels that carry body text: still frosted, but busy artwork
+   behind can't fight the rows for legibility. */
+.glass-thick {
+  background: var(--surface-raised);
+  background: color-mix(in srgb, var(--glass-base) 84%, transparent);
+  -webkit-backdrop-filter: blur(30px) saturate(1.8);
+  backdrop-filter: blur(30px) saturate(1.8);
+  box-shadow:
+    inset 0 0 0 0.5px var(--glass-rim),
+    inset 0 1px 0 var(--glass-edge),
+    0 12px 40px rgb(0 0 0 / 0.3);
+}
+/* Bar backgrounds only (no lift). */
+.glass-bar {
+  background: var(--surface);
+  background: color-mix(in srgb, var(--glass-base) 72%, transparent);
+  -webkit-backdrop-filter: blur(22px) saturate(1.8);
+  backdrop-filter: blur(22px) saturate(1.8);
+}
+
+/* Round toolbar buttons: the same glass at button scale, with a lighter
+   shadow so a row of them doesn't smudge. */
+.glass-button {
+  background: var(--surface-raised);
+  background: color-mix(in srgb, var(--glass-base) 55%, transparent);
+  -webkit-backdrop-filter: blur(16px) saturate(1.8);
+  backdrop-filter: blur(16px) saturate(1.8);
+  box-shadow:
+    inset 0 0 0 0.5px color-mix(in srgb, var(--text-primary) 14%, transparent),
+    inset 0 1px 0 color-mix(in srgb, #fff 14%, transparent),
+    0 2px 10px rgb(0 0 0 / 0.12);
+}
+
+/* Frosted glass painted from a ::before layer, for panes that may hold a
+   position:fixed popover (see above): the floating player bar and the pill
+   nav. The element's own drop shadow stays on the element (.glass-lift), so
+   an overflow-hidden pane doesn't clip it. --glass-tint sets the pane color. */
+.glass-backdrop {
+  isolation: isolate;
+  background-color: transparent;
+}
+.glass-backdrop::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
+  background-color: var(--glass-tint, color-mix(in srgb, var(--glass-base) 60%, transparent));
+  -webkit-backdrop-filter: blur(28px) saturate(1.8);
+  backdrop-filter: blur(28px) saturate(1.8);
+  box-shadow:
+    inset 0 0 0 0.5px var(--glass-rim),
+    inset 0 1px 0 var(--glass-edge);
+}
+.glass-lift { box-shadow: 0 10px 36px rgb(0 0 0 / 0.26); }
+/* The pill nav floats over pages, so it frosts them like the player. */
+.app-sidebar.glass-backdrop {
+  --glass-tint: color-mix(in srgb, var(--glass-base) 55%, transparent);
+}
+/* Liquid glass (lib/liquidLens, hooks/useLiquidLens; Settings → Appearance →
+   Glass refraction). The pane's own SVG filter bends the backdrop along the
+   rim and frosts the middle, so it replaces the blur above rather than
+   stacking on it. Only Chromium draws it; the hook adds data-lens there only. */
+.glass-backdrop[data-lens]::before {
+  -webkit-backdrop-filter: var(--lens-filter) saturate(1.8);
+  backdrop-filter: var(--lens-filter) saturate(1.8);
+}
+/* The filters' home. Not display:none, which would drop them. */
+.liquid-lens-defs {
+  position: fixed;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* Specular edge: a 1px ring painted over the element's own edge, bright where
+   light would catch the top-left and faint along the bottom-right, the way
+   iOS glass edges read. A masked ::after, so it follows the radius and sits
+   over children that reach the edge. The element must be positioned. */
+.glass-specular::after,
+.glass-pane::after,
+.glass-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  pointer-events: none;
+  background: linear-gradient(150deg, var(--glass-spec-hi), transparent 34%, transparent 66%, var(--glass-spec-lo));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+}
+
+/* Docked panes: the inset sidebar, the Now Playing / Queue cards and Home's
+   tiles. A veil rather than a fill - frosted white on light skins, smoked on
+   dark ones, with a touch of the accent - so the ambient backdrop's colors
+   show through, plus a gloss from the top and the specular edge. Only that
+   backdrop sits behind them, and it's blurred already, so no backdrop-filter
+   to pay for. --pane-color (the sidebar's own skin color) is only the solid
+   fallback for reduced transparency. */
+.glass-pane {
+  position: relative;
+  background-color: var(--glass-pane);
+  background-image: linear-gradient(180deg, var(--glass-sheen), transparent 42%);
+  box-shadow:
+    inset 0 0 0 0.5px var(--glass-rim),
+    var(--glass-pane-shadow);
+}
+.app-sidebar.glass-pane { --pane-color: var(--sidebar); }
+/* A pane that is itself a button lifts a little under the pointer. */
+.glass-pane.glass-press { transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+.glass-pane.glass-press:hover { background-color: color-mix(in srgb, var(--text-primary) 8%, var(--glass-pane)); }
+/* Glass on glass reads as mud: a pane inside another (Home's tool cards in
+   the Tools tile) becomes a plain fill of the outer one. */
+.glass-pane .glass-pane {
+  background-color: var(--fill);
+  background-image: none;
+  box-shadow: none;
+}
+.glass-pane .glass-pane::after { display: none; }
+.glass-pane .glass-pane.glass-press:hover { background-color: var(--fill-strong); }
+
+/* Phone cards (mobile/Grouped lists, Home's game tiles and stat strip, the
+   card on a detail page): the docked-pane veil without the lift, since a column
+   of drop shadows weighs a list down, with the lit edge on top. A card that is
+   itself a button (.glass-press) darkens while pressed - touch has no hover.
+   Like .glass-specular, the element must be positioned (`relative`): a class
+   that set it would beat a card the virtualized grids place `absolute`. */
+.glass-card {
+  background-color: var(--glass-pane);
+  box-shadow: inset 0 0 0 0.5px var(--glass-rim);
+}
+.glass-card.glass-press { transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+.glass-card.glass-press:active { background-color: color-mix(in srgb, var(--text-primary) 10%, var(--glass-pane)); }
+.glass-pane .glass-card,
+.glass-card .glass-card {
+  background-color: var(--fill);
+  box-shadow: none;
+}
+.glass-pane .glass-card::after,
+.glass-card .glass-card::after { display: none; }
+
+/* A capsule that sits on the page or in a card: the search field and the
+   segmented track. The same veil as a card, plain fill once inside one. */
+.glass-track {
+  background-color: var(--glass-pane);
+  box-shadow: inset 0 0 0 0.5px var(--glass-rim);
+}
+.glass-pane .glass-track,
+.glass-card .glass-track {
+  background-color: var(--fill);
+  box-shadow: none;
+}
+
+/* Controls that sit straight on the ambient backdrop, like a view's toolbar
+   (search field, round icon buttons): the docked-pane veil at control scale,
+   rim only, no shadow or sheen, so a row of them reads as one strip. .is-on
+   tints one with the accent. An <input> can't carry .glass-specular (no
+   ::after), so its positioned wrapper takes it. */
+.glass-field {
+  background-color: var(--glass-pane);
+  box-shadow: inset 0 0 0 0.5px var(--glass-rim);
+  transition:
+    background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.glass-field:hover { background-color: color-mix(in srgb, var(--text-primary) 7%, var(--glass-pane)); }
+.glass-field.is-on {
+  background-color: color-mix(in srgb, var(--glass-accent) 22%, var(--glass-pane));
+  box-shadow: inset 0 0 0 0.5px color-mix(in srgb, var(--glass-accent) 45%, transparent);
+  color: var(--glass-accent);
+}
+.glass-field:focus-visible,
+input.glass-field:focus {
+  outline: none;
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--glass-accent) 60%, transparent),
+    0 0 0 3px color-mix(in srgb, var(--glass-accent) 18%, transparent);
+}
+
+/* Inside a docked pane (a Home or profile tile) the veil would be glass on
+   glass, so fields and segmented tracks become plain fills of the pane. */
+.glass-pane .glass-field,
+.glass-pane .glass-seg { background-color: var(--fill); }
+.glass-pane .glass-field:hover { background-color: var(--fill-strong); }
+.glass-pane .glass-field.is-on { background-color: color-mix(in srgb, var(--glass-accent) 18%, transparent); }
+
+/* Segmented control (components/GlassSegmented): a veil track with a raised
+   thumb that slides to the chosen option. The thumb sits under the labels
+   (z-index -1 inside the isolated track). */
+.glass-seg {
+  position: relative;
+  isolation: isolate;
+  display: inline-flex;
+  align-items: center;
+  padding: 3px;
+  border-radius: 9999px;
+  background-color: var(--glass-pane);
+  box-shadow: inset 0 0 0 0.5px var(--glass-rim);
+}
+.glass-seg-thumb {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 0;
+  z-index: -1;
+  border-radius: 9999px;
+  background-color: var(--control-thumb);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.18), inset 0 0 0 0.5px var(--glass-rim);
+  pointer-events: none;
+}
+.glass-seg-thumb.is-ready {
+  transition:
+    transform 0.45s cubic-bezier(0.4, 0, 0.2, 1),
+    width 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .glass-seg-thumb.is-ready { transition: none; }
+}
+
+/* The ambient backdrop behind the whole window (components/AmbientBackdrop):
+   the playing cover blurred to a wash of its colors, or an accent glow, under
+   a tint of the skin's surface strong enough to keep text readable. It sits
+   at z-index -1 in the root stacking context, which paints it above <html>'s
+   background but under every box's own background - so body, #root and the
+   shell give theirs up (html keeps var(--surface) as the base). */
+body, #root, .app-shell {
+  background-color: transparent !important;
+  background-image: none !important;
+}
+.app-ambient {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  --ambient-tint: 62%;
+  --ambient-art: brightness(1.15) saturate(1.9);
+}
+/* Dark skins: dim the art a little first, so a bright cover can't lift the
+   page enough to cost muted text its contrast. */
+.dark .app-ambient {
+  --ambient-tint: 60%;
+  --ambient-art: brightness(0.75) saturate(2);
+}
+.app-ambient-glow {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(55% 60% at 88% 6%, rgb(var(--accent-rgb) / 0.55), transparent 70%),
+    radial-gradient(50% 55% at 6% 96%, rgb(var(--accent-rgb) / 0.4), transparent 70%);
+}
+.app-ambient-art {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* Scaled past the window so the blur's soft edges fall outside it. */
+  transform: scale(1.3);
+  filter: blur(90px) var(--ambient-art);
+  opacity: 0;
+  transition: opacity 0.9s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.app-ambient-art.is-shown { opacity: 1; }
+.app-ambient-tint {
+  position: absolute;
+  inset: 0;
+  /* The surface with a touch of the accent, so even a gray cover reads as
+     the skin's color. */
+  background: color-mix(in srgb, color-mix(in srgb, var(--glass-accent) 7%, var(--surface)) var(--ambient-tint), transparent);
+}
+@media (prefers-reduced-motion: reduce) {
+  .app-ambient-art { transition-duration: 0.01s; }
+}
+/* Phones: a smaller layer to blur (a phone GPU paints this behind every
+   scroll frame), and a stronger tint, since rows and titles sit straight on
+   the page here rather than inside panes. */
+@media (max-width: 767px) {
+  .app-ambient { --ambient-tint: 68%; }
+  .dark .app-ambient { --ambient-tint: 66%; }
+  .app-ambient-art {
+    transform: scale(1.2);
+    filter: blur(56px) var(--ambient-art);
+  }
+}
+
+/* Behind a dialog: the page dims a little and frosts, instead of going dark. */
+.glass-scrim {
+  background-color: rgb(0 0 0 / 0.3);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  backdrop-filter: blur(16px) saturate(1.4);
+}
+@media (max-width: 767px) {
+  .glass-scrim {
+    -webkit-backdrop-filter: blur(12px) saturate(1.4);
+    backdrop-filter: blur(12px) saturate(1.4);
+  }
+}
+/* Dialog panels keep their opaque color (their headers and footers are
+   painted in it) and swap the flat border for the rim. The rim is drawn on
+   top, since an inset shadow would sit under those headers. */
+.modal-glass { border-color: transparent !important; }
+.modal-glass::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 45;
+  border-radius: inherit;
+  padding: 1px;
+  pointer-events: none;
+  background: linear-gradient(150deg, var(--glass-spec-hi), color-mix(in srgb, var(--text-primary) 10%, transparent) 34%, color-mix(in srgb, var(--text-primary) 10%, transparent) 66%, var(--glass-spec-lo));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+}
+
+/* Room for the floating player at the end of a scroller in a view that runs
+   under it (App.tsx SCROLL_UNDER). --player-dock is the bar's height plus its
+   gap, published by Player; 0 while the bar is hidden. Outside those views
+   the view area is padded instead, so the class does nothing there.
+   !important because some scrollers set their padding inline (Library).
+   Desktop widths only: narrow windows show the in-flow phone player, and
+   keep each scroller's own padding. */
+@media (min-width: 768px) {
+  .scroll-under .pb-player { padding-bottom: calc(var(--player-dock, 0px) + 0.5rem) !important; }
+  /* A selection bar pinned to the bottom of such a scroller sits above the bar. */
+  .scroll-under .sticky-dock { bottom: var(--player-dock, 0px); }
+}
+/* Toasts and notices pinned to the bottom of the window clear the bar. */
+.scroll-under .files-selection-bar { margin-bottom: calc(var(--player-dock, 0px) + 0.5rem); }
+.above-player { bottom: calc(var(--player-dock, 0px) + 1.25rem); }
+
+@media (prefers-reduced-transparency: reduce) {
+  .glass, .glass-thick, .glass-bar, .glass-button {
+    background: var(--surface-raised);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  .glass-backdrop::before,
+  .glass-backdrop[data-lens]::before {
+    background-color: var(--surface-raised);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  .glass-scrim {
+    background-color: rgb(0 0 0 / 0.55);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  .app-ambient { display: none; }
+  .glass-pane { background-color: var(--pane-color, var(--surface-raised)); background-image: none; }
+  .glass-card { background-color: var(--grouped); }
+  .glass-field, .glass-seg, .glass-track { background-color: var(--surface-raised); }
+}
+
+
+/* The copy a closing modal or menu leaves behind to animate out on
+   (hooks/useExitGhost). Inert, and frozen in the state it closed in: as a
+   fresh element its own CSS entrances and transitions would start over - a
+   menu-pop restarting under the exit fade, say. Visible even inside a sandbox
+   slot that hid itself when its last panel left. */
+.exit-ghost { visibility: visible !important; }
+.exit-ghost, .exit-ghost * {
+  pointer-events: none !important;
+  animation: none !important;
+  transition: none !important;
+}
+
+/* Images that were still loading when they appeared: held invisible, then
+   faded in once loaded (lib/imageFade sets the attribute). The keyframe has no
+   `to`, so it lands on the image's own opacity, whatever that is. */
+@keyframes img-fade-in { from { opacity: 0; } }
+img[data-img-fade="pending"] { opacity: 0; }
+img[data-img-fade="in"] { animation: img-fade-in 0.42s cubic-bezier(0.33, 0, 0.15, 1); }
+
+/* Player cover art crossfading between songs (PlayerMotion's CoverFade). */
+.cover-fade { transition: opacity 0.34s cubic-bezier(0.33, 0, 0.15, 1); }
+
+/* Wordle: the row a rejected guess was typed into. The message under the board
+   says what's wrong; this is what makes it land without being read. */
+@keyframes wordle-shake {
+  0%, 100% { transform: translateX(0); }
+  20%      { transform: translateX(-5px); }
+  40%      { transform: translateX(5px); }
+  60%      { transform: translateX(-3px); }
+  80%      { transform: translateX(3px); }
+}
+.animate-wordle-shake {
+  animation: wordle-shake 0.3s ease-in-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Collapsed rather than removed: these all use fill-mode `both`, so the
+     element's resting appearance is the animation's end state - dropping the
+     animation entirely would leave it stuck at `from` (invisible, offset, or
+     translated off-screen). A near-zero duration lands on `to` immediately. */
+  .animate-wrld-queue-in,
+  .animate-wrld-panel-in,
+  .animate-wrld-panel-out,
+  .animate-wrld-view-in,
+  .animate-wrld-view-out,
+  .animate-wrld-icon-swap,
+  .wrld-q-row,
+  .animate-wordle-shake,
+  .animate-menu-pop,
+  .animate-m-page-in,
+  .animate-disclosure-in,
+  .animate-fade-in,
+  .animate-slide-in-right,
+  .animate-slide-up,
+  .animate-scale-in,
+  .animate-sheet-in,
+  .animate-sheet-out,
+  .animate-scrim-in,
+  .animate-scrim-out,
+  .animate-lyric-line-in,
+  .view-enter { animation-duration: 0.01ms; animation-delay: 0ms; }
+
+  /* Decorative loops with nothing to land on - just stop them. eq-bar keeps a
+     static mid-height so the "now playing" marker still reads as bars.
+     The chat.* classes get the same treatment next to their own definitions
+     in components/chat/chat.css, which loads after this file. */
+  .eq-bar { animation: none; transform: scaleY(0.7); }
+  /* Outranks the per-row delays above; a row's resting state is just shown. */
+  .rows-cascade > * { animation: none !important; }
+  .art-shimmer { animation: none; }
+
+  .pl-grid-panel,
+  .pl-grid-panel-inner,
+  .pl-grid-caret-track,
+  .nav-indicator,
+  .control-motion,
+  .cover-fade { transition: none !important; }
+}
+
+/* Suspense fallback for a lazily-loaded view (components/ViewSkeleton).
+   Starts invisible and only fades in after a beat: a chunk that's already
+   warm (lib/lazyViews prefetches on nav hover/tap) resolves well inside the
+   delay, so the common case shows nothing at all instead of a flash of
+   skeleton. Pure CSS - no timer to keep in sync with React's own scheduling. */
+@keyframes view-skeleton-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.view-skeleton {
+  opacity: 0;
+  animation: view-skeleton-in 150ms ease 200ms forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Keep the delay - it's what suppresses the flash, not decoration - but
+     drop the fade itself. Not folded into the block above, which zeroes
+     animation-delay for animations where the delay IS decoration. */
+  .view-skeleton { animation-duration: 0.01ms; }
+  .view-skeleton .animate-pulse { animation: none; }
+}
+
+/* ─── Clickable rows ─────────────────────────────────────────────────────────
+   Rows, cards and list items that take a click but can't be a <button>,
+   because they already contain buttons of their own. They opt in through
+   lib/a11y's clickable(), which makes them real tab stops - so they need the
+   focus ring a native control gets for free. Outline rather than a ring
+   utility so it traces whatever corner radius the element already has, and
+   never nudges the layout. */
+[role='button']:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Fullscreen WRLD: once the mouse rests, WrldVisualizer sets data-viz-idle on
+   the fullscreen root. The cursor hides everywhere (important, or any element
+   with its own cursor-pointer would keep showing it) and the page's chrome
+   fades out along with the visualizer toolbar. */
+[data-viz-fade] {
+  transition: opacity 0.35s ease;
+}
+[data-viz-idle],
+[data-viz-idle] * {
+  cursor: none !important;
+}
+[data-viz-idle] [data-viz-fade] {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Song recognition (RecognitionModal). Ripples spread from the listen button
+   while recording; the level-driven glow is a transform set inline. */
+@keyframes recog-ripple {
+  from { transform: scale(1); opacity: 0.4; }
+  to   { transform: scale(1.85); opacity: 0; }
+}
+.recog-ripple { animation: recog-ripple 2.4s cubic-bezier(0.4, 0, 0.2, 1) infinite; }
+@keyframes recog-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-recog-in { animation: recog-in 0.45s cubic-bezier(0.33, 0, 0.15, 1) both; }
+.recog-level { transition: transform 0.18s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.18s cubic-bezier(0.4, 0, 0.2, 1); }
+@media (prefers-reduced-motion: reduce) {
+  .recog-ripple { animation: none; opacity: 0; }
+  .animate-recog-in { animation-duration: 0.01ms; }
+  .recog-level { transition: none; }
+}
+
+
+/* Now-playing bars on an album's tracklist row (AlbumsView). Transform only;
+   they sit still while paused. */
+.album-eq-bar {
+  width: 3px;
+  height: 100%;
+  border-radius: 1px;
+  background: currentColor;
+  transform-origin: bottom;
+  transform: scaleY(0.4);
+}
+.album-eq-playing .album-eq-bar { animation: album-eq 0.9s cubic-bezier(0.4, 0, 0.2, 1) infinite alternate; }
+.album-eq-playing .album-eq-bar:nth-child(2) { animation-delay: -0.3s; }
+.album-eq-playing .album-eq-bar:nth-child(3) { animation-delay: -0.6s; }
+@keyframes album-eq {
+  from { transform: scaleY(0.3); }
+  to   { transform: scaleY(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .album-eq-playing .album-eq-bar { animation: none; transform: scaleY(0.7); }
+}

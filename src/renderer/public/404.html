@@ -1,0 +1,13 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Carti Tracker</title>
+<script>
+  // GitHub Pages deep-link fallback: send /<repo>/some/path back to the app
+  // root with the path in ?__p=, which lib/basePath.ts restores.
+  (function () {
+    var seg = location.pathname.split('/')[1] || ''
+    var base = '/' + seg
+    var rest = location.pathname.slice(base.length) || '/'
+    var q = location.search ? '&' + location.search.slice(1) : ''
+    location.replace(base + '/?__p=' + encodeURIComponent(rest) + q + location.hash)
+  })()
+</script></head><body></body></html>

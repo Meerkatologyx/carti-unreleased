@@ -1,0 +1,546 @@
+﻿import React, { useState, useEffect } from 'react'
+import { Settings, LogIn, ChevronLeft, ChevronRight, ChevronDown, Download, Upload, Info, Check, EyeOff, Bell, MessagesSquare } from 'lucide-react'
+import logo from '../assets/logo.png'
+import { useStore, useStorePick } from '../store/useStore'
+import { ViewType } from '../types'
+import { showStaffProfile, getToken } from '../lib/userApi'
+import { orderedNavItems, isNavItemVisible, orderedNavControls, isNavControlVisible, navTabFor, tabEntryView, type NavControlId } from '../lib/navItems'
+import { preloadView } from '../lib/lazyViews'
+import { hasChatAccess } from '../lib/chatAccess'
+import type { PlaylistContextMenuState } from './PlaylistContextMenu'
+import { lazyOverlay } from '../lib/lazyView'
+import ContextMenu from './ContextMenu'
+import NavPillGrip from './NavPillGrip'
+import { accountDisplayName, initial } from '../lib/format'
+import { useSlidingIndicator } from '../hooks/useSlidingIndicator'
+import { MotionDisclosure } from './MotionDisclosure'
+import { useLiquidLens } from '../hooks/useLiquidLens'
+import { useRadioChatStore } from '../store/radioChatStore'
+
+const NAV_LENS = { bezel: 16, strength: 12, coreBlur: 14 }
+import { useUnreadNotificationCount } from '../hooks/useNotificationHistory'
+
+// Right-click only - fetched on first open rather than with the app shell.
+const PlaylistContextMenu = lazyOverlay(() => import('./PlaylistContextMenu'))
+
+const LS_COLLAPSED = 'sidebar:collapsed'
+const LS_PLAYLISTS_EXPANDED = 'sidebar:playlistsExpanded'
+
+export default function Sidebar(): JSX.Element {
+  const { activeView, setActiveView, openProfile, openOwnPublicProfile, openSettings, setShowDiagnostics, developerMode, account, setShowUserAuth, playlists, setPendingPlaylistId, sidebarPosition, navStyle, navOrder, setNavOrder, navVisibility, setNavItemVisible, navControlOrder, navControlVisibility, setNavControlVisible, showUploadManager, setShowUploadManager } = useStorePick('activeView', 'setActiveView', 'openProfile', 'openOwnPublicProfile', 'openSettings', 'setShowDiagnostics', 'developerMode', 'account', 'setShowUserAuth', 'playlists', 'setPendingPlaylistId', 'sidebarPosition', 'navStyle', 'navOrder', 'setNavOrder', 'navVisibility', 'setNavItemVisible', 'navControlOrder', 'navControlVisibility', 'setNavControlVisible', 'showUploadManager', 'setShowUploadManager')
+  // Counts, not the list: every progress tick replaces `uploads`, and the
+  // whole menu re-rendered with it.
+  const hasUploads = useStore((s) => s.uploads.length > 0)
+  const activeUploadCount = useStore((s) => s.uploads.reduce((n, u) => (u.state === 'downloading' ? n + 1 : n), 0))
+  const { showNotifications, setShowNotifications } = useStorePick('showNotifications', 'setShowNotifications')
+  const unreadNotifications = useUnreadNotificationCount()
+  // The 999 FM chat pop-up (FmChatPopup) shares the top-right corner with
+  // Notifications and Transfers, so opening it closes them.
+  const fmChatOpen = useRadioChatStore((s) => s.popupOpen)
+  const toggleFmChat = (): void => {
+    if (!fmChatOpen) { setShowNotifications(false); setShowUploadManager(false) }
+    useRadioChatStore.getState().setPopupOpen(!fmChatOpen)
+  }
+
+  const [collapsed, setCollapsed] = useState<boolean>(
+    () => localStorage.getItem(LS_COLLAPSED) === 'true'
+  )
+  // showExpanded trails collapsed: hides immediately on collapse, appears
+  // after ~120ms on expand so content doesn't pop in before the sidebar widens.
+  const [showExpanded, setShowExpanded] = useState<boolean>(!collapsed)
+
+  useEffect(() => {
+    if (collapsed) {
+      setShowExpanded(false)
+    } else {
+      const t = setTimeout(() => setShowExpanded(true), 120)
+      return () => clearTimeout(t)
+    }
+  }, [collapsed])
+
+  const toggle = (): void => {
+    const next = !collapsed
+    setCollapsed(next)
+    localStorage.setItem(LS_COLLAPSED, String(next))
+  }
+
+  const [playlistsExpanded, setPlaylistsExpanded] = useState<boolean>(
+    () => localStorage.getItem(LS_PLAYLISTS_EXPANDED) === 'true'
+  )
+  const togglePlaylistsExpanded = (): void => {
+    const next = !playlistsExpanded
+    setPlaylistsExpanded(next)
+    localStorage.setItem(LS_PLAYLISTS_EXPANDED, String(next))
+  }
+
+  const openPlaylist = (id: number): void => {
+    setPendingPlaylistId(id)
+    setActiveView('playlists')
+  }
+
+  const [playlistMenu, setPlaylistMenu] = useState<PlaylistContextMenuState | null>(null)
+
+  // Drag-to-reorder state for the nav tabs themselves (as opposed to the
+  // Settings → Appearance list, which reorders the same navOrder from a
+  // dedicated menu). Index is into the currently visible `items` array.
+  const [navDragIdx, setNavDragIdx] = useState<number | null>(null)
+  const [navOverIdx, setNavOverIdx] = useState<number | null>(null)
+  // Move a visible row to sit adjacent to a target row. Reordering happens on
+  // the FULL saved order (including any hidden items) so their relative spots
+  // are preserved - same approach as Settings' moveNavItem.
+  const moveNavItem = (fromRow: number, toRow: number): void => {
+    if (fromRow === toRow) return
+    const full = orderedNavItems(navOrder, true, true).map((i) => i.view)
+    const dragView = items[fromRow].view
+    const targetView = items[toRow].view
+    const from = full.indexOf(dragView)
+    const next = [...full]
+    next.splice(from, 1)
+    const targetIdx = next.indexOf(targetView)
+    next.splice(toRow > fromRow ? targetIdx + 1 : targetIdx, 0, dragView)
+    setNavOrder(next)
+  }
+
+  // Right-click on a nav tab pops a single "Hide" action - a faster path to
+  // the same navVisibility toggle Settings → Appearance → Menu items exposes.
+  const [navMenu, setNavMenu] = useState<{ label: string; hide: () => void; x: number; y: number } | null>(null)
+  const openHideMenu = (label: string, hide: () => void) => (e: React.MouseEvent): void => {
+    e.preventDefault()
+    e.stopPropagation()
+    setNavMenu({ label, hide, x: e.clientX, y: e.clientY })
+  }
+  const openNavMenu = (view: ViewType, label: string) => openHideMenu(label, () => setNavItemVisible(view, false))
+  const openControlMenu = (id: NavControlId, label: string) => openHideMenu(label, () => setNavControlVisible(id, false))
+  const navContextMenu = navMenu && (
+    <ContextMenu
+      x={navMenu.x}
+      y={navMenu.y}
+      onClose={() => setNavMenu(null)}
+      zIndex={61}
+      className="min-w-[170px]"
+      items={[{ icon: EyeOff, label: `Hide "${navMenu.label}"`, onSelect: navMenu.hide }]}
+    />
+  )
+
+  const [tokenCopied, setTokenCopied] = useState(false)
+  const copyAuthToken = (e: React.MouseEvent): void => {
+    e.preventDefault()
+    const t = getToken()
+    if (!t) return
+    navigator.clipboard.writeText(t)
+    setTokenCopied(true)
+    setTimeout(() => setTokenCopied(false), 1500)
+  }
+
+  // Order + which tabs appear both come from Settings → Appearance → Menu
+  // items. orderedNavItems sanitizes the saved order; isNavItemVisible drops
+  // web-only tabs on web and anything the user has toggled off.
+  const items = orderedNavItems(navOrder, hasChatAccess(account), showStaffProfile(account)).filter((i) => isNavItemVisible(i, navVisibility, false))
+  // Which tab reads as current - not always activeView, since some views are
+  // sub-views of a tab (the games inside Games). See navTabFor.
+  const activeTab = navTabFor(activeView)
+  // The active tab's highlight slides from tab to tab rather than jumping -
+  // one indicator behind the items, in whichever layout below is rendered.
+  const navLayout = navStyle === 'pill' ? 'pill' : sidebarPosition === 'top' || sidebarPosition === 'bottom' ? 'bar' : 'side'
+  const { containerRef: navRef, indicatorRef: navIndicatorRef } = useSlidingIndicator<HTMLElement>(activeTab, navLayout)
+  // Only the floating pill frosts a page under it; the docked layouts don't.
+  useLiquidLens(navRef, 'lens-nav', NAV_LENS, navLayout === 'pill')
+
+  // Start the view's chunk on hover/focus rather than on click. Pointing at a
+  // menu item precedes clicking it by ~100ms, which is usually the whole
+  // download - so by the time Suspense would need a fallback, there's nothing
+  // left to wait for. Focus covers keyboard navigation. Idempotent and
+  // bandwidth-aware; see preloadView.
+  const warmOnIntent = (view: ViewType): { onPointerEnter: () => void; onFocus: () => void } => ({
+    onPointerEnter: () => preloadView(view),
+    onFocus: () => preloadView(view),
+  })
+
+  const navClick = (view: ViewType): void => {
+    if (activeView === view && view === 'playlists') {
+      window.dispatchEvent(new CustomEvent('playlists:back'))
+    } else if (view === 'editor-profile') {
+      // The Staff tab - which profile page that is depends on the account's roles.
+      openProfile()
+    } else {
+      // Not always `view` itself - a tab holding several views reopens on the
+      // one last used. See tabEntryView.
+      setActiveView(tabEntryView(view))
+    }
+  }
+
+  // Foot-of-menu controls (Profile, Log out, Diagnostics, Settings) -
+  // ordered and filtered to what's both available and toggled on in Settings.
+  // Log in and the collapse toggle are rendered separately (never hideable).
+  const controlCtx = { account: !!account, isElectron: false, developerMode, hasUploads }
+  const controls = orderedNavControls(navControlOrder).filter((c) => isNavControlVisible(c, navControlVisibility, controlCtx))
+
+  const rowCls = 'flex items-center w-full py-2 rounded text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-surface-raised transition-colors gap-3 px-3'
+  const iconWrap = 'w-6 h-6 flex items-center justify-center shrink-0'
+  const labelCls = `truncate transition-opacity duration-200 ${collapsed ? 'opacity-0 pointer-events-none' : 'opacity-100'}`
+
+  // Full-width control row for the vertical (left/right) side menu.
+
+  const renderControl = (id: NavControlId): JSX.Element | null => {
+    switch (id) {
+      case 'profile':
+        if (!account || !showStaffProfile(account)) return null
+        return (
+          <button key="profile" onClick={openOwnPublicProfile} onContextMenu={copyAuthToken} title={collapsed ? accountDisplayName(account) : undefined} className={rowCls}>
+            <span className={`${iconWrap} relative`}>
+              {account.avatar
+                ? <img src={account.avatar} alt="" className="w-6 h-6 rounded-full object-cover" />
+                : <div className="w-6 h-6 rounded-full bg-accent/20 text-accent flex items-center justify-center text-[10px] font-semibold">{initial(accountDisplayName(account))}</div>}
+              {tokenCopied && <span className="absolute inset-0 rounded-full bg-black/60 flex items-center justify-center"><Check size={12} className="text-emerald-400" /></span>}
+            </span>
+            <span aria-hidden={collapsed} className={labelCls}>{tokenCopied ? 'Token copied!' : accountDisplayName(account)}</span>
+          </button>
+        )
+      case 'uploads':
+        return (
+          <button key="uploads" onClick={() => setShowUploadManager(!showUploadManager)} onContextMenu={openControlMenu('uploads', 'Transfers')} title={collapsed ? 'Transfers' : undefined} className={rowCls}>
+            <span className={`${iconWrap} relative`}>
+              <Upload size={18} className={activeUploadCount > 0 ? 'animate-pulse text-accent' : ''} />
+              {activeUploadCount > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[14px] h-[14px] rounded-full bg-accent text-white text-[9px] font-bold flex items-center justify-center px-0.5 leading-none">
+                  {activeUploadCount}
+                </span>
+              )}
+            </span>
+            <span aria-hidden={collapsed} className={labelCls}>Transfers</span>
+          </button>
+        )
+      case 'fmchat':
+        return (
+          <button key="fmchat" data-fmchat-toggle onClick={toggleFmChat} onContextMenu={openControlMenu('fmchat', '999 FM chat')} title={collapsed ? '999 FM chat' : undefined} aria-pressed={fmChatOpen} className={rowCls}>
+            <span className={iconWrap}><MessagesSquare size={18} className={fmChatOpen ? 'text-accent' : ''} /></span>
+            <span aria-hidden={collapsed} className={labelCls}>999 FM chat</span>
+          </button>
+        )
+      case 'notifications':
+        return (
+          <button key="notifications" data-notifications-toggle onClick={() => setShowNotifications(!showNotifications)} onContextMenu={openControlMenu('notifications', 'Notifications')} title={collapsed ? 'Notifications' : undefined} aria-label={unreadNotifications > 0 ? `Notifications, ${unreadNotifications} new` : undefined} className={rowCls}>
+            <span className={`${iconWrap} relative`}>
+              <Bell size={18} />
+              {unreadNotifications > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[14px] h-[14px] rounded-full bg-accent text-white text-[9px] font-bold flex items-center justify-center px-0.5 leading-none">
+                  {unreadNotifications > 99 ? '99+' : unreadNotifications}
+                </span>
+              )}
+            </span>
+            <span aria-hidden={collapsed} className={labelCls}>Notifications</span>
+          </button>
+        )
+      case 'diagnostics':
+        return (
+          <button key="diagnostics" onClick={() => setShowDiagnostics(true)} onContextMenu={openControlMenu('diagnostics', 'Diagnostics')} title={collapsed ? 'Diagnostics' : undefined} className={rowCls}>
+            <span className={iconWrap}><Info size={18} /></span>
+            <span aria-hidden={collapsed} className={labelCls}>Diagnostics</span>
+          </button>
+        )
+      case 'download':
+        return (
+          <button key="download" onClick={() => setActiveView('download')} {...warmOnIntent('download')} onContextMenu={openControlMenu('download', 'Download app')} title={collapsed ? 'Download desktop app' : undefined} className={rowCls}>
+            <span className={iconWrap}><Download size={18} /></span>
+            <span aria-hidden={collapsed} className={labelCls}>Download app</span>
+          </button>
+        )
+      case 'settings':
+        return (
+          <button key="settings" onClick={() => openSettings()} {...warmOnIntent('settings')} title={collapsed ? 'Settings' : undefined} className={rowCls}>
+            <span className={iconWrap}><Settings size={18} /></span>
+            <span aria-hidden={collapsed} className={labelCls}>Settings</span>
+          </button>
+        )
+    }
+  }
+
+  // Icon-only control button for the horizontal (top/bottom) bar cluster.
+  const barIconBtn = 'flex items-center justify-center w-8 h-8 rounded text-text-secondary hover:text-text-primary hover:bg-surface-raised transition-colors shrink-0'
+  const renderControlIcon = (id: NavControlId): JSX.Element | null => {
+    switch (id) {
+      case 'profile':
+        if (!account || !showStaffProfile(account)) return null
+        return (
+          <button key="profile" onClick={openOwnPublicProfile} onContextMenu={copyAuthToken} title={tokenCopied ? 'Token copied!' : accountDisplayName(account)} className={`${barIconBtn} hover:bg-transparent hover:opacity-80 relative`}>
+            {account.avatar
+              ? <img src={account.avatar} alt="" className="w-6 h-6 rounded-full object-cover" />
+              : <div className="w-6 h-6 rounded-full bg-accent/20 text-accent flex items-center justify-center text-[10px] font-semibold">{initial(accountDisplayName(account))}</div>}
+            {tokenCopied && <span className="absolute inset-0 rounded-full bg-black/60 flex items-center justify-center"><Check size={12} className="text-emerald-400" /></span>}
+          </button>
+        )
+      case 'uploads':
+        return (
+          <button key="uploads" onClick={() => setShowUploadManager(!showUploadManager)} onContextMenu={openControlMenu('uploads', 'Transfers')} title="Transfers" className={`${barIconBtn} relative`}>
+            <Upload size={18} className={activeUploadCount > 0 ? 'animate-pulse text-accent' : ''} />
+            {activeUploadCount > 0 && (
+              <span className="absolute top-0.5 right-0.5 min-w-[13px] h-[13px] rounded-full bg-accent text-white text-[8px] font-bold flex items-center justify-center px-0.5 leading-none">
+                {activeUploadCount}
+              </span>
+            )}
+          </button>
+        )
+      case 'fmchat':
+        return (
+          <button key="fmchat" data-fmchat-toggle onClick={toggleFmChat} onContextMenu={openControlMenu('fmchat', '999 FM chat')} title="999 FM chat" aria-pressed={fmChatOpen} className={barIconBtn}>
+            <MessagesSquare size={18} className={fmChatOpen ? 'text-accent' : ''} />
+          </button>
+        )
+      case 'notifications':
+        return (
+          <button key="notifications" data-notifications-toggle onClick={() => setShowNotifications(!showNotifications)} onContextMenu={openControlMenu('notifications', 'Notifications')} title="Notifications" aria-label={unreadNotifications > 0 ? `Notifications, ${unreadNotifications} new` : 'Notifications'} className={`${barIconBtn} relative`}>
+            <Bell size={18} />
+            {unreadNotifications > 0 && (
+              <span className="absolute top-0.5 right-0.5 min-w-[13px] h-[13px] rounded-full bg-accent text-white text-[8px] font-bold flex items-center justify-center px-0.5 leading-none">
+                {unreadNotifications > 99 ? '99+' : unreadNotifications}
+              </span>
+            )}
+          </button>
+        )
+      case 'diagnostics':
+        return <button key="diagnostics" onClick={() => setShowDiagnostics(true)} onContextMenu={openControlMenu('diagnostics', 'Diagnostics')} title="Diagnostics" className={barIconBtn}><Info size={18} /></button>
+      case 'download':
+        return <button key="download" onClick={() => setActiveView('download')} {...warmOnIntent('download')} onContextMenu={openControlMenu('download', 'Download app')} title="Download desktop app" className={barIconBtn}><Download size={18} /></button>
+      case 'settings':
+        return <button key="settings" onClick={() => openSettings()} {...warmOnIntent('settings')} title="Settings" className={barIconBtn}><Settings size={18} /></button>
+    }
+  }
+
+  // ── Floating pill (Settings → Appearance → Navigation style). Icon-only, rounded,
+  // laid out along the chosen edge; AutoHideNav floats it over the page.
+  if (navStyle === 'pill') {
+    const horizontal = sidebarPosition === 'top' || sidebarPosition === 'bottom'
+    return (
+      <aside
+        ref={navRef}
+        style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+        className={`app-sidebar pointer-events-auto relative isolate hidden md:flex ${horizontal ? 'flex-row max-w-full overflow-x-auto' : 'flex-col max-h-full overflow-y-auto'} items-center gap-1 p-1.5 rounded-full glass-backdrop glass-specular glass-lift`}
+      >
+        <NavPillGrip horizontal={horizontal} />
+        {items.map(({ icon, label, view }, idx) => (
+          <button
+            key={view}
+            draggable
+            onDragStart={(e) => { setNavDragIdx(idx); e.dataTransfer.effectAllowed = 'move' }}
+            onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setNavOverIdx(idx) }}
+            onDrop={(e) => { e.preventDefault(); if (navDragIdx !== null) moveNavItem(navDragIdx, idx); setNavDragIdx(null); setNavOverIdx(null) }}
+            onDragEnd={() => { setNavDragIdx(null); setNavOverIdx(null) }}
+            onClick={() => navClick(view)}
+            {...warmOnIntent(view)}
+            onContextMenu={openNavMenu(view, label)}
+            title={label}
+            aria-label={label}
+            data-indicator-key={view}
+            className={`w-10 h-10 shrink-0 flex items-center justify-center rounded-full transition-colors cursor-grab active:cursor-grabbing ${
+              navDragIdx === idx ? 'opacity-40' : ''
+            } ${
+              navOverIdx === idx && navDragIdx !== null && navDragIdx !== idx ? 'ring-1 ring-inset ring-accent' : ''
+            } ${
+              activeTab === view
+                ? 'text-accent'
+                : 'text-text-secondary hover:text-text-primary hover:bg-surface-raised'
+            }`}
+          >
+            {icon}
+          </button>
+        ))}
+        <div className={`shrink-0 bg-[var(--border)] ${horizontal ? 'w-px h-6 mx-1' : 'h-px w-6 my-1'}`} />
+        {!account && (
+          <button onClick={() => setShowUserAuth(true)} title="Log in" aria-label="Log in" className={`${barIconBtn} !w-10 !h-10 !rounded-full`}>
+            <LogIn size={18} />
+          </button>
+        )}
+        {controls.map((c) => renderControlIcon(c.id))}
+        <div ref={navIndicatorRef} className="nav-indicator rounded-full bg-accent/20" aria-hidden />
+        {navContextMenu}
+      </aside>
+    )
+  }
+
+  // ── Horizontal bar (Settings → Appearance → Navigation position: top/bottom).
+  // Nav items keep icon+label; the account/admin/settings cluster goes
+  // icon-only, and the collapse toggle + inline playlist tree don't apply.
+  if (sidebarPosition === 'top' || sidebarPosition === 'bottom') {
+    const iconBtn = 'flex items-center justify-center w-8 h-8 rounded text-text-secondary hover:text-text-primary hover:bg-surface-raised transition-colors shrink-0'
+    return (
+      <aside className={`app-sidebar glass-pane relative hidden md:flex flex-col min-w-0 mx-2 rounded-2xl shrink-0 ${sidebarPosition === 'top' ? 'mt-2' : 'mb-2'}`}>
+        <div className="flex items-center gap-1 px-3 py-1.5 min-w-0">
+          <nav ref={navRef} className="relative isolate flex items-center gap-1 flex-1 min-w-0 overflow-x-auto">
+            {items.map(({ icon, label, view }, idx) => (
+              <button
+                key={view}
+                draggable
+                onDragStart={(e) => { setNavDragIdx(idx); e.dataTransfer.effectAllowed = 'move' }}
+                onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setNavOverIdx(idx) }}
+                onDrop={(e) => { e.preventDefault(); if (navDragIdx !== null) moveNavItem(navDragIdx, idx); setNavDragIdx(null); setNavOverIdx(null) }}
+                onDragEnd={() => { setNavDragIdx(null); setNavOverIdx(null) }}
+                onClick={() => navClick(view)}
+                {...warmOnIntent(view)}
+                onContextMenu={openNavMenu(view, label)}
+                data-indicator-key={view}
+                className={`flex items-center gap-2 pl-2 pr-3 py-1.5 rounded text-sm font-medium whitespace-nowrap transition-colors cursor-grab active:cursor-grabbing ${
+                  navDragIdx === idx ? 'opacity-40' : ''
+                } ${
+                  navOverIdx === idx && navDragIdx !== null && navDragIdx !== idx ? 'ring-1 ring-accent' : ''
+                } ${
+                  activeTab === view
+                    ? 'text-text-primary'
+                    : 'text-text-secondary hover:text-text-primary hover:bg-surface-raised'
+                }`}
+              >
+                <span className="w-6 h-6 shrink-0 flex items-center justify-center">{icon}</span>
+                <span>{label}</span>
+              </button>
+            ))}
+            <div ref={navIndicatorRef} className="nav-indicator rounded bg-surface-raised" aria-hidden />
+          </nav>
+          <div className="flex items-center gap-1 shrink-0">
+            {/* Log in stays pinned (never hideable) so signing in is always
+                reachable; the rest are user-ordered/hideable controls. */}
+            {!account && (
+              <button onClick={() => setShowUserAuth(true)} title="Log in" className={iconBtn}>
+                <LogIn size={18} />
+              </button>
+            )}
+            {controls.map((c) => renderControlIcon(c.id))}
+          </div>
+        </div>
+        {navContextMenu}
+      </aside>
+    )
+  }
+
+  return (
+    <aside
+      // A glass pane inset from the window edges (my-2 plus the outer side),
+      // stretched to the row's height rather than h-full so the margins fit.
+      className={`app-sidebar glass-pane relative hidden md:flex flex-col shrink-0 rounded-2xl my-2 ${sidebarPosition === 'right' ? 'mr-2' : 'ml-2'} transition-[width] duration-200 ${collapsed ? 'w-16' : 'w-60'}`}
+    >
+      {/* Logo - collapses to zero height when the sidebar is collapsed. The
+          open cap is in rem like its contents (11.75rem), so a larger app
+          text size doesn't clip the wordmark. */}
+      <div
+        className="flex flex-col items-center gap-1 shrink-0 px-5 overflow-hidden transition-[max-height,opacity] duration-200 ease-in-out"
+        style={{ maxHeight: collapsed ? '0px' : '13rem', opacity: collapsed ? 0 : 1 }}
+      >
+        <div className="pt-5 pb-4 flex flex-col items-center gap-1">
+          <img src={logo} alt="unreleased" className="object-contain h-32 w-auto" />
+          <span
+            className="text-text-primary text-sm uppercase select-none whitespace-nowrap"
+            style={{ fontFamily: "'Josefin Sans', sans-serif", fontWeight: 300, letterSpacing: '0.35em' }}
+          >
+            unreleased
+          </span>
+        </div>
+      </div>
+
+      {/* Nav items */}
+      <div className="flex-1 min-h-0 overflow-y-auto px-3">
+        {/* Natural height lets the highlight's ResizeObserver follow a
+            disclosure finishing its close, even without a sidebar render. */}
+        <nav ref={navRef} className="relative isolate space-y-1">
+        {items.map(({ icon, label, view }, idx) => (
+          <div
+            key={view}
+            draggable
+            onDragStart={(e) => { setNavDragIdx(idx); e.dataTransfer.effectAllowed = 'move' }}
+            onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setNavOverIdx(idx) }}
+            onDrop={(e) => { e.preventDefault(); if (navDragIdx !== null) moveNavItem(navDragIdx, idx); setNavDragIdx(null); setNavOverIdx(null) }}
+            onDragEnd={() => { setNavDragIdx(null); setNavOverIdx(null) }}
+            onContextMenu={openNavMenu(view, label)}
+            className={`cursor-grab active:cursor-grabbing ${navDragIdx === idx ? 'opacity-40' : ''}`}
+          >
+            <div
+              data-indicator-key={view}
+              className={`flex items-center w-full rounded text-sm font-medium transition-colors ${
+                navOverIdx === idx && navDragIdx !== null && navDragIdx !== idx ? 'ring-1 ring-accent' : ''
+              } ${
+                activeTab === view
+                  ? 'text-text-primary'
+                  : 'text-text-secondary hover:text-text-primary hover:bg-surface-raised'
+              }`}
+            >
+              <button
+                onClick={() => navClick(view)}
+                {...warmOnIntent(view)}
+                title={collapsed ? label : undefined}
+                className="flex items-center flex-1 min-w-0 py-2 pl-2 gap-3"
+              >
+                <span className="w-6 h-6 shrink-0 flex items-center justify-center">{icon}</span>
+                <span
+                  aria-hidden={collapsed}
+                  className={`text-left truncate transition-opacity duration-200 ${collapsed ? 'w-0 flex-none opacity-0 pointer-events-none' : 'flex-1 opacity-100'}`}
+                >
+                  {label}
+                </span>
+              </button>
+              {view === 'playlists' && showExpanded && playlists.length > 0 && (
+                <button
+                  onClick={togglePlaylistsExpanded}
+                  aria-expanded={playlistsExpanded}
+                  title={playlistsExpanded ? 'Hide playlists' : 'Show playlists'}
+                  className="p-2 pr-3 text-text-muted hover:text-text-primary transition-colors shrink-0"
+                >
+                  <ChevronDown size={14} className={`control-motion ${playlistsExpanded ? 'rotate-180' : ''}`} />
+                </button>
+              )}
+            </div>
+
+            {view === 'playlists' && showExpanded && playlists.length > 0 && (
+              <MotionDisclosure open={playlistsExpanded} className="mt-0.5 ml-[26px] space-y-0.5 border-l border-[var(--border)] pl-2 max-h-64 overflow-y-auto">
+                {playlists.map((pl) => (
+                  <button
+                    key={pl.id}
+                    onClick={() => openPlaylist(pl.id)}
+                    onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setPlaylistMenu({ playlist: pl, x: e.clientX, y: e.clientY }) }}
+                    title={pl.name}
+                    className="flex items-center w-full py-1.5 px-2 rounded text-xs text-text-secondary hover:text-text-primary hover:bg-surface-raised transition-colors truncate"
+                  >
+                    <span className="truncate">{pl.name}</span>
+                  </button>
+                ))}
+              </MotionDisclosure>
+            )}
+          </div>
+        ))}
+        <div ref={navIndicatorRef} className="nav-indicator rounded bg-surface-raised" aria-hidden />
+        </nav>
+      </div>
+
+      {/* Bottom section - Log in stays pinned (never hideable); the rest are
+          user-ordered/hideable controls (Settings → Appearance → Menu controls). */}
+      <div className="pb-4 space-y-1 px-2">
+        {!account && (
+          <button
+            onClick={() => setShowUserAuth(true)}
+            title={collapsed ? 'Log in' : undefined}
+            className={rowCls}
+          >
+            <span className={iconWrap}><LogIn size={18} /></span>
+            <span aria-hidden={collapsed} className={labelCls}>Log in</span>
+          </button>
+        )}
+        {controls.map((c) => renderControl(c.id))}
+
+        {/* Collapse toggle */}
+        <button
+          onClick={toggle}
+          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          className="flex items-center w-full py-2 rounded text-sm font-medium text-text-muted hover:text-text-primary hover:bg-surface-raised transition-colors gap-3 px-3"
+        >
+          {/* Chevron points where the edge will move - mirrored when the
+              sidebar sits on the right. */}
+          <span className="w-6 h-6 flex items-center justify-center shrink-0">
+            {collapsed !== (sidebarPosition === 'right') ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
+          </span>
+          <span aria-hidden={collapsed} className={`truncate transition-opacity duration-200 ${collapsed ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>Collapse</span>
+        </button>
+      </div>
+
+      {playlistMenu && (
+        <PlaylistContextMenu state={playlistMenu} onClose={() => setPlaylistMenu(null)} />
+      )}
+      {navContextMenu}
+    </aside>
+  )
+}

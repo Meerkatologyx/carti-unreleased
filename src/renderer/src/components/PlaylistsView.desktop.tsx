@@ -1,0 +1,3382 @@
+import { usePlaylistZipDownload } from '../hooks/usePlaylistZipDownload'
+import { usePlaylistDetailData, usePlaylistCoverEditing } from '../hooks/usePlaylistDetailData'
+import { usePlaylistSharing } from '../hooks/usePlaylistSharing'
+import { usePlaylistBulkDeletePlaylists, usePlaylistBulkAddPlaylistsTo } from '../hooks/usePlaylistBulkOps'
+import React, { useEffect, useState, useCallback, useRef, useMemo, useLayoutEffect } from 'react'
+import { useClosingValue } from '../hooks/usePresence'
+import { useCascade } from '../hooks/useCascade'
+import { PAGE_SWAP_IN_MS } from '../lib/dashboardSwap'
+import { useContentMotion } from '../hooks/useContentMotion'
+import { useListMotion } from '../hooks/useListMotion'
+import { createPortal } from 'react-dom'
+import {
+  ListMusic, Play, Loader2, Plus, Trash2, Pencil, ArrowLeft,
+  X, Check, Heart, Shuffle, Music2, Clock, GripVertical, Rss,
+  ListPlus, Download, Archive, Info, FolderInput, MoreHorizontal,
+  Search, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, ImageOff, Globe, Lock, Link, ListEnd, HardDrive, CircleArrowDown, Layers,
+  CheckSquare2, Square, LayoutGrid, Rows3,
+} from 'lucide-react'
+import { useStore, useStorePick } from '../store/useStore'
+import * as userApi from '../lib/userApi'
+import { addTracksInBackground, addEntriesInBackground, addPlaylistInBackground, setPlaylistPublic, PRIVATE_PLAYLIST_REASON } from '../lib/optimisticPlaylist'
+import { playlistItemsToTracks, playlistSongIds, playlistItemToEntry, isServerFileTrack } from '../lib/playlistItems'
+import type { PlaylistEntryInput } from '../lib/userApi'
+import { showAppToast } from '../lib/appToast'
+import { rememberRecentPlaylist } from '../lib/recentPlaylists'
+import type { PlaylistDetail, PlaylistSummary } from '../lib/userApi'
+import { useCanEdit } from '../hooks/useChannelRoles'
+import { Track, LocalPlaylist, LibraryTrack, FollowedPlaylist } from '../types'
+import { AlbumArtThumbnail } from './AlbumArtThumbnail'
+import { ProgressiveCover } from './ProgressiveCover'
+import { buildImageUrl, buildStreamUrl, getSongsByIds, playlistCoverUrl, smallCoverUrl, CATEGORY_LABELS, CATEGORY_COLORS, apiFileIdToRef, apiFileRefToTrack, resolveSessionEditSource } from '../lib/juicewrldApi'
+import { toFileUrl, libraryTrackToTrack as libTrackToTrack } from '../lib/fileTypes'
+import { formatDuration, formatTotalDuration } from '../lib/format'
+import LikedSongsView from './LikedSongsView'
+import { AlbumArtThumb } from './LibraryTab'
+import SongContextMenu, { SongContextMenuState } from './SongContextMenu'
+import { useExpandedGroups } from './CompactGroupRow'
+import CompactVersionRows from './CompactVersionRows'
+import { groupPlaylistBySong, subscribeCompactGroupsInvalidation } from '../lib/compactGroups'
+import type { SongUnit } from '../lib/compactGroups'
+import { versionsEnabled } from '../lib/versionsApi'
+import { baseTitle } from '../lib/onThisDay'
+import { shareOrigin } from '../lib/platform'
+import { useVirtualWindowEl, useVariableVirtualWindow } from '../hooks/useVirtualWindow'
+import PlaylistCard from './PlaylistCard'
+import { allFolderedKeys, folderOfPlaylist, parsePlaylistKey } from '../lib/playlistFolders'
+import ContextMenu, { AnchoredContextMenu, type ContextMenuEntry } from './ContextMenu'
+import type { PlaylistFolder } from '../lib/playlistFolders'
+import { Folder, FolderPlus, FolderOpen, FolderMinus } from 'lucide-react'
+import { useMultiSelect } from '../hooks/useMultiSelect'
+import { useLongPress } from '../hooks/useLongPress'
+import { ClampedMenu } from './ClampedMenu'
+import { loadEraFullNames, eraLabel } from '../lib/eras'
+import { getSkin } from '../lib/skins'
+import { downloadBlob, playlistJsonPayload, playlistM3uContent } from '../lib/playlistExport'
+import { clickable } from '../lib/a11y'
+import { resolveTrackFile } from '../lib/sessionEditsApi'
+import { fetchImageBlob } from '../lib/coverImage'
+import { SearchHelpButton } from './SearchHelpPopover'
+import { GlassSegmented } from './GlassSegmented'
+import { GLASS_SEARCH, GLASS_SEARCH_WRAP, glassToolButton } from './glassControls'
+
+// One parsed line of an .m3u: a file path, plus the #EXTINF title/duration
+// when the exporter wrote them. Import can either match the path to a local
+// file, or use the name to find the song in the API.
+type M3uEntry = { path: string; title: string | null; duration?: number | null }
+
+// Per-playlist layout, remembered on this device. Only non-list layouts are
+// stored, so the map stays small.
+type PlaylistLayout = 'list' | 'grid' | 'compact'
+const PLAYLIST_LAYOUT_KEY = 'unreleased:playlistLayouts'
+function readPlaylistLayouts(): Record<string, PlaylistLayout> {
+  try {
+    const v = JSON.parse(localStorage.getItem(PLAYLIST_LAYOUT_KEY) || '{}')
+    return v && typeof v === 'object' ? v : {}
+  } catch { return {} }
+}
+function readPlaylistLayout(key: string): PlaylistLayout {
+  const v = readPlaylistLayouts()[key]
+  return v === 'grid' || v === 'compact' ? v : 'list'
+}
+function writePlaylistLayout(key: string, mode: PlaylistLayout): void {
+  try {
+    const all = readPlaylistLayouts()
+    if (mode === 'list') delete all[key]
+    else all[key] = mode
+    localStorage.setItem(PLAYLIST_LAYOUT_KEY, JSON.stringify(all))
+  } catch { /* storage unavailable: layout just won't stick */ }
+}
+
+// ── PlaylistMosaic ────────────────────────────────────────────────────────────
+
+function PlaylistMosaic({ tracks, className = '' }: { tracks: Track[]; className?: string }): JSX.Element {
+  const artUrls = tracks.slice(0, 4).map(t => t.imageUrl).filter(Boolean) as string[]
+  if (artUrls.length === 0) {
+    return (
+      <div className={`bg-gradient-to-br from-accent/40 to-accent/10 flex items-center justify-center ${className}`}>
+        <Music2 size={48} className="text-accent/50" />
+      </div>
+    )
+  }
+  if (artUrls.length < 4) return <ProgressiveCover src={artUrls[0]} className={`object-cover ${className}`} />
+  return (
+    <div className={`grid grid-cols-2 ${className}`} style={{ overflow: 'hidden', transform: 'translateZ(0)' }}>
+      {/* Each quadrant is half the box, so the degraded covers are enough - and
+          four full-size ones per playlist is exactly the load worth avoiding. */}
+      {artUrls.map((url, i) => (
+        <img key={i} src={smallCoverUrl(url)} alt="" className="w-full h-full object-cover" style={{ aspectRatio: '1' }} />
+      ))}
+    </div>
+  )
+}
+
+// ── HeroBackdrop - Apple Music-style full-bleed blurred cover art behind the
+// playlist header. It fades out with a mask rather than into var(--surface):
+// the page under it is the see-through ambient backdrop (glass chrome), so an
+// opaque end stop drew a solid band across the top of the track list.
+// Independent of the "App gradients" setting - this is the hero's own art,
+// not a decorative accent wash.
+//
+// The darkening overlay was hardcoded to black, which reads as a dark banner
+// slapped onto an otherwise light page on a light skin. Mirror it instead:
+// dark skins darken toward black (unchanged), light skins lighten toward
+// white, with the same mask on both.
+// The image overhangs the box by a fixed 150px on every side: blur samples
+// transparency past an element's edges, and a scale() overhang shrinks with
+// the hero's short height, so the top edge (behind the window buttons) used
+// to fade to nothing.
+function HeroBackdrop({ src, isDarkSkin }: { src?: string | null; isDarkSkin: boolean }): JSX.Element {
+  return (
+    <div className="absolute inset-0 overflow-hidden pointer-events-none [mask-image:linear-gradient(to_bottom,#000_45%,transparent)]" style={{ zIndex: 0 }}>
+      {src && (
+        <img
+          // Blurred past recognition, so the degraded copy is indistinguishable
+          // from the original and shows up far sooner.
+          src={smallCoverUrl(src)}
+          alt=""
+          className="absolute max-w-none object-cover"
+          style={{
+            inset: -150,
+            width: 'calc(100% + 300px)',
+            height: 'calc(100% + 300px)',
+            filter: `blur(50px) saturate(1.7) brightness(${isDarkSkin ? 0.5 : 0.85})`,
+          }}
+        />
+      )}
+      <div className={`absolute inset-0 ${isDarkSkin ? 'bg-black/10' : 'bg-white/30'}`} />
+    </div>
+  )
+}
+
+// ── HeroPlayButton / HeroShuffleButton - Apple Music-style circular icon
+// controls, replacing the pill-shaped "Play"/"Shuffle" text buttons.
+function HeroPlayButton({ onClick }: { onClick: () => void }): JSX.Element {
+  return (
+    <button
+      onClick={onClick}
+      className="flex items-center justify-center w-14 h-14 rounded-full bg-accent text-black shadow-lg hover:scale-105 active:scale-95 transition-transform"
+      title="Play"
+    >
+      <Play size={22} fill="currentColor" className="ml-0.5" />
+    </button>
+  )
+}
+// Playlist detail pages: the hero and the list header stay put and only the
+// track list scrolls. The page box doesn't scroll; the list does, padded for
+// the floating player (.pb-player). Its scrollbar starts at the top of the
+// list (no 40px clearance for the window buttons, which sit over the hero).
+const DETAIL_PAGE = 'relative flex-1 flex flex-col min-h-0 overflow-hidden'
+const LIST_SCROLLER = 'flex-1 min-h-0 overflow-y-auto overflow-x-hidden pb-player'
+const LIST_SCROLLER_STYLE = { '--scroll-top-inset': '0px' } as React.CSSProperties
+// The selection bar floats over the bottom of the list, above the player.
+const SELECT_BAR_DOCK = 'absolute inset-x-0 bottom-0 sticky-dock z-30 px-4 pb-3 pt-1 pointer-events-none'
+// Secondary hero controls: glass circles and pills beside the accent Play.
+const HERO_ROUND = 'glass-field glass-specular relative shrink-0 flex items-center justify-center w-11 h-11 rounded-full text-text-primary focus-visible:outline-none disabled:opacity-40'
+const heroPill = (on: boolean): string => `glass-field glass-specular relative shrink-0 flex items-center gap-1.5 h-11 px-4 rounded-full text-sm font-medium focus-visible:outline-none disabled:opacity-60 ${on ? 'is-on' : 'text-text-primary'}`
+// Buttons in the floating selection bars. The bar is glass already, so these
+// are plain fills (glass on glass reads as mud).
+const BAR_BTN = 'flex items-center gap-1.5 h-8 px-3 rounded-full bg-[var(--fill)] hover:bg-[var(--fill-strong)] text-text-primary text-xs font-medium disabled:opacity-50 transition-colors'
+const BAR_BTN_DANGER = 'flex items-center gap-1.5 h-8 px-3 rounded-full bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-medium disabled:opacity-50 transition-colors'
+const CREATE_FIELD = 'glass-field flex-1 min-w-0 h-10 rounded-full px-4 text-sm text-text-primary placeholder:text-text-muted'
+const CREATE_BTN = 'h-10 px-4 rounded-full bg-accent text-black text-sm font-semibold shrink-0 hover:brightness-105 transition-[filter]'
+const CREATE_CANCEL = 'w-10 h-10 flex items-center justify-center rounded-full text-text-muted hover:text-text-primary hover:bg-[var(--fill)] shrink-0 transition-colors'
+const SECTION_TITLE = 'text-text-primary text-lg font-bold tracking-tight mb-3'
+const BAR_LINK = 'text-xs text-text-secondary hover:text-text-primary px-2 h-8 rounded-full transition-colors'
+
+function HeroShuffleButton({ onClick }: { onClick: () => void }): JSX.Element {
+  return (
+    <button
+      onClick={onClick}
+      className={HERO_ROUND}
+      title="Shuffle"
+    >
+      <Shuffle size={17} />
+    </button>
+  )
+}
+
+// (The per-tile hover play button lives in PlaylistCard now - every grid,
+// including the logged-out one, renders tiles through it.)
+
+function totalDurationLabel(tracks: Track[]): string {
+  const secs = tracks.reduce((acc, t) => acc + (t.duration ?? 0), 0)
+  if (secs === 0) return ''
+  return formatTotalDuration(secs)
+}
+
+
+type SortField = 'default' | 'index' | 'title' | 'artist' | 'era' | 'category' | 'duration'
+interface SortState { field: SortField; dir: 'asc' | 'desc' }
+
+type CardMenuState =
+  | { kind: 'api';   playlist: PlaylistSummary; x: number; y: number; renaming?: boolean; renameVal?: string }
+  | { kind: 'local'; playlist: LocalPlaylist;   x: number; y: number; renaming?: boolean; renameVal?: string }
+
+// ── Tracklist skeleton ────────────────────────────────────────────────────────
+
+function TrackSkeleton(): JSX.Element {
+  return (
+    <div className="space-y-1 pt-1">
+      {Array.from({ length: 5 }).map((_, i) => (
+        <div key={i} className="grid items-center gap-3 px-4 py-2" style={{ gridTemplateColumns: '1rem 1.75rem 2.5rem 1fr 3.5rem 2.25rem' }}>
+          <span />
+          <div className="w-4 h-3 rounded bg-[var(--fill)] animate-pulse" />
+          <div className="w-10 h-10 rounded-md bg-[var(--fill)] animate-pulse" />
+          <div className="space-y-1.5">
+            <div className={`h-3 rounded bg-[var(--fill)] animate-pulse`} style={{ width: `${55 + (i * 17) % 35}%` }} />
+            <div className="h-2.5 rounded bg-[var(--fill)] animate-pulse w-1/3" />
+          </div>
+          <div className="h-3 w-8 rounded bg-[var(--fill)] animate-pulse mx-auto" />
+          <span />
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// ── Sort header cell ──────────────────────────────────────────────────────────
+
+function SortHeader({ label, field, sort, onSort }: {
+  label: string | React.ReactNode
+  field: SortField
+  sort: SortState
+  onSort: (f: SortField) => void
+}): JSX.Element {
+  const active = sort.field === field
+  return (
+    <button
+      onClick={() => field !== 'default' && onSort(field)}
+      className={`flex items-center gap-0.5 transition-colors ${field === 'default' ? 'cursor-default' : 'hover:text-text-primary'} ${active ? 'text-text-primary' : ''}`}
+    >
+      {label}
+      {active && field !== 'default' && (
+        sort.dir === 'asc' ? <ChevronUp size={11} /> : <ChevronDown size={11} />
+      )}
+    </button>
+  )
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
+
+function FolderSlotImg({ src }: { src: string | null }): JSX.Element {
+  const [failed, setFailed] = useState(false)
+  const showImg = src && !failed
+  return (
+    <div className="w-full h-full overflow-hidden bg-surface-raised">
+      {showImg
+        ? <img src={src} alt="" className="w-full h-full object-cover" style={{ aspectRatio: '1' }} onError={() => setFailed(true)} />
+        : <div className="w-full h-full flex items-center justify-center"><Music2 size={16} className="text-accent/40" /></div>}
+    </div>
+  )
+}
+
+// ── Local-library helpers ─────────────────────────────────────────────────────
+
+function LocalPlaylistMosaic({ trackIds, className = '' }: {
+  trackIds: string[]; className?: string
+}): JSX.Element {
+  // Covers live in the store's libraryArt map (keyed by track id), populated as
+  // tracks are viewed in the Library tab - read them straight from there.
+  const libraryArt = useStore(s => s.libraryArt)
+  const covers = trackIds
+    .map(id => libraryArt[id])
+    .filter((a): a is string => !!a)
+    .slice(0, 4)
+  if (covers.length === 0) {
+    return (
+      <div className={`bg-gradient-to-br from-accent/40 to-accent/10 flex items-center justify-center ${className}`}>
+        <HardDrive size={32} className="text-accent/50" />
+      </div>
+    )
+  }
+  if (covers.length < 4) {
+    return <img src={covers[0]} alt="" className={`object-cover ${className}`} />
+  }
+  return (
+    <div className={`grid grid-cols-2 ${className}`} style={{ overflow: 'hidden', transform: 'translateZ(0)' }}>
+      {covers.map((src, i) => (
+        <img key={i} src={src} alt="" className="w-full h-full object-cover" style={{ aspectRatio: '1' }} />
+      ))}
+    </div>
+  )
+}
+
+// ── PlaylistExpandPanel ───────────────────────────────────────────────────────
+// The inline "quick view" that opens below a clicked card's row, spanning the
+// full grid width - layoutGridEntries puts it in a GridPanelSlot, which does
+// the row placement and the open/close animation, including same-row swaps.
+function PlaylistExpandPanel({ name, subtitle, cover, tracks, loading, onClose, onPlayTrack, onOpenFull, onTrackContextMenu }: {
+  name: string
+  subtitle: string
+  cover: React.ReactNode
+  tracks: Track[]
+  loading: boolean
+  onClose: () => void
+  onPlayTrack: (track: Track) => void
+  /** Jumps to the old full-page playlist view (drag-reorder, sort, share,
+   *  offline download, etc.) - this quick-view panel is deliberately a
+   *  lighter subset, not a replacement for it. */
+  onOpenFull: () => void
+  onTrackContextMenu: (track: Track, e: React.MouseEvent) => void
+}): JSX.Element {
+  const currentTrack = useStore(s => s.currentTrack)
+  const mid = Math.ceil(tracks.length / 2)
+  const columns = [tracks.slice(0, mid), tracks.slice(mid)]
+
+  return (
+    <div
+      className="rounded-2xl overflow-hidden glass-pane p-5 md:p-6"
+      onClick={e => e.stopPropagation()}
+    >
+      <button
+        onClick={onClose}
+        className="absolute top-3.5 right-3.5 w-7 h-7 rounded-full bg-[var(--fill)] hover:bg-[var(--fill-strong)] flex items-center justify-center text-text-muted hover:text-text-primary transition-colors z-10"
+        title="Close"
+      >
+        <X size={15} />
+      </button>
+
+      <div className="flex items-center gap-4 mb-5 pr-8">
+        <div className="w-16 h-16 md:w-20 md:h-20 rounded-xl overflow-hidden shrink-0 shadow-lg bg-[var(--fill)]">{cover}</div>
+        <div className="min-w-0 flex-1">
+          <h3 className="text-text-primary text-base md:text-lg font-bold truncate">{name}</h3>
+          <p className="text-text-muted text-sm mt-0.5">{subtitle}</p>
+          <button
+            onClick={onOpenFull}
+            className="flex items-center gap-0.5 text-accent text-xs font-medium mt-1 hover:underline"
+          >
+            Open full playlist <ChevronRight size={12} />
+          </button>
+        </div>
+        <button
+          onClick={() => tracks.length && onPlayTrack(tracks[0])}
+          disabled={tracks.length === 0}
+          className="w-10 h-10 md:w-11 md:h-11 rounded-full bg-accent text-black flex items-center justify-center shadow-lg hover:scale-105 active:scale-95 transition-transform shrink-0 disabled:opacity-40 disabled:hover:scale-100"
+          title="Play"
+        >
+          <Play size={16} fill="currentColor" className="ml-0.5" />
+        </button>
+      </div>
+
+      {loading && tracks.length === 0 ? (
+        <TrackSkeleton />
+      ) : tracks.length === 0 ? (
+        <p className="text-text-muted text-sm py-2">No tracks yet.</p>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
+          {columns.map((col, colIdx) => (
+            <div key={colIdx} className="flex flex-col">
+              {col.map((t, i) => {
+                const isActive = currentTrack?.id === t.id
+                return (
+                  <div
+                    key={t.id}
+                    {...clickable(() => onPlayTrack(t))}
+                    onContextMenu={e => { e.preventDefault(); e.stopPropagation(); onTrackContextMenu(t, e) }}
+                    className="flex items-center gap-3 px-1.5 py-1.5 rounded-lg hover:bg-[var(--fill)] text-left group/track transition-colors cursor-pointer"
+                  >
+                    <span className={`w-5 text-xs tabular-nums text-right shrink-0 ${isActive ? 'text-accent' : 'text-text-muted'}`}>
+                      {isActive ? '▶' : colIdx * mid + i + 1}
+                    </span>
+                    <span className={`flex-1 truncate text-sm ${isActive ? 'text-accent font-semibold' : 'text-text-primary'}`} title={t.title}>
+                      {t.title}
+                    </span>
+                    <span className="text-xs text-text-muted tabular-nums shrink-0">{formatDuration(t.duration, '')}</span>
+                    <button
+                      onClick={e => { e.stopPropagation(); onTrackContextMenu(t, e) }}
+                      className="p-1 -mr-1 text-text-muted hover:text-text-primary opacity-0 group-hover/track:opacity-100 transition-opacity shrink-0"
+                      title="More options"
+                    >
+                      <MoreHorizontal size={14} />
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Row-aware grid expansion ──────────────────────────────────────────────────
+// A CSS grid item with `grid-column: 1 / -1` (the "spans the full row" trick
+// used to break a quick-view panel onto its own row) forces auto-placement to
+// restart at column 1 for everything that comes after it - so inserting one
+// right after the clicked card mid-row shoves every card to its right down
+// onto the row below, instead of leaving that row intact. Fix: figure out how
+// many columns the grid is actually rendering right now (auto-fill decides
+// this per pixel width, so it has to be measured, not assumed), then insert
+// the panel after the LAST card of the clicked card's row instead - nothing
+// in that row moves, and the panel still lands directly beneath it.
+
+type GridEntry = {
+  key: string
+  tile: JSX.Element
+  panel: JSX.Element | null
+  /** The panel is animating shut (useClosingValue) rather than open. */
+  closing?: boolean
+  /** The caret's fill - matches the panel's own background. */
+  caretClass?: string
+}
+
+// Takes the element itself (state, not a mutable ref object) so the
+// measuring effect re-runs when a conditionally-rendered grid - like a
+// folder's member grid, which doesn't exist in the DOM until the folder is
+// opened - actually mounts. A plain useRef's identity never changes, so an
+// effect keyed on it only ever runs once at the owning component's initial
+// mount, back when such a grid's ref.current was still null; it would then
+// silently stay stuck at the default column count forever.
+function useGridColumnCount(el: HTMLDivElement | null): number {
+  const [cols, setCols] = useState(1)
+  useListMotion({ current: el })
+  useEffect(() => {
+    if (!el) return
+    const measure = (): void => {
+      const n = getComputedStyle(el).gridTemplateColumns.split(' ').filter(Boolean).length
+      setCols(prev => (n > 0 && n !== prev ? n : prev))
+    }
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [el])
+  return cols
+}
+
+// Columns and row stride (card height + row gap) of a windowed card grid,
+// read from the grid itself: both follow its width. Until it mounts, one
+// column at a rough stride, so the first render stays a few cards.
+function useGridMetrics(el: HTMLDivElement | null): { cols: number; stride: number } {
+  const [metrics, setMetrics] = useState({ cols: 1, stride: 200 })
+  useLayoutEffect(() => {
+    if (!el) return
+    const measure = (): void => {
+      const style = getComputedStyle(el)
+      const cols = style.gridTemplateColumns.split(' ').filter(Boolean).length || 1
+      const card = (el.firstElementChild as HTMLElement | null)?.offsetHeight ?? 0
+      if (card <= 0) return
+      const stride = card + (parseFloat(style.rowGap) || 0)
+      setMetrics(prev => (prev.cols === cols && prev.stride === stride ? prev : { cols, stride }))
+    }
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [el])
+  return metrics
+}
+
+// Each row's panel goes in a GridPanelSlot keyed by the row, not the card. A
+// row can briefly hold two - the one closing and the one just opened from
+// another card in the same row - and then the open one takes the slot over,
+// so the switch happens inside one panel instead of a collapse-and-reopen.
+function layoutGridEntries(entries: GridEntry[], columns: number): JSX.Element[] {
+  const slotAtRowEnd = new Map<number, { entry: GridEntry; col: number }>()
+  entries.forEach((e, i) => {
+    if (!e.panel) return
+    const row = Math.floor(i / columns)
+    const rowEnd = Math.min(entries.length - 1, row * columns + columns - 1)
+    const cur = slotAtRowEnd.get(rowEnd)
+    if (!cur || (cur.entry.closing && !e.closing)) slotAtRowEnd.set(rowEnd, { entry: e, col: i % columns })
+  })
+  const out: JSX.Element[] = []
+  entries.forEach((e, i) => {
+    out.push(<div key={e.key} data-flip-key={e.key} className="min-w-0 [&>*]:w-full">{e.tile}</div>)
+    const slot = slotAtRowEnd.get(i)
+    if (slot) out.push(
+      <GridPanelSlot key={`panel-row-${i}`} contentKey={slot.entry.key} closing={!!slot.entry.closing} col={slot.col} columns={columns} caretClass={slot.entry.caretClass}>
+        {slot.entry.panel}
+      </GridPanelSlot>
+    )
+  })
+  return out
+}
+
+// ── GridPanelSlot ──────────────────────────────────────────────────────────────
+// Reserve the final height once, then fade the panel and slide the displaced
+// cards with useListMotion. Animating height laid out the whole grid each frame.
+// Closing holds that space until the fade finishes; same-row switches only
+// fade the content. The caret moves on its own full-width transform layer.
+const SLOT_CLOSE_MS = 280 // the 240ms exit, plus a frame
+// The view's own entrance after mount: the browse-page swipe, the longer of
+// it and ViewFade's 200ms fade.
+const VIEW_ENTRANCE_MS = PAGE_SWAP_IN_MS
+
+function GridPanelSlot({ contentKey, closing, col, columns, caretClass = 'is-glass', children }: {
+  contentKey: string
+  closing: boolean
+  col: number
+  columns: number
+  caretClass?: string
+  children: React.ReactNode
+}): JSX.Element {
+  const innerRef = useRef<HTMLDivElement>(null)
+  const contentRef = useRef<HTMLDivElement>(null)
+  useContentMotion(contentRef, contentKey)
+  const [entered, setEntered] = useState(false)
+  useLayoutEffect(() => {
+    if (innerRef.current) innerRef.current.inert = closing
+  }, [closing])
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => setEntered(true))
+    return () => cancelAnimationFrame(raf)
+  }, [])
+  const open = entered && !closing
+  // Centre of column `col`: n columns share the width less (n - 1) gaps.
+  const caretLeft = `calc((100% - ${columns - 1} * var(--pl-col-gap)) / ${columns} * ${col + 0.5} + ${col} * var(--pl-col-gap))`
+  return (
+    <div
+      className={`pl-grid-panel col-span-full ${closing ? 'is-closing' : ''}`}
+      aria-hidden={closing || undefined}
+    >
+      <div ref={innerRef} className={`pl-grid-panel-inner ${open ? 'is-open' : ''}`}>
+        <div className="pl-grid-caret-track" style={{ transform: `translateX(${caretLeft})` }}>
+          <span className={`pl-grid-caret ${caretClass}`} />
+        </div>
+        <div ref={contentRef}>{children}</div>
+      </div>
+    </div>
+  )
+}
+
+// Reports its content's height, so the windowed compact list can place the
+// rows below an open version group (whose row count is only known once the
+// missing versions load).
+function MeasuredBlock({ onHeight, children }: { onHeight: (h: number) => void; children: React.ReactNode }): JSX.Element {
+  const ref = useRef<HTMLDivElement>(null)
+  const onHeightRef = useRef(onHeight)
+  onHeightRef.current = onHeight
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+    onHeightRef.current(el.offsetHeight)
+    const ro = new ResizeObserver(() => onHeightRef.current(el.offsetHeight))
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+  return <div ref={ref}>{children}</div>
+}
+
+// Entries worth copying into another playlist: songs that can play (not
+// unsurfaced, not a session without an edit to play) and every file entry.
+function copyableEntries(detail: PlaylistDetail): PlaylistEntryInput[] {
+  return detail.items
+    .filter(item => !item.song || (
+      item.song.category !== 'unsurfaced'
+      && (item.song.category !== 'recording_session' || !!resolveSessionEditSource(item.song).path)
+    ))
+    .map(playlistItemToEntry)
+    .filter((e): e is PlaylistEntryInput => e != null)
+}
+
+export default function PlaylistsView(): JSX.Element {
+  const { account, playlists, refreshPlaylists, playTrack, shufflePlay, playNext, playCollection, addToQueue, setShowUserAuth, likedTrackIds, toggleLike, setActiveView, setPendingEditorSongId,
+    localPlaylists, libraryTracks, libraryArt, loadLibrary, deleteLocalPlaylist, renameLocalPlaylist, updateLocalPlaylist, addToLocalPlaylist,
+    pendingPlaylistId, setPendingPlaylistId,
+    playlistsSelectedId: selectedId, setPlaylistsSelectedId: setSelectedId,
+    playlistsSelectedLocalId: localSelectedId, setPlaylistsSelectedLocalId: setLocalSelectedId,
+    playlistsSort: sortRaw, setPlaylistsSort: setSortRaw,
+    playlistsOpenFolderId, setPlaylistsOpenFolderId,
+    followedPlaylists, followPlaylist, unfollowPlaylist, updateFollowedPlaylistMeta,
+    playlistFolders, createFolder, renameFolder, deleteFolder, movePlaylistsToFolder, appTextScale,
+    // Subscribed purely so the track memo below re-derives when a custom
+    // name/cover changes - liteSongToTrack bakes the override in at conversion
+    // time, so without this the rows keep the old name until a refetch.
+    songPrefs, openBulkEditor, fullEraNames, theme, playlistHeroEnabledDark, playlistHeroEnabledLight } = useStorePick('account', 'playlists', 'refreshPlaylists', 'playTrack', 'shufflePlay', 'playNext', 'playCollection', 'addToQueue', 'setShowUserAuth', 'likedTrackIds', 'toggleLike', 'setActiveView', 'setPendingEditorSongId', 'localPlaylists', 'libraryTracks', 'libraryArt', 'loadLibrary', 'deleteLocalPlaylist', 'renameLocalPlaylist', 'updateLocalPlaylist', 'addToLocalPlaylist', 'pendingPlaylistId', 'setPendingPlaylistId', 'playlistsSelectedId', 'setPlaylistsSelectedId', 'playlistsSelectedLocalId', 'setPlaylistsSelectedLocalId', 'playlistsSort', 'setPlaylistsSort', 'playlistsOpenFolderId', 'setPlaylistsOpenFolderId', 'followedPlaylists', 'followPlaylist', 'unfollowPlaylist', 'updateFollowedPlaylistMeta', 'playlistFolders', 'createFolder', 'renameFolder', 'deleteFolder', 'movePlaylistsToFolder', 'appTextScale', 'songPrefs', 'openBulkEditor', 'fullEraNames', 'theme', 'playlistHeroEnabledDark', 'playlistHeroEnabledLight')
+  useEffect(() => { loadEraFullNames().catch(() => {}) }, [])
+  // Cast back to the component's own SortField union - the store keeps the
+  // field as a plain string so it doesn't have to import this component's type.
+  const sort = sortRaw as SortState
+  const setSort = setSortRaw as (s: SortState) => void
+  const canEdit = useCanEdit()
+  // Skins beyond the classic pair mean `theme === 'dark'` no longer covers
+  // "is this a dark look" - Ocean, Mocha, etc. need the dark treatment too.
+  // The playlist hero's white-on-dark text only makes sense while its own
+  // backdrop is actually dark; see heroLight below at each hero render.
+  const isDarkSkin = getSkin(theme).dark
+  // The setting is tracked per skin darkness, not as one flag - see
+  // playlistHeroEnabledDark/Light in useStore.ts.
+  const playlistHeroEnabled = isDarkSkin ? playlistHeroEnabledDark : playlistHeroEnabledLight
+
+  const [showLiked, setShowLiked] = useState(false)
+
+  // Inline "quick view" expansion - clicking a card in the grid expands a
+  // panel below its row (Apple Music-style) instead of navigating away.
+  // Keyed the same way as the multi-select set ("api:<id>" / "local:<id>")
+  // so it's unambiguous across the two playlist kinds.
+  const [expandedKey, setExpandedKey] = useState<string | null>(null)
+  const [expandedTracks, setExpandedTracks] = useState<Track[]>([])
+  const [expandedLoading, setExpandedLoading] = useState(false)
+  // The quick view / folder panel just closed (or switched away from), kept
+  // around while its grid slot animates shut - see GridPanelSlot.
+  const closingQuickView = useClosingValue(expandedKey, expandedTracks, SLOT_CLOSE_MS)
+  const closingFolder = useClosingValue(playlistsOpenFolderId, null, SLOT_CLOSE_MS)
+  // What a card's quick-view panel shows: the open one's live tracks, or the
+  // closing one's tracks as they were.
+  const quickViewFor = (key: string): { tracks: Track[]; loading: boolean; closing: boolean } | null =>
+    expandedKey === key ? { tracks: expandedTracks, loading: expandedLoading, closing: false }
+    : closingQuickView?.key === key ? { tracks: closingQuickView.snapshot, loading: false, closing: true }
+    : null
+  // Toggles a card's quick-view panel, closing any open folder first — see
+  // the note on openFolder for why the two can't both be open at once.
+  // closeFolder defaults to true (a top-level card's expand should close any
+  // open folder so the two panels don't collide in the same grid row - see
+  // openFolder's note). A folder's own member cards pass false: they render
+  // inside that folder's already-open panel, so closing it out from under
+  // them would unmount the very panel their own expand view needs to appear
+  // in, making the click look like it did nothing.
+  const toggleExpanded = useCallback((key: string, closeFolder = true) => {
+    if (closeFolder) setPlaylistsOpenFolderId(null)
+    setExpandedKey(k => k === key ? null : key)
+  }, [setPlaylistsOpenFolderId])
+  // The quick view opens on the first click, right away. It used to wait out a
+  // 400ms double-click window first so a double-click wouldn't flash it open,
+  // which made every single click feel laggy. Now only the double-click's
+  // second click (detail 2) is skipped, and onDoubleClick opens the full page,
+  // which collapses the panel anyway.
+  const handleCardClick = useCallback((key: string, closeFolder: boolean, clickCount: number) => {
+    if (clickCount > 1) return
+    toggleExpanded(key, closeFolder)
+  }, [toggleExpanded])
+  // One column-count measurement per distinct grid container that can host a
+  // quick-view panel - see useGridColumnCount above. State (not useRef) so
+  // the measuring effect re-fires when the element actually mounts - needed
+  // for folderGridEl, whose grid doesn't exist until a folder is opened.
+  // authGridEl covers the logged-out library grid, mainGridEl the logged-in
+  // one, deviceGridEl "On This Device", and folderGridEl the (single, since
+  // only one folder is ever open at once) currently-open folder's member grid.
+  const [authGridEl, setAuthGridEl] = useState<HTMLDivElement | null>(null)
+  const authGridCols = useGridColumnCount(authGridEl)
+  const [mainGridEl, setMainGridEl] = useState<HTMLDivElement | null>(null)
+  const mainGridCols = useGridColumnCount(mainGridEl)
+  const [deviceGridEl, setDeviceGridEl] = useState<HTMLDivElement | null>(null)
+  const deviceGridCols = useGridColumnCount(deviceGridEl)
+  const [folderGridEl, setFolderGridEl] = useState<HTMLDivElement | null>(null)
+  const folderGridCols = useGridColumnCount(folderGridEl)
+
+  // Create / rename
+  const [creating, setCreating] = useState(false)
+  const [newName, setNewName] = useState('')
+  const [renaming, setRenaming] = useState(false)
+  const [renameValue, setRenameValue] = useState('')
+
+  // Context menus
+  const [trackMenu, setTrackMenu] = useState<SongContextMenuState | null>(null)
+  const [cardMenu, setCardMenu] = useState<CardMenuState | null>(null)
+  // Shared by every quick-view panel's track rows - same trackMenu state the
+  // full playlist page's own SongContextMenu uses, just opened from a
+  // different place (the two never show at once, since a quick-view panel
+  // only ever renders in the grid views, not the full-page detail view).
+  const openTrackMenu = useCallback((track: Track, e: React.MouseEvent) => {
+    setTrackMenu({ track, songId: userApi.trackIdToSongId(track.id), x: e.clientX, y: e.clientY })
+  }, [])
+
+  // Multi-select of playlists in the library grid - ctrl/cmd-click a card to
+  // toggle it, mirroring the file browser's selection model (ApiFilesView).
+  // Keyed as "api:<id>" / "local:<id>" since both id spaces are numeric and
+  // could otherwise collide. See the useMultiSelect() call further down for
+  // plSelectMode/selectedPlaylistKeys/togglePlaylistSelect/exitPlaylistSelectMode.
+  const [plBulkMenu, setPlBulkMenu] = useState<{ x: number; y: number } | null>(null)
+  const [showPlBulkAddMenu, setShowPlBulkAddMenu] = useState(false)
+
+  // ── Playlist folders ──────────────────────────────────────────────────────
+  const [creatingFolder, setCreatingFolder] = useState(false)
+  const [newFolderName, setNewFolderName] = useState('')
+  const [folderMenu, setFolderMenu] = useState<{ folder: PlaylistFolder; x: number; y: number; renaming?: boolean; renameVal?: string } | null>(null)
+
+  // Drag-to-move-into-a-folder - dragged keys are the same "api:<id>"/"local:<id>"
+  // composite the multi-select already uses. Transient gesture state, so it's
+  // fine as local state (unlike the store-backed selection that survives tab
+  // switches). Usually just the one card under the cursor, but dragging a
+  // card that's part of the current selection carries the whole selection
+  // along with it.
+  const [draggedPlaylistKeys, setDraggedPlaylistKeys] = useState<string[]>([])
+  const [dropTargetFolderId, setDropTargetFolderId] = useState<string | null>(null)
+  // Dropping one ungrouped playlist card directly onto another (as opposed to
+  // onto a folder tile, handled by dropTargetFolderId above) bundles the two
+  // into a brand-new folder - the "drag a playlist onto a playlist" gesture.
+  const [dropTargetPlaylistKey, setDropTargetPlaylistKey] = useState<string | null>(null)
+
+  // Multi-select of tracks within an open playlist - mirrors the Tracker's
+  // bulk-select (ApiTrackerView). Keyed by track.id (Track has a string id;
+  // the numeric songId is derived when needed for playlist/remove ops). See
+  // the useMultiSelect() call further down (needs displayTracks, which isn't
+  // defined yet here) for selectMode/selectedTracks/toggleTrackSelect/
+  // exitSelectMode.
+  const [showBulkPlaylists, setShowBulkPlaylists] = useState(false)
+  const bulkPlBtnRef = useRef<HTMLButtonElement>(null)
+  const plBulkAddBtnRef = useRef<HTMLButtonElement>(null)
+  const plBulkAddBtnRef2 = useRef<HTMLButtonElement>(null)
+  const [bulkRemoving, setBulkRemoving] = useState(false)
+  const [localRenaming, setLocalRenaming] = useState(false)
+  const [localRenameVal, setLocalRenameVal] = useState('')
+  // The open-playlist hero's "⋯" menu (replaces the old cluster of loose
+  // action buttons next to Play/Shuffle).
+  const [showHeroMenu, setShowHeroMenu] = useState(false)
+  const heroMenuRef = useRef<HTMLDivElement>(null)
+  const heroBtnRef = useRef<HTMLButtonElement>(null)
+  const [libraryActionMenu, setLibraryActionMenu] = useState<'new' | null>(null)
+  const newBtnRef = useRef<HTMLButtonElement>(null)
+
+  // Drag-to-reorder
+  const [dragIdx, setDragIdx] = useState<number | null>(null)
+  const [dropIdx, setDropIdx] = useState<number | null>(null)
+
+  // Sort + search - sort itself comes from the store (see playlistsSort)
+  const [search, setSearch] = useState('')
+  const [searchOpen, setSearchOpen] = useState(false)
+  const searchInputRef = useRef<HTMLInputElement>(null)
+  const searchToggleRef = useRef<HTMLButtonElement>(null)
+
+  // Compact view - the normal list, but one row per SONG: every version of a
+  // song the playlist holds collapses into its first entry, and a song with
+  // other versions (in the playlist or not) gets an arrow that opens them
+  // underneath with prefer/exclude toggles. Shuffle in this view picks songs,
+  // not tracks (see playShuffle). Grouping is lib/compactGroups'
+  // groupPlaylistBySong.
+  const [compactView, setCompactView] = useState(false)
+  // Grid view - mutually exclusive with compact, so only one of the two
+  // non-default track layouts is ever active at once.
+  const [gridView, setGridView] = useState(false)
+  const [songUnits, setSongUnits] = useState<SongUnit<Track>[]>([])
+  const [loadingCompact, setLoadingCompact] = useState(false)
+  const { expanded: expandedGroups, toggle: toggleGroupExpanded, clear: clearExpandedGroups } = useExpandedGroups()
+  // Each playlist remembers its layout (list / grid / compact) across
+  // restarts. Device-local, keyed by which playlist is open.
+  const layoutKey = showLiked ? 'liked'
+    : selectedId != null ? `p:${selectedId}`
+    : localSelectedId != null ? `l:${localSelectedId}`
+    : null
+  const layoutKeyRef = useRef(layoutKey)
+  layoutKeyRef.current = layoutKey
+  useLayoutEffect(() => {
+    if (layoutKey == null) return
+    const mode = readPlaylistLayout(layoutKey)
+    setCompactView(mode === 'compact' && versionsEnabled)
+    setGridView(mode === 'grid')
+    clearExpandedGroups()
+  }, [layoutKey]) // eslint-disable-line react-hooks/exhaustive-deps
+  const setLayout = useCallback((mode: PlaylistLayout): void => {
+    setCompactView(mode === 'compact')
+    setGridView(mode === 'grid')
+    if (layoutKeyRef.current != null) writePlaylistLayout(layoutKeyRef.current, mode)
+  }, [])
+
+  // Zip / share / bulk-add
+  const [isSharedView, setIsSharedView] = useState(false)
+  const [importState, setImportState] = useState<'idle' | 'loading' | 'done' | 'error'>('idle')
+
+  const { detail, setDetail, loadingDetail, coverData, setCoverData, coverLoading, coverImgError, setCoverImgError, loadDetail } =
+    usePlaylistDetailData(selectedId, isSharedView)
+  const { shareCopied, togglingPublic, handleTogglePublic, handleShare } = usePlaylistSharing(selectedId, detail, setDetail)
+  const { zipState, handleZipDownload } = usePlaylistZipDownload()
+
+  // Cover upload
+  const coverInputRef = useRef<HTMLInputElement>(null)
+
+  // Async cover thumbnails for the grid (keyed by playlist id)
+  const [covers, setCovers] = useState<Record<number, string | null>>({})
+  const [mosaicImages, setMosaicImages] = useState<Record<number, string[]>>({})
+  const coversLoadedRef = useRef<Set<number>>(new Set())
+
+  const { coverUploading, handleCoverUpload, handleRemoveCover } =
+    usePlaylistCoverEditing(selectedId, refreshPlaylists, setCoverData, setCoverImgError, setCovers)
+
+  // Description editing
+  const [editingDesc, setEditingDesc] = useState(false)
+  const [descValue, setDescValue] = useState('')
+
+  // Playlist membership cache: playlistId → Set<songId>
+  const membershipCache = useRef<Map<number, Set<number>>>(new Map())
+
+  // ── Async cover loading for grid ─────────────────────────────────────────
+  useEffect(() => {
+    const unloaded = playlists.filter(p => !coversLoadedRef.current.has(p.id))
+    if (!unloaded.length) return
+    unloaded.forEach(p => coversLoadedRef.current.add(p.id))
+
+    const CONCURRENCY = 4
+    let idx = 0
+    const run = async (): Promise<void> => {
+      while (idx < unloaded.length) {
+        const p = unloaded[idx++]
+        await userApi.getPlaylistCover(p.id)
+          .then(c => {
+            const url = c.cover_image_url ?? c.cover_image ?? null
+            setCovers(prev => ({ ...prev, [p.id]: url }))
+            if (c.trackImages.length) setMosaicImages(prev => ({ ...prev, [p.id]: c.trackImages }))
+          })
+          .catch(() => setCovers(prev => ({ ...prev, [p.id]: null })))
+      }
+    }
+    const workers = Array.from({ length: Math.min(CONCURRENCY, unloaded.length) }, run)
+    Promise.all(workers).catch(() => undefined)
+  }, [playlists])
+
+  // ── Derived data - ALL hooks at top level, no conditionals ────────────────
+
+  const summary = useMemo(() => playlists.find(p => p.id === selectedId), [playlists, selectedId])
+  const tracks: Track[] = useMemo(
+    () => detail ? playlistItemsToTracks(detail.items) : [],
+    // songPrefs: liteSongToTrack reads the override synchronously, so a name or
+    // cover edit has to re-run this to show up without refetching the playlist.
+    // libraryTracks: local-file entries resolve against the scanned library.
+    [detail, songPrefs, libraryTracks]
+  )
+  // Track id → the entry it came from, for removing and reordering by entry.
+  const itemByTrackId = useMemo(
+    () => new Map(detail ? tracks.map((t, i) => [t.id, detail.items[i]] as const) : []),
+    [detail, tracks]
+  )
+  const otherPlaylists = useMemo(() => playlists.filter(p => p.id !== selectedId), [playlists, selectedId])
+  const isFollowingCurrent = useMemo(() => selectedId != null && followedPlaylists.some(f => f.id === selectedId), [followedPlaylists, selectedId])
+  const dragEnabled = sort.field === 'default' && !search.trim()
+
+
+  const displayTracks = useMemo(() => {
+    let result = tracks
+    if (search.trim()) {
+      const q = search.toLowerCase()
+      result = result.filter(t => t.title.toLowerCase().includes(q) || t.artist.toLowerCase().includes(q))
+    }
+    if (sort.field !== 'default') {
+      // Original playlist position, for the "#" column's own sort (and the
+      // tie-break below) - built from the unfiltered `tracks` order rather
+      // than `result`, since search may have already dropped entries.
+      const origIndex = sort.field === 'index' ? new Map(tracks.map((t, i) => [t, i])) : null
+      result = [...result].sort((a, b) => {
+        let cmp = 0
+        if (sort.field === 'index') cmp = (origIndex!.get(a) ?? 0) - (origIndex!.get(b) ?? 0)
+        else if (sort.field === 'title') cmp = a.title.localeCompare(b.title)
+        else if (sort.field === 'artist') cmp = a.artist.localeCompare(b.artist)
+        else if (sort.field === 'era') cmp = (a.era || '').localeCompare(b.era || '')
+        else if (sort.field === 'category') cmp = (CATEGORY_LABELS[a.genre] ?? (a.genre || '')).localeCompare(CATEGORY_LABELS[b.genre] ?? (b.genre || ''))
+        else if (sort.field === 'duration') cmp = (a.duration || 0) - (b.duration || 0)
+        return sort.dir === 'asc' ? cmp : -cmp
+      })
+    }
+    return result
+  }, [tracks, search, sort])
+
+  // Identity → original index, replacing the per-row tracks.indexOf() that
+  // made rendering the detail list O(n²). displayTracks elements are the same
+  // object references as tracks entries, so identity keys are safe.
+  const trackIndexOf = useMemo(() => new Map(tracks.map((t, i) => [t, i])), [tracks])
+
+  // ── Detail track-list virtualization ───────────────────────────────────────
+  // Large playlists rendered every row (each with decoded album art) at once.
+  // Element-state refs (not RefObjects) because the detail view mounts long
+  // after this component does - see useVirtualWindowEl.
+  const [listScrollEl, setListScrollEl] = useState<HTMLDivElement | null>(null)
+  const [listContentEl, setListContentEl] = useState<HTMLDivElement | null>(null)
+  // 56 = px-4 py-2 row wrapping 40px album art at normal scale. Multiplied by
+  // the app text-size setting so the virtualized rows (whose height and
+  // absolute offsets must be concrete px) grow with the rem-based covers/text
+  // inside them - otherwise larger scales clipped rows and shrank the covers.
+  const TRACK_ROW_H = Math.round(56 * appTextScale)
+  const { start: rowStart, end: rowEnd, totalHeight: rowsTotalHeight } =
+    // The range moves in 8-row steps (see useFixedWindow), so this whole view
+    // re-renders about once per 450px of scrolling instead of once per row.
+    useVirtualWindowEl(listScrollEl, listContentEl, displayTracks.length, TRACK_ROW_H, 8, 8)
+  // Rows cascade in on opening a playlist - each list/grid/compact container
+  // below carries the flag. Not while the view itself is swiping or fading in
+  // (arriving at Playlists with one open, or from the sidebar's playlist
+  // list): the whole page moves as one there, like the Tracker and Files.
+  const rowsCascade = useCascade(displayTracks.length > 0, `${selectedId}|${localSelectedId}|${showLiked}`, VIEW_ENTRANCE_MS)
+
+  // Compact view's rows: one per song, in whatever order (search + sort)
+  // displayTracks has, led by the song's first visible entry. A track the
+  // grouping hasn't caught up with yet (just added) shows as its own row.
+  const compactRows = useMemo(() => {
+    const unitOf = new Map<Track, SongUnit<Track>>()
+    for (const u of songUnits) for (const { item } of u.items) unitOf.set(item, u)
+    const seen = new Set<SongUnit<Track>>()
+    const rows: { lead: Track; unit: SongUnit<Track> }[] = []
+    for (const t of displayTracks) {
+      const unit = unitOf.get(t)
+      if (!unit) { rows.push({ lead: t, unit: { groupId: null, items: [{ item: t, meta: null }], versions: [] } }); continue }
+      if (seen.has(unit)) continue
+      seen.add(unit)
+      rows.push({ lead: t, unit })
+    }
+    return rows
+  }, [songUnits, displayTracks])
+  const compactLeads = useMemo(() => compactRows.map(r => r.lead), [compactRows])
+  // Compact rows are windowed like the list: mounting every song row at once
+  // froze the switch to Playlists for a second or more on big playlists. A
+  // row is one track high plus, while its group is open, the measured height
+  // of its version rows (one row's worth until measured).
+  const [compactContentEl, setCompactContentEl] = useState<HTMLDivElement | null>(null)
+  const [versionBlockHeights, setVersionBlockHeights] = useState<ReadonlyMap<number, number>>(() => new Map())
+  const setVersionBlockHeight = useCallback((groupId: number, h: number) => {
+    setVersionBlockHeights(prev => {
+      if (prev.get(groupId) === h) return prev
+      const next = new Map(prev)
+      next.set(groupId, h)
+      return next
+    })
+  }, [])
+  const compactOffsets = useMemo(() => {
+    const out = [0]
+    let y = 0
+    for (const { unit } of compactRows) {
+      y += TRACK_ROW_H
+      if (unit.versions.length > 1 && unit.groupId != null && expandedGroups.has(unit.groupId)) {
+        y += versionBlockHeights.get(unit.groupId) ?? TRACK_ROW_H
+      }
+      out.push(y)
+    }
+    return out
+  }, [compactRows, expandedGroups, versionBlockHeights, TRACK_ROW_H])
+  // Grid layout, windowed by grid row for the same reason.
+  const [trackGridWrapEl, setTrackGridWrapEl] = useState<HTMLDivElement | null>(null)
+  const [trackGridEl, setTrackGridEl] = useState<HTMLDivElement | null>(null)
+  const { cols: trackGridCols, stride: trackGridStride } = useGridMetrics(trackGridEl)
+  const trackGridRows = Math.ceil(displayTracks.length / trackGridCols)
+  const { start: gridRowStart, end: gridRowEnd, totalHeight: trackGridHeight } =
+    useVirtualWindowEl(gridView ? listScrollEl : null, trackGridWrapEl, trackGridRows, trackGridStride, 2, 2)
+  const compactTotalHeight = compactOffsets[compactOffsets.length - 1]
+  const { start: compactStart, end: compactEnd } =
+    useVariableVirtualWindow(compactView ? listScrollEl : null, compactContentEl, compactOffsets, compactTotalHeight)
+  // songId → this playlist's Track, for the expanded version rows.
+  const playlistTrackBySong = useMemo(
+    () => new Map(tracks.map(t => [userApi.trackIdToSongId(t.id) ?? -1, t])),
+    [tracks]
+  )
+
+  // ── Effects ────────────────────────────────────────────────────────────────
+
+  // Populate membership cache when a detail loads
+  useEffect(() => {
+    if (detail) {
+      membershipCache.current.set(detail.id, new Set(playlistSongIds(detail.items)))
+    }
+  }, [detail])
+
+  // Bumped by the invalidation subscriber below so an edit made elsewhere
+  // (e.g. Editor → Versions) shows up here immediately even while this view
+  // stays mounted and neither compactView nor tracks changes.
+  const [compactReloadToken, setCompactReloadToken] = useState(0)
+  const compactViewRef = useRef(compactView)
+  useEffect(() => { compactViewRef.current = compactView }, [compactView])
+  useEffect(() => {
+    return subscribeCompactGroupsInvalidation(() => {
+      if (compactViewRef.current) setCompactReloadToken(t => t + 1)
+    })
+  }, [])
+
+  useEffect(() => {
+    if (!compactView) { setSongUnits([]); return }
+    let cancelled = false
+    setLoadingCompact(true)
+    groupPlaylistBySong(tracks, t => userApi.trackIdToSongId(t.id) ?? -1).then(units => {
+      if (cancelled) return
+      setSongUnits(units)
+      setLoadingCompact(false)
+    }, () => {
+      // Rows fall back to one per track rather than "Loading…" for good.
+      if (cancelled) return
+      setSongUnits([])
+      setLoadingCompact(false)
+    })
+    return () => { cancelled = true }
+  }, [compactView, tracks, compactReloadToken])
+
+  // Load local library so playlist tracks resolve
+  useEffect(() => { loadLibrary() }, [])
+
+  // Listen for sidebar "Playlists" re-click → go back to library
+  useEffect(() => {
+    const h = () => { setSelectedId(null); setLocalSelectedId(null); setRenaming(false); setSearch(''); setSearchOpen(false); setSort({ field: 'default', dir: 'asc' }); setIsSharedView(false); setExpandedKey(null) }
+    window.addEventListener('playlists:back', h)
+    return () => window.removeEventListener('playlists:back', h)
+  }, [])
+
+  // Collapse the inline quick-view whenever a full playlist page opens (e.g.
+  // via the card's "⋯ → Open" menu) - otherwise it'd sit there stale under
+  // the grid the user just navigated away from.
+  useEffect(() => {
+    if (selectedId != null || localSelectedId != null) setExpandedKey(null)
+  }, [selectedId, localSelectedId])
+
+  // Load the quick-view panel's tracklist whenever it opens. API playlists
+  // render instantly from cache (see loadDetail's same pattern) then refresh
+  // in the background; local playlists resolve synchronously from the store.
+  // A layout effect so whatever's ready now (cache, local) lands before the
+  // first paint - otherwise a panel switched to another card painted the
+  // previous card's tracks for a frame.
+  useLayoutEffect(() => {
+    if (!expandedKey) { setExpandedTracks([]); return }
+    if (expandedKey === 'liked') {
+      // Same three sources LikedSongsView combines: API favorites (fetched
+      // fresh - likedTrackIds only carries local/file ids, not synced ones),
+      // scanned local-library likes, and liked API-browser files.
+      const localLiked = new Set(likedTrackIds)
+      const localTracks = libraryTracks.filter(t => localLiked.has(t.id)).map(libTrackToTrack)
+      const fileTracks = likedTrackIds
+        .map(id => { const ref = apiFileIdToRef(id); return ref ? apiFileRefToTrack(ref) : null })
+        .filter((t): t is Track => t != null)
+      if (!account) { setExpandedTracks([...localTracks, ...fileTracks]); setExpandedLoading(false); return undefined }
+      // Cached favorites first (refreshed below), never the previous panel's tracks.
+      const cachedFavs = userApi.peekFavorites()
+      setExpandedTracks(cachedFavs ? [...cachedFavs.map(f => userApi.liteSongToTrack(f.song)), ...localTracks, ...fileTracks] : [])
+      setExpandedLoading(true)
+      let cancelled = false
+      userApi.getFavorites().then(favs => {
+        if (cancelled) return
+        setExpandedTracks([...favs.map(f => userApi.liteSongToTrack(f.song)), ...localTracks, ...fileTracks])
+      }).catch(() => { if (!cancelled) setExpandedTracks([...localTracks, ...fileTracks]) })
+        .finally(() => { if (!cancelled) setExpandedLoading(false) })
+      return () => { cancelled = true }
+    }
+    const sep = expandedKey.indexOf(':')
+    const kind = expandedKey.slice(0, sep)
+    const idStr = expandedKey.slice(sep + 1)
+    if (kind === 'api') {
+      const id = Number(idStr)
+      const cached = userApi.peekPlaylistDetail(id)
+      if (cached) { setExpandedTracks(playlistItemsToTracks(cached.items)); setExpandedLoading(false) }
+      else { setExpandedTracks([]); setExpandedLoading(true) }
+      let cancelled = false
+      userApi.getPlaylist(id).then(d => {
+        if (cancelled) return
+        setExpandedTracks(playlistItemsToTracks(d.items))
+      }).catch(() => {}).finally(() => { if (!cancelled) setExpandedLoading(false) })
+      return () => { cancelled = true }
+    }
+    const lp = localPlaylists.find(p => p.id === idStr)
+    if (lp) {
+      // A map rather than a find() per track - big playlist x big library
+      // was a noticeable stall on the click.
+      const byId = new Map(libraryTracks.map(t => [t.id, t]))
+      setExpandedTracks(lp.trackIds.map(id => byId.get(id)).filter((t): t is LibraryTrack => !!t).map(libTrackToTrack))
+    } else setExpandedTracks([])
+    setExpandedLoading(false)
+    return undefined
+  }, [expandedKey, localPlaylists, libraryTracks, likedTrackIds, account])
+
+  // Autofocus the search input when it expands from the icon
+  useEffect(() => {
+    if (searchOpen) searchInputRef.current?.focus()
+  }, [searchOpen])
+
+  // Ctrl+F (focus-search) lands on this playlist's track search while one is
+  // open, expanding it from the icon if needed.
+  useEffect(() => {
+    const h = (e: Event): void => {
+      const input = searchInputRef.current
+      if (!input && !searchToggleRef.current) return
+      e.preventDefault()
+      if (input) { input.focus(); input.select() } else setSearchOpen(true)
+    }
+    window.addEventListener('app:focus-search', h)
+    return () => window.removeEventListener('app:focus-search', h)
+  }, [])
+
+  // Auto-open playlist from URL params (e.g. /playlists?id=123&view=shared)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const id = params.get('id')
+    const view = params.get('view')
+    if (id) { setSelectedId(Number(id)) }
+    if (view === 'shared') { setIsSharedView(true) }
+  }, [])
+
+  // Open a playlist requested from the sidebar's expandable playlist list.
+  // A store field (not the URL-param effect above) is needed here because it
+  // has to work even when this component is already mounted - the URL effect
+  // only runs once, on mount.
+  useEffect(() => {
+    if (pendingPlaylistId == null) return
+    setSelectedId(pendingPlaylistId)
+    setIsSharedView(false)
+    setPendingPlaylistId(null)
+  }, [pendingPlaylistId, setPendingPlaylistId])
+
+  useEffect(() => { if (selectedId != null) rememberRecentPlaylist(selectedId) }, [selectedId])
+
+  // Close menus on outside click
+  useEffect(() => {
+    if (!trackMenu) return
+    const h = () => { setTrackMenu(null) }
+    // Cleared too, or a menu reopened within the tick would leave this
+    // listener attached to close the next one.
+    const t = setTimeout(() => window.addEventListener('click', h), 0)
+    return () => { clearTimeout(t); window.removeEventListener('click', h) }
+  }, [trackMenu])
+
+
+  // Keep a followed playlist's cached display fields (the grid card's name/
+  // cover/track count) reasonably fresh. The detail view above already
+  // re-fetches live on every open - this just makes sure the summary shown
+  // before that fetch resolves next time isn't stuck on whatever it looked
+  // like the moment it was followed.
+  useEffect(() => {
+    if (!isSharedView || selectedId == null || !detail) return
+    if (!followedPlaylists.some(f => f.id === selectedId)) return
+    updateFollowedPlaylistMeta(selectedId, {
+      name: detail.name,
+      trackCount: detail.items.length,
+      coverUrl: coverData?.cover_image_url ?? coverData?.cover_image ?? null,
+    })
+  }, [isSharedView, selectedId, detail, coverData, followedPlaylists, updateFollowedPlaylistMeta])
+
+  // Reset sort/search/editing when switching playlists. The sort
+  // reset is skipped on the component's own first mount - this effect's
+  // dependency array fires then too, and since sort lives in the store (so
+  // it survives switching tabs and back, see playlistsSort), resetting it
+  // unconditionally here would wipe that persistence on every tab switch.
+  const mountedRef = useRef(false)
+  useEffect(() => {
+    if (mountedRef.current) setSort({ field: 'default', dir: 'asc' })
+    mountedRef.current = true
+    setSearch('')
+    setEditingDesc(false)
+    setDescValue('')
+    setCoverImgError(false)
+    exitSelectMode()
+    setShowHeroMenu(false)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedId])
+
+  // ── Handlers ───────────────────────────────────────────────────────────────
+
+  const createPlaylist = async () => {
+    const name = newName.trim(); if (!name) return
+    try { await userApi.createPlaylist(name); setNewName(''); setCreating(false); await refreshPlaylists() } catch {}
+  }
+
+  const deleteSelected = async () => {
+    if (selectedId == null) return
+    try { await userApi.deletePlaylist(selectedId); setSelectedId(null); await refreshPlaylists() } catch {}
+  }
+
+  const renameSelected = async () => {
+    if (selectedId == null) return
+    const name = renameValue.trim(); if (!name) return
+    try {
+      const u = await userApi.renamePlaylist(selectedId, name)
+      setDetail(u)
+      setRenaming(false)
+      await refreshPlaylists()
+    } catch {}
+  }
+
+  // Optimistic remove — no loading flash. By entry id, so files go too.
+  const removeTrack = useCallback(async (track: Track) => {
+    const item = itemByTrackId.get(track.id)
+    if (selectedId == null || !item) return
+    setDetail(prev => prev ? { ...prev, items: prev.items.filter(i => i.id !== item.id) } : null)
+    if (item.song) membershipCache.current.get(selectedId)?.delete(item.song.id)
+    try { await userApi.removePlaylistEntry(selectedId, item.id); await refreshPlaylists() }
+    catch { showAppToast("Couldn't remove the track"); await loadDetail(selectedId) }
+  }, [selectedId, itemByTrackId, loadDetail, refreshPlaylists])
+
+  // ── Multi-select bulk actions ─────────────────────────────────────────────
+  const {
+    selectMode, selected: selectedTracks, toggle: toggleTrackSelectRaw,
+    exitSelectMode, selectAll: selectAllTracks, clear: clearTrackSelection,
+  } = useMultiSelect<string, Track>({
+    onExit: () => setShowBulkPlaylists(false),
+    ctrlA: { getAll: () => new Map(displayTracks.map(t => [t.id, t])) },
+  })
+  const toggleTrackSelect = useCallback((track: Track) => toggleTrackSelectRaw(track.id, track), [toggleTrackSelectRaw])
+  // Shared across both track list layouts below (grid PlaylistCards handle
+  // their own hold internally; this instance backs the plain-div list rows).
+  const trackRowLongPress = useLongPress()
+
+  const selectedTrackList = useMemo(() => [...selectedTracks.values()], [selectedTracks])
+
+  const bulkAddToQueue = useCallback(() => {
+    selectedTrackList.filter(t => t.path).forEach(t => addToQueue(t))
+    exitSelectMode()
+  }, [selectedTrackList, addToQueue, exitSelectMode])
+
+  const bulkAddToPlaylist = useCallback(async (targetId: number) => {
+    if (!selectedTrackList.length) return
+    const ids = selectedTrackList
+      .map(t => (t.id ? userApi.trackIdToSongId(t.id) : null))
+      .filter((id): id is number => id != null && id > 0)
+    // Optimistic: mark membership and leave select mode now, add in the
+    // background, and drop whatever failed back out of the cache.
+    setShowBulkPlaylists(false)
+    const targetSet = membershipCache.current.get(targetId) ?? new Set<number>()
+    ids.forEach(id => targetSet.add(id))
+    membershipCache.current.set(targetId, targetSet)
+    exitSelectMode()
+    const failed = await addTracksInBackground(targetId, selectedTrackList)
+    failed.forEach(t => { const id = userApi.trackIdToSongId(t.id); if (id != null) membershipCache.current.get(targetId)?.delete(id) })
+  }, [selectedTrackList, exitSelectMode])
+
+  // "Edit" needs full song objects (producers, dates, lyrics, …), but a
+  // playlist's own items only carry the lite shape the list endpoint returns
+  // (title/artist/path - enough for a row, not enough for the editor). One
+  // batched /songs/?ids=... request resolves the whole selection instead of
+  // firing one /songs/{id}/ call per song.
+  const [bulkEditLoading, setBulkEditLoading] = useState(false)
+  const bulkEdit = useCallback(async () => {
+    const ids = selectedTrackList
+      .map(t => (t.id ? userApi.trackIdToSongId(t.id) : null))
+      .filter((id): id is number => id != null && id > 0)
+    if (!ids.length) return
+    setBulkEditLoading(true)
+    try {
+      const songs = await getSongsByIds(ids)
+      if (songs.length) openBulkEditor(songs)
+    } finally {
+      setBulkEditLoading(false)
+    }
+  }, [selectedTrackList, openBulkEditor])
+
+  // Remove every selected track in one pass, then refresh once (rather than
+  // per-track like removeTrack) - otherwise a large selection fires a refresh
+  // storm. Optimistically drops them from the open detail first.
+  const bulkRemove = useCallback(async () => {
+    if (selectedId == null) return
+    const items = selectedTrackList
+      .map(t => itemByTrackId.get(t.id))
+      .filter((it): it is NonNullable<typeof it> => it != null)
+    if (!items.length) return
+    setBulkRemoving(true)
+    const idSet = new Set(items.map(it => it.id))
+    setDetail(prev => prev ? { ...prev, items: prev.items.filter(i => !idSet.has(i.id)) } : null)
+    items.forEach(it => { if (it.song) membershipCache.current.get(selectedId)?.delete(it.song.id) })
+    try {
+      await Promise.all(items.map(it => userApi.removePlaylistEntry(selectedId, it.id)))
+      await refreshPlaylists()
+    } catch { showAppToast("Couldn't remove every track"); await loadDetail(selectedId) }
+    setBulkRemoving(false)
+    exitSelectMode()
+  }, [selectedId, selectedTrackList, itemByTrackId, refreshPlaylists, loadDetail, exitSelectMode])
+
+  // ── Multi-select of playlists (library grid) ──────────────────────────────
+  // "Select all" here varies per tab (local-only vs. local+api combined), so
+  // it isn't a single generic "everything visible" - those buttons keep their
+  // own setSelectedPlaylistKeys calls below rather than going through the
+  // hook's ctrlA/selectAll (which assumes one canonical "all").
+  const {
+    selectMode: plSelectMode, selected: selectedPlaylistKeys, setSelected: setSelectedPlaylistKeys,
+    toggle: togglePlKeyRaw, exitSelectMode: exitPlaylistSelectMode,
+  } = useMultiSelect<string>({ onExit: () => setShowPlBulkAddMenu(false) })
+  const togglePlaylistSelect = useCallback((key: string) => togglePlKeyRaw(key, key), [togglePlKeyRaw])
+  const keyMap = (keys: string[]): Map<string, string> => new Map(keys.map(k => [k, k]))
+
+  const { busy: bulkDeletingPlaylists, run: runBulkDeletePlaylists } = usePlaylistBulkDeletePlaylists(
+    refreshPlaylists, deleteLocalPlaylist, selectedId, setSelectedId, localSelectedId, setLocalSelectedId, exitPlaylistSelectMode,
+  )
+  const bulkDeletePlaylists = useCallback(() => runBulkDeletePlaylists([...selectedPlaylistKeys.keys()]), [runBulkDeletePlaylists, selectedPlaylistKeys])
+
+  // "Add to playlist" only makes sense when every selected playlist is the
+  // same kind, since a synced (api) target can't hold local-only tracks and
+  // vice versa. Mixed selections simply don't offer the action.
+  const selectedPlaylistKind = useMemo(() => {
+    const kinds = new Set([...selectedPlaylistKeys.keys()].map(k => k.split(':')[0]))
+    return kinds.size === 1 ? ([...kinds][0] as 'api' | 'local') : null
+  }, [selectedPlaylistKeys])
+
+  const { busy: bulkAddingPlaylists, run: runBulkAddPlaylistsTo } = usePlaylistBulkAddPlaylistsTo(
+    refreshPlaylists, localPlaylists, addToLocalPlaylist, exitPlaylistSelectMode,
+    useCallback(() => { setShowPlBulkAddMenu(false); setPlBulkMenu(null) }, []),
+  )
+  const bulkAddPlaylistsTo = useCallback(
+    (target: { kind: 'api'; id: number } | { kind: 'local'; id: string }) => runBulkAddPlaylistsTo([...selectedPlaylistKeys.keys()], target),
+    [runBulkAddPlaylistsTo, selectedPlaylistKeys],
+  )
+
+  const handleSort = (field: SortField) => {
+    if (sort.field === field) {
+      setSort(sort.dir === 'asc' ? { field, dir: 'desc' } : { field: 'default', dir: 'asc' })
+    } else {
+      setSort({ field, dir: 'asc' })
+    }
+  }
+
+  const handleDrop = useCallback(async (toIdx: number) => {
+    if (dragIdx === null || !detail || selectedId == null) return
+    const from = dragIdx
+    setDragIdx(null); setDropIdx(null)
+    if (from === toIdx) return
+    const newItems = [...detail.items]
+    const [removed] = newItems.splice(from, 1)
+    newItems.splice(toIdx, 0, removed)
+    setDetail({ ...detail, items: newItems })
+    try {
+      const updated = await userApi.reorderPlaylistItems(selectedId, newItems.map(it => it.id))
+      setDetail(updated)
+    } catch { showAppToast("Couldn't reorder the playlist"); await loadDetail(selectedId) }
+  }, [dragIdx, detail, selectedId, loadDetail])
+
+  // Global infoSongId (not local state) so the info panel survives switching
+  // to another tab, which unmounts this view. GlobalSongInfoHost does its own
+  // fetch by id, so no need to resolve the song here first.
+  const openSongInfo = useCallback((songId: number) => {
+    useStore.getState().setInfoSongId(songId)
+  }, [])
+
+  const saveDescription = useCallback(async () => {
+    if (!selectedId) return
+    setEditingDesc(false)
+    try {
+      const updated = await userApi.updatePlaylist(selectedId, { description: descValue })
+      setDetail(updated)
+      await refreshPlaylists()
+    } catch {}
+  }, [selectedId, descValue, refreshPlaylists])
+
+  const isMember = (playlistId: number, songId: number): boolean | null => {
+    const cache = membershipCache.current.get(playlistId)
+    if (!cache) return null
+    return cache.has(songId)
+  }
+
+  const handleExportJson = useCallback(() => {
+    if (!detail) return
+    const name = detail.name ?? summary?.name ?? 'playlist'
+    downloadBlob(JSON.stringify(playlistJsonPayload(detail), null, 2), 'application/json', `${name}.json`)
+  }, [detail, summary])
+
+  const handleExportM3u = useCallback(async () => {
+    if (!detail) return
+    const name = detail.name ?? summary?.name ?? 'playlist'
+    // A session not yet looked up only has its marker, which no player can open.
+    const resolved = await Promise.all(tracks.filter(isServerFileTrack).map(t =>
+      resolveTrackFile(t).then((f): Track => ({ ...t, path: f.path, streamUrl: f.url }), () => null)))
+    downloadBlob(playlistM3uContent(resolved.filter((t): t is Track => t != null)), 'audio/x-mpegurl', `${name}.m3u`)
+  }, [detail, summary, tracks])
+
+  // Optimistic like bulkAddToPlaylist: membership is marked up front and
+  // whatever fails comes back out once the background adds settle.
+  const handleAddAllTo = useCallback(async (targetId: number, srcDetail: PlaylistDetail) => {
+    const entries = copyableEntries(srcDetail)
+    const ids = entries.flatMap(e => ('song_id' in e ? [e.song_id] : []))
+    const targetSet = membershipCache.current.get(targetId) ?? new Set<number>()
+    ids.forEach(id => targetSet.add(id))
+    membershipCache.current.set(targetId, targetSet)
+    const failed = await addEntriesInBackground(targetId, entries)
+    failed.forEach(e => { if ('song_id' in e) membershipCache.current.get(targetId)?.delete(e.song_id) })
+  }, [])
+
+  const handleImportPlaylist = useCallback(async () => {
+    if (!detail) return
+    setImportState('loading')
+    try {
+      const entries = copyableEntries(detail)
+      const allowedIds = entries.flatMap(e => ('song_id' in e ? [e.song_id] : []))
+
+      // Request 1: create playlist with name + description + song_ids in one shot
+      const newPl = await userApi.createPlaylist(detail.name, {
+        description: detail.description,
+        song_ids: allowedIds,
+      })
+      // Files can't go through song_ids, so they follow one by one, after
+      // the songs.
+      for (const e of entries) {
+        if (!('song_id' in e)) await userApi.addPlaylistEntry(newPl.id, e).catch(() => undefined)
+      }
+
+      // Request 2 (optional): cover - use existing base64 directly, or fetch from URL
+      const b64 = coverData?.cover_image
+      const url = coverData?.cover_image_url
+      if (b64) {
+        await userApi.setPlaylistCoverBase64(newPl.id, b64)
+      } else if (url) {
+        try {
+          // Checks the status too, so an error page never becomes the cover.
+          const blob = await fetchImageBlob(url)
+          const file = new File([blob], 'cover.jpg', { type: blob.type || 'image/jpeg' })
+          await userApi.uploadPlaylistCover(newPl.id, file)
+        } catch { /* skip cover on CORS/network failure */ }
+      }
+
+      await refreshPlaylists()
+      setImportState('done')
+      setTimeout(() => setImportState('idle'), 2500)
+    } catch {
+      setImportState('error')
+      setTimeout(() => setImportState('idle'), 2500)
+    }
+  }, [detail, coverData, refreshPlaylists])
+
+  // ── Playlist card menu (shared by logged-in and logged-out views) ──────────
+
+  // A default name for a folder made straight from a "Move to folder → New
+  // folder" action, where there's no name field - unique so two quick creates
+  // don't collide. The user can rename via the folder's ⋯ menu.
+  const uniqueFolderName = (): string => {
+    const taken = new Set(playlistFolders.map(f => f.name.toLowerCase()))
+    if (!taken.has('new folder')) return 'New Folder'
+    let n = 2
+    while (taken.has(`new folder ${n}`)) n++
+    return `New Folder ${n}`
+  }
+
+  // The "Move to folder" second level, shared by the single-card menus and the
+  // bulk menu. `keys` is what gets filed.
+  const folderChildren = (keys: string[]): ContextMenuEntry[] => {
+    const currentFolderId = keys.length === 1 ? (folderOfPlaylist(playlistFolders, keys[0])?.id ?? null) : null
+    return [
+      ...playlistFolders.map((f): ContextMenuEntry => ({
+        icon: Folder,
+        label: f.name,
+        checked: currentFolderId === f.id,
+        onSelect: () => movePlaylistsToFolder(keys, f.id),
+      })),
+      !!currentFolderId && { icon: FolderMinus, label: 'Remove from folder', onSelect: () => movePlaylistsToFolder(keys, null) },
+      { icon: FolderPlus, label: 'New folder…', onSelect: () => createFolder(uniqueFolderName(), keys) },
+    ]
+  }
+
+  // The right-click/⋯ card menu. Defined before the early returns because the
+  // logged-out local-playlists view sets the same cardMenu state — previously
+  // nothing rendered it there, so the menu silently never appeared.
+  const renderCardMenu = (): React.ReactNode => {
+    if (!cardMenu) return null
+    const close = (): void => setCardMenu(null)
+    const startRename = (): void => setCardMenu(prev => prev ? { ...prev, renaming: true, renameVal: prev.playlist.name } : null)
+    const saveRename = async (): Promise<void> => {
+      const val = cardMenu.renameVal?.trim() || cardMenu.playlist.name
+      if (cardMenu.kind === 'local') {
+        renameLocalPlaylist(cardMenu.playlist.id, val)
+      } else {
+        try {
+          await userApi.renamePlaylist(cardMenu.playlist.id, val)
+          await refreshPlaylists()
+        } catch { showAppToast("Couldn't rename the playlist"); return }
+      }
+      close()
+    }
+    /* ── Inline rename input (shared by both kinds) ── */
+    const renameBody = (
+      <div className="px-3 py-2 flex gap-2" onClick={e => e.stopPropagation()}>
+        <input
+          autoFocus
+          value={cardMenu.renameVal ?? cardMenu.playlist.name}
+          onChange={e => setCardMenu(prev => prev ? { ...prev, renameVal: e.target.value } : null)}
+          onKeyDown={e => {
+            if (e.key === 'Enter') void saveRename()
+            else if (e.key === 'Escape') { e.stopPropagation(); setCardMenu(prev => prev ? { ...prev, renaming: false } : null) }
+          }}
+          className="flex-1 min-w-0 bg-surface-overlay rounded-lg px-2.5 py-1.5 text-sm text-text-primary focus:outline-none border border-[var(--border)]"
+        />
+        <button onClick={() => void saveRename()} className="px-2.5 py-1.5 rounded-lg bg-accent text-white text-xs font-medium">Save</button>
+      </div>
+    )
+
+    const local = cardMenu.kind === 'local'
+    const localPl = cardMenu.playlist as LocalPlaylist
+    // A map, not a find() per track: a big playlist against a big library stalled.
+    const localTracksOf = (pl: LocalPlaylist): LibraryTrack[] => {
+      const byId = new Map(libraryTracks.map(t => [t.id, t]))
+      return pl.trackIds.map(id => byId.get(id)).filter((t): t is LibraryTrack => !!t)
+    }
+    const apiPl = cardMenu.playlist as PlaylistSummary
+
+    const items: ContextMenuEntry[] = local
+      ? [
+        /* ── Local playlist menu ── */
+        { icon: Play, label: 'Open', onSelect: () => setLocalSelectedId(localPl.id) },
+        {
+          icon: Shuffle,
+          label: 'Play all',
+          onSelect: () => {
+            const q = localTracksOf(localPl).map(libTrackToTrack)
+            if (q.length) playCollection(q)
+          },
+        },
+        {
+          icon: ListEnd,
+          label: 'Add all to queue',
+          onSelect: () => {
+            localTracksOf(localPl).map(libTrackToTrack).forEach(t => addToQueue(t))
+          },
+        },
+        'divider',
+        { icon: Pencil, label: 'Rename', keepOpen: true, onSelect: startRename },
+        {
+          icon: FolderInput,
+          label: 'Add all to playlist',
+          childrenEmpty: 'No other playlists',
+          children: localPlaylists.filter(p => p.id !== localPl.id).map(p => ({
+            label: p.name,
+            onSelect: () => { const have = new Set(p.trackIds); localPl.trackIds.filter(id => !have.has(id)).forEach(id => addToLocalPlaylist(p.id, id)) },
+          })),
+        },
+        { icon: Folder, label: 'Move to folder', children: folderChildren([`local:${localPl.id}`]) },
+        'divider',
+        {
+          icon: Trash2,
+          label: 'Delete playlist',
+          danger: true,
+          onSelect: () => {
+            deleteLocalPlaylist(localPl.id)
+            if (localSelectedId === localPl.id) setLocalSelectedId(null)
+          },
+        },
+      ]
+      : [
+        /* ── API playlist menu ── */
+        { icon: Play, label: 'Open', onSelect: () => setSelectedId(apiPl.id) },
+        {
+          icon: Shuffle,
+          label: 'Play all',
+          onSelect: async () => {
+            try {
+              const d = await userApi.getPlaylist(apiPl.id)
+              const tracks = playlistItemsToTracks(d.items).filter(t => t.path)
+              if (tracks.length) playCollection(tracks)
+            } catch { showAppToast("Couldn't load the playlist") }
+          },
+        },
+        {
+          icon: ListEnd,
+          label: 'Add all to queue',
+          onSelect: async () => {
+            try {
+              const d = await userApi.getPlaylist(apiPl.id)
+              playlistItemsToTracks(d.items).filter(t => t.path).forEach(t => addToQueue(t))
+            } catch { showAppToast("Couldn't load the playlist") }
+          },
+        },
+        {
+          icon: Archive,
+          label: 'Download all',
+          onSelect: () => {
+            const { id, name } = apiPl
+            handleZipDownload(async () => playlistItemsToTracks((await userApi.getPlaylist(id)).items), name)
+          },
+        },
+        'divider',
+        {
+          icon: Link,
+          label: 'Copy share link',
+          onSelect: async () => {
+            if (!apiPl.is_public && apiPl.can_be_public === false) { showAppToast(PRIVATE_PLAYLIST_REASON); return }
+            try {
+              if (!apiPl.is_public) { await userApi.updatePlaylist(apiPl.id, { is_public: true }); await refreshPlaylists() }
+              await navigator.clipboard.writeText(`${shareOrigin()}/playlists?id=${apiPl.id}&view=shared`)
+            } catch {}
+          },
+        },
+        {
+          icon: apiPl.is_public ? Globe : Lock,
+          label: apiPl.is_public ? 'Make private' : 'Make public',
+          onSelect: () => { void setPlaylistPublic(apiPl.id, !apiPl.is_public) },
+        },
+        'divider',
+        { icon: Pencil, label: 'Rename', keepOpen: true, onSelect: startRename },
+        {
+          icon: FolderInput,
+          label: 'Add all to playlist',
+          childrenEmpty: 'No other playlists',
+          children: playlists.filter(p => p.id !== apiPl.id).map(p => ({
+            label: p.name,
+            onSelect: async () => {
+              await addPlaylistInBackground(apiPl.id, p.id)
+            },
+          })),
+        },
+        { icon: Folder, label: 'Move to folder', children: folderChildren([`api:${apiPl.id}`]) },
+        'divider',
+        {
+          icon: Trash2,
+          label: 'Delete playlist',
+          danger: true,
+          onSelect: async () => {
+            const id = apiPl.id
+            await userApi.deletePlaylist(id)
+            if (selectedId === id) setSelectedId(null)
+            await refreshPlaylists()
+          },
+        },
+      ]
+
+    return (
+      <ContextMenu
+        x={cardMenu.x}
+        y={cardMenu.y}
+        onClose={close}
+        className="min-w-[210px]"
+        body={cardMenu.renaming ? renameBody : undefined}
+        items={items}
+      />
+    )
+  }
+
+  // ── Playlist cards, folders & folder menu (shared by both library views) ──
+  // Defined before the early returns so the logged-out local-playlists view
+  // renders the same tiles, folder sections, and menus as the main library.
+
+  // Cover node for a card - the exact per-kind cover logic the grids used
+  // inline, pulled out so folder members render an identical tile.
+  const apiCoverNode = (p: PlaylistSummary): React.ReactNode => (
+    covers[p.id] === undefined ? <div className="w-full h-full bg-surface-raised animate-pulse" />
+      : covers[p.id] ? <img src={covers[p.id]!} alt={p.name} className="w-full h-full object-cover" onError={() => setCovers(prev => ({ ...prev, [p.id]: null }))} />
+        : (() => {
+          const imgs = mosaicImages[p.id] ?? []
+          if (imgs.length >= 4) return (
+            <div className="w-full h-full grid grid-cols-2" style={{ overflow: 'hidden', transform: 'translateZ(0)' }}>
+              {imgs.map((url, i) => <img key={i} src={smallCoverUrl(url)} alt="" className="w-full h-full object-cover" style={{ aspectRatio: '1' }} />)}
+            </div>
+          )
+          if (imgs.length > 0) return <img src={smallCoverUrl(imgs[0])} alt="" className="w-full h-full object-cover" />
+          return (
+            <div className="w-full h-full bg-gradient-to-br from-accent/40 to-accent/10 flex items-center justify-center">
+              <Music2 size={40} className="text-accent/50" />
+            </div>
+          )
+        })()
+  )
+
+  // Shared drag-source wiring for playlist cards - dropped onto a folder tile
+  // to move them in (see the folder tiles' onDrop in renderFoldersSection).
+  // Works from inside select mode now (rather than being disabled there) so
+  // a multi-selection can be dragged as a unit - dragging a card that's part
+  // of the current selection carries every selected card along with it;
+  // dragging an unselected one (select mode or not) moves just that card.
+  const dragSourceProps = (plKey: string): {
+    draggable: boolean
+    onDragStart: (e: React.DragEvent) => void
+    onDragEnd: () => void
+    isDragging: boolean
+  } => ({
+    draggable: true,
+    onDragStart: e => {
+      e.dataTransfer.effectAllowed = 'move'
+      setDraggedPlaylistKeys(plSelectMode && selectedPlaylistKeys.has(plKey) ? [...selectedPlaylistKeys.keys()] : [plKey])
+    },
+    onDragEnd: () => { setDraggedPlaylistKeys([]); setDropTargetFolderId(null); setDropTargetPlaylistKey(null) },
+    isDragging: draggedPlaylistKeys.includes(plKey),
+  })
+
+  // Dropping a dragged playlist card onto another (ungrouped) playlist card
+  // bundles both into a new folder - if the target is already in one, the
+  // dragged playlist(s) just join it instead of nesting folders.
+  const dropOntoPlaylistProps = (plKey: string): {
+    onDragOver: (e: React.DragEvent) => void
+    onDragLeave: () => void
+    onDrop: (e: React.DragEvent) => void
+    isDropTarget: boolean
+  } => ({
+    onDragOver: e => {
+      if (draggedPlaylistKeys.length === 0 || draggedPlaylistKeys.includes(plKey)) return
+      e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDropTargetPlaylistKey(plKey)
+    },
+    onDragLeave: () => setDropTargetPlaylistKey(prev => (prev === plKey ? null : prev)),
+    onDrop: e => {
+      e.preventDefault(); e.stopPropagation()
+      if (draggedPlaylistKeys.length > 0 && !draggedPlaylistKeys.includes(plKey)) {
+        const existingFolder = folderOfPlaylist(playlistFolders, plKey)
+        if (existingFolder) movePlaylistsToFolder(draggedPlaylistKeys, existingFolder.id)
+        else createFolder(uniqueFolderName(), [plKey, ...draggedPlaylistKeys])
+      }
+      setDraggedPlaylistKeys([]); setDropTargetFolderId(null); setDropTargetPlaylistKey(null)
+    },
+    isDropTarget: dropTargetPlaylistKey === plKey,
+  })
+
+  // Dropping a dragged folder member onto empty grid background (rather than
+  // onto a specific card or folder tile, both of which stopPropagation so
+  // this never double-fires) pulls it back out to ungrouped - the drag-out
+  // counterpart of dragging a playlist onto a folder tile to file it away.
+  // Harmless no-op if the dragged playlist(s) weren't in a folder already.
+  const gridBackgroundDropProps = {
+    onDragOver: (e: React.DragEvent): void => { if (draggedPlaylistKeys.length === 0) return; e.preventDefault(); e.dataTransfer.dropEffect = 'move' },
+    onDrop: (e: React.DragEvent): void => {
+      e.preventDefault()
+      if (draggedPlaylistKeys.length > 0) movePlaylistsToFolder(draggedPlaylistKeys, null)
+      setDraggedPlaylistKeys([]); setDropTargetFolderId(null); setDropTargetPlaylistKey(null)
+    },
+  }
+
+  const apiEntry = (p: PlaylistSummary, inFolder = false): GridEntry => {
+    const plKey = `api:${p.id}`
+    const plSelected = selectedPlaylistKeys.has(plKey)
+    const tile = (
+        <PlaylistCard
+          key={plKey}
+          name={p.name}
+          subtitle={`${p.track_count} ${p.track_count === 1 ? 'track' : 'tracks'}`}
+          cover={apiCoverNode(p)}
+          selected={plSelected || (!plSelectMode && expandedKey === plKey)}
+          selectMode={plSelectMode}
+          onClick={e => {
+            if (e.ctrlKey || e.metaKey) { togglePlaylistSelect(plKey); return }
+            if (plSelectMode) { togglePlaylistSelect(plKey); return }
+            handleCardClick(plKey, !inFolder, e.detail)
+          }}
+          onLongPress={() => togglePlaylistSelect(plKey)}
+          onDoubleClick={() => { if (!plSelectMode) setSelectedId(p.id) }}
+          onContextMenu={e => {
+            e.preventDefault(); e.stopPropagation()
+            if (plSelectMode) {
+              if (!plSelected) setSelectedPlaylistKeys(prev => prev.has(plKey) ? prev : new Map(prev).set(plKey, plKey))
+              setPlBulkMenu({ x: e.clientX, y: e.clientY })
+            } else {
+              setCardMenu({ kind: 'api', playlist: p, x: e.clientX, y: e.clientY })
+            }
+          }}
+          onMenuButton={e => setCardMenu({ kind: 'api', playlist: p, x: e.clientX, y: e.clientY })}
+          onPlay={async () => {
+            const d = await userApi.getPlaylist(p.id).catch(() => null)
+            if (!d) { showAppToast(`Couldn't load "${p.name}"`); return }
+            const trks = playlistItemsToTracks(d.items).filter(t => t.path)
+            if (trks.length) playCollection(trks)
+            else showAppToast(`Nothing in "${p.name}" can be played`, { tone: 'info' })
+          }}
+          {...dragSourceProps(plKey)}
+          {...(inFolder ? {} : dropOntoPlaylistProps(plKey))}
+        />
+    )
+    const pv = quickViewFor(plKey)
+    const panel = pv ? (
+        <PlaylistExpandPanel
+          key={`panel-${plKey}`}
+          name={p.name}
+          subtitle={`${p.track_count} ${p.track_count === 1 ? 'track' : 'tracks'}`}
+          cover={apiCoverNode(p)}
+          tracks={pv.tracks}
+          loading={pv.loading}
+          onClose={() => setExpandedKey(null)}
+          onPlayTrack={t => playTrack(t, pv.tracks)}
+          onTrackContextMenu={openTrackMenu}
+          onOpenFull={() => setSelectedId(p.id)}
+        />
+    ) : null
+    return { key: plKey, tile, panel, closing: pv?.closing }
+  }
+
+  const localEntry = (lp: LocalPlaylist, inFolder = false): GridEntry => {
+    const plKey = `local:${lp.id}`
+    const plSelected = selectedPlaylistKeys.has(plKey)
+    const localCover = lp.coverImage
+      ? <img src={lp.coverImage} alt="" className="w-full h-full object-cover" />
+      : <LocalPlaylistMosaic trackIds={lp.trackIds} className="w-full h-full" />
+    const tile = (
+        <PlaylistCard
+          key={plKey}
+          name={lp.name}
+          subtitle={`${lp.trackIds.length} ${lp.trackIds.length === 1 ? 'track' : 'tracks'}`}
+          cover={localCover}
+          badge={<span className="flex items-center gap-1 bg-black/60 text-white text-[10px] px-1.5 py-0.5 rounded-md"><HardDrive size={9} /> Local</span>}
+          selected={plSelected || (!plSelectMode && expandedKey === plKey)}
+          selectMode={plSelectMode}
+          onClick={e => {
+            if (e.ctrlKey || e.metaKey) { togglePlaylistSelect(plKey); return }
+            if (plSelectMode) { togglePlaylistSelect(plKey); return }
+            handleCardClick(plKey, !inFolder, e.detail)
+          }}
+          onLongPress={() => togglePlaylistSelect(plKey)}
+          onDoubleClick={() => { if (!plSelectMode) setLocalSelectedId(lp.id) }}
+          onContextMenu={e => {
+            e.preventDefault(); e.stopPropagation()
+            if (plSelectMode) {
+              if (!plSelected) setSelectedPlaylistKeys(prev => prev.has(plKey) ? prev : new Map(prev).set(plKey, plKey))
+              setPlBulkMenu({ x: e.clientX, y: e.clientY })
+            } else {
+              setCardMenu({ kind: 'local', playlist: lp, x: e.clientX, y: e.clientY })
+            }
+          }}
+          onMenuButton={e => setCardMenu({ kind: 'local', playlist: lp, x: e.clientX, y: e.clientY })}
+          onPlay={() => {
+            const byId = new Map(libraryTracks.map(t => [t.id, t]))
+            const qt = lp.trackIds.map(id => byId.get(id)).filter((t): t is LibraryTrack => !!t).map(libTrackToTrack)
+            if (qt.length) playCollection(qt)
+            else showAppToast(`Nothing in "${lp.name}" can be played`, { tone: 'info' })
+          }}
+          {...dragSourceProps(plKey)}
+          {...(inFolder ? {} : dropOntoPlaylistProps(plKey))}
+        />
+    )
+    const pv = quickViewFor(plKey)
+    const panel = pv ? (
+        <PlaylistExpandPanel
+          key={`panel-${plKey}`}
+          name={lp.name}
+          subtitle={`${lp.trackIds.length} ${lp.trackIds.length === 1 ? 'track' : 'tracks'}`}
+          cover={localCover}
+          tracks={pv.tracks}
+          loading={pv.loading}
+          onClose={() => setExpandedKey(null)}
+          onPlayTrack={t => playTrack(t, pv.tracks)}
+          onTrackContextMenu={openTrackMenu}
+          onOpenFull={() => setLocalSelectedId(lp.id)}
+        />
+    ) : null
+    return { key: plKey, tile, panel, closing: pv?.closing }
+  }
+
+  const openFollowedPlaylist = (id: number): void => { setSelectedId(id); setIsSharedView(true) }
+
+  const renderFollowedCard = (f: FollowedPlaylist): JSX.Element => (
+    <PlaylistCard
+      key={`followed-${f.id}`}
+      name={f.name}
+      subtitle={`${f.trackCount} ${f.trackCount === 1 ? 'track' : 'tracks'} · Following`}
+      cover={f.coverUrl ? (
+        <img src={f.coverUrl} alt="" className="w-full h-full object-cover" />
+      ) : (
+        <div className="w-full h-full bg-gradient-to-br from-accent/40 to-accent/10 flex items-center justify-center">
+          <Rss className="text-accent/50 w-1/3 h-1/3" />
+        </div>
+      )}
+      badge={<span className="flex items-center gap-1 bg-black/60 text-accent text-[10px] px-1.5 py-0.5 rounded-md"><Rss size={9} /> Following</span>}
+      selected={false}
+      selectMode={false}
+      onClick={() => openFollowedPlaylist(f.id)}
+      onContextMenu={e => { e.preventDefault(); e.stopPropagation(); unfollowPlaylist(f.id) }}
+      onMenuButton={() => unfollowPlaylist(f.id)}
+      onPlay={() => openFollowedPlaylist(f.id)}
+    />
+  )
+
+  // Folders group both kinds of playlist by their composite key. Resolve each
+  // folder's members against the currently-loaded playlists (a member whose
+  // playlist was deleted since simply drops out - see the prune-on-read note in
+  // lib/playlistFolders) and render them in the folder's own key order. Logged
+  // out, `playlists` is empty, so api: members drop out naturally and a folder
+  // shows just its device-local playlists - membership itself is unaffected.
+  const apiById = new Map(playlists.map(p => [p.id, p]))
+  const localById = new Map(localPlaylists.map(lp => [lp.id, lp]))
+  const folderMemberEntries = (f: PlaylistFolder): GridEntry[] => {
+    const out: GridEntry[] = []
+    for (const key of f.playlistKeys) {
+      const parsed = parsePlaylistKey(key)
+      if (!parsed) continue
+      if (parsed.kind === 'api') { const p = apiById.get(Number(parsed.id)); if (p) out.push(apiEntry(p, true)) }
+      else { const lp = localById.get(parsed.id); if (lp) out.push(localEntry(lp, true)) }
+    }
+    return out
+  }
+
+  const foldered = allFolderedKeys(playlistFolders)
+  const ungroupedApi = playlists.filter(p => !foldered.has(`api:${p.id}`))
+  const ungroupedLocal = localPlaylists.filter(lp => !foldered.has(`local:${lp.id}`))
+
+  /** A folder's cover - a 2x2 mosaic of up to its first 4 members' own cover
+   *  art, so a folder reads as "a playlist made of playlists" instead of a
+   *  plain icon. Falls back to a Folder icon tile when it has no resolvable
+   *  members yet.
+   *
+   *  Each quadrant is a single flat image rather than delegating to
+   *  apiCoverNode/LocalPlaylistMosaic - those fall back to a *nested* 2x2 of
+   *  a member's own top tracks when it has no cover image of its own, and a
+   *  grid-in-grid like that means two independently GPU-composited layers
+   *  (each promoted via its own translateZ(0)) stacked inside the card that
+   *  PlaylistCard applies a hover transform (`group-hover:-translate-y-1`)
+   *  to. The nested layer's bounds get reconciled against the newly
+   *  promoted ancestor layer the instant hover starts, which is what showed
+   *  up as the quadrants visibly separating for a frame before settling -
+   *  the exact flicker fixed on plain playlist covers by keeping their
+   *  mosaic to one level. Flattening folder quadrants to a single image
+   *  removes the nested layer entirely instead of trying to keep two levels
+   *  of compositing in sync. */
+  // Returns the member's flat cover image (or null if it resolves but has
+  // none), and undefined when the key doesn't resolve to a member at all -
+  // callers skip undefined so an unresolvable entry doesn't eat one of the
+  // folder's 4 slots.
+  const folderSlotImage = (key: string): string | null | undefined => {
+    const parsed = parsePlaylistKey(key)
+    if (!parsed) return undefined
+    if (parsed.kind === 'api') {
+      const p = apiById.get(Number(parsed.id))
+      if (!p) return undefined
+      const cover = covers[p.id]
+      if (cover) return cover
+      const imgs = mosaicImages[p.id]
+      return imgs?.[0] ? smallCoverUrl(imgs[0]) : null
+    }
+    const lp = localById.get(parsed.id)
+    if (!lp) return undefined
+    if (lp.coverImage) return lp.coverImage
+    return lp.trackIds.map(id => libraryArt[id]).find((a): a is string => !!a) ?? null
+  }
+
+  const folderCoverNode = (f: PlaylistFolder): React.ReactNode => {
+    const slots: React.ReactNode[] = []
+    for (const key of f.playlistKeys) {
+      if (slots.length >= 4) break
+      const img = folderSlotImage(key)
+      if (img === undefined) continue
+      slots.push(<FolderSlotImg key={key} src={img} />)
+    }
+    if (slots.length === 0) {
+      return (
+        <div className="w-full h-full bg-gradient-to-br from-accent/40 to-accent/10 flex items-center justify-center">
+          <Folder size={40} className="text-accent/50" />
+        </div>
+      )
+    }
+    if (slots.length === 1) return slots[0]
+    return (
+      <div className="w-full h-full grid grid-cols-2 grid-rows-2" style={{ overflow: 'hidden', transform: 'translateZ(0)' }}>
+        {slots}
+        {Array.from({ length: 4 - slots.length }).map((_, i) => <div key={`pad-${i}`} className="w-full h-full bg-surface-raised" />)}
+      </div>
+    )
+  }
+
+  // Opening a folder now expands it in place (accordion-style) instead of
+  // navigating to a separate page - clicking the open folder again collapses
+  // it. `playlistsOpenFolderId` still lives in the store so it survives the
+  // tab-unmount-on-switch behavior noted at its declaration.
+  // Closes any open playlist quick-view first - a folder tile and a playlist
+  // card can land in the same grid row, and a row can only have one full-width
+  // break point without disturbing its neighbors (see layoutGridEntries), so
+  // a folder panel and a playlist panel open at once would otherwise collide
+  // there and the second one would render stacked under the first instead of
+  // under its own row.
+  const openFolder = (id: string): void => {
+    setExpandedKey(null)
+    setPlaylistsOpenFolderId(playlistsOpenFolderId === id ? null : id)
+  }
+
+  /** Folder tiles - one PlaylistCard-styled tile per folder, meant to be
+   *  spread directly into the same grid as the playlists (not a separate
+   *  "Folders" section), so a folder sits right next to the playlists it
+   *  groups and behaves like any other tile (click opens it, drag a playlist
+   *  onto it to file it away). Clicking the open folder's tile expands a
+   *  panel of its member cards directly beneath it, spanning the full grid
+   *  row, rather than navigating away. `onlyWithMembers` hides folders whose
+   *  members can't be resolved in the current view - the logged-out library
+   *  passes true so folders holding only synced playlists (invisible without
+   *  an account) don't render as misleadingly "empty". Returns a GridEntry per
+   *  folder (tile + optional member-panel) for the caller to lay out
+   *  alongside the playlist tiles via layoutGridEntries; empty array when
+   *  there are no folders to show. */
+  const folderTileEntries = (onlyWithMembers: boolean): GridEntry[] => {
+    const entries = playlistFolders
+      .map(f => ({ f, memberEntries: folderMemberEntries(f) }))
+      .filter(({ memberEntries }) => !onlyWithMembers || memberEntries.length > 0)
+    return entries.map(({ f, memberEntries }) => {
+      const isOpen = playlistsOpenFolderId === f.id
+      const tile = (
+        <PlaylistCard
+          key={f.id}
+          name={f.name}
+          subtitle={`${memberEntries.length} ${memberEntries.length === 1 ? 'playlist' : 'playlists'}`}
+          cover={folderCoverNode(f)}
+          badge={<span className="flex items-center gap-1 bg-black/60 text-white text-[10px] px-1.5 py-0.5 rounded-md">{isOpen ? <FolderOpen size={9} /> : <Folder size={9} />} Folder</span>}
+          selected={isOpen}
+          selectMode={false}
+          onClick={() => openFolder(f.id)}
+          onContextMenu={e => { e.preventDefault(); e.stopPropagation(); setFolderMenu({ folder: f, x: e.clientX, y: e.clientY }) }}
+          onMenuButton={e => setFolderMenu({ folder: f, x: e.clientX, y: e.clientY })}
+          onPlay={() => openFolder(f.id)}
+          isDropTarget={dropTargetFolderId === f.id}
+          onDragOver={e => { if (draggedPlaylistKeys.length === 0) return; e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDropTargetFolderId(f.id) }}
+          onDragLeave={() => setDropTargetFolderId(prev => (prev === f.id ? null : prev))}
+          onDrop={e => {
+            e.preventDefault(); e.stopPropagation()
+            if (draggedPlaylistKeys.length > 0) movePlaylistsToFolder(draggedPlaylistKeys, f.id)
+            setDraggedPlaylistKeys([])
+            setDropTargetFolderId(null)
+          }}
+        />
+      )
+      // A closing folder keeps its panel for the collapse animation, but not
+      // the grid ref: its unmount would null the open folder's measurement.
+      const isClosing = !isOpen && closingFolder?.key === f.id
+      const panel = isOpen || isClosing ? (
+        <div
+          key={`panel-folder-${f.id}`}
+          className="relative rounded-2xl bg-surface-overlay border border-[var(--border)] p-4"
+          onClick={e => e.stopPropagation()}
+          // Dropping a member back onto its own folder's empty background
+          // (rather than dragging it out to the main grid) should leave it
+          // right where it is, not bubble up into the outer grid's drag-out
+          // handler.
+          onDragOver={e => { if (draggedPlaylistKeys.length > 0) { e.preventDefault(); e.stopPropagation() } }}
+          onDrop={e => { e.preventDefault(); e.stopPropagation() }}
+        >
+          {memberEntries.length === 0 ? (
+            <p className="text-text-muted text-sm py-1">This folder is empty. Drag a playlist onto it, or right-click one and choose “Move to folder”.</p>
+          ) : (
+            <div ref={isOpen ? setFolderGridEl : undefined} className="grid pl-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))' }}>
+              {layoutGridEntries(memberEntries, folderGridCols)}
+            </div>
+          )}
+        </div>
+      ) : null
+      return { key: f.id, tile, panel, closing: isClosing }
+    })
+  }
+
+  /** Folder context menu (right-click a folder header / its ⋯ button). */
+  const renderFolderMenu = (): React.ReactNode => {
+    if (!folderMenu) return null
+    const saveRename = (): void => { renameFolder(folderMenu.folder.id, folderMenu.renameVal ?? folderMenu.folder.name); setFolderMenu(null) }
+    const renameBody = (
+      <div className="px-3 py-2 flex gap-2">
+        <input
+          autoFocus
+          value={folderMenu.renameVal ?? folderMenu.folder.name}
+          onChange={e => setFolderMenu(prev => prev ? { ...prev, renameVal: e.target.value } : null)}
+          onKeyDown={e => {
+            if (e.key === 'Enter') saveRename()
+            else if (e.key === 'Escape') { e.stopPropagation(); setFolderMenu(prev => prev ? { ...prev, renaming: false } : null) }
+          }}
+          className="flex-1 min-w-0 bg-surface-overlay rounded-lg px-2.5 py-1.5 text-sm text-text-primary focus:outline-none border border-[var(--border)]"
+        />
+        <button onClick={saveRename} className="px-2.5 py-1.5 rounded-lg bg-accent text-white text-xs font-medium">Save</button>
+      </div>
+    )
+    return (
+      <ContextMenu
+        x={folderMenu.x}
+        y={folderMenu.y}
+        onClose={() => setFolderMenu(null)}
+        className="w-56"
+        body={folderMenu.renaming ? renameBody : undefined}
+        items={[
+          { icon: Pencil, label: 'Rename folder', keepOpen: true, onSelect: () => setFolderMenu(prev => prev ? { ...prev, renaming: true, renameVal: prev.folder.name } : null) },
+          'divider',
+          // Deleting a folder only ungroups its playlists — they return to
+          // the sections above, nothing is removed.
+          { icon: Trash2, label: 'Delete folder', danger: true, onSelect: () => deleteFolder(folderMenu.folder.id) },
+        ]}
+      />
+    )
+  }
+
+  // ── Liked Songs ────────────────────────────────────────────────────────────
+
+  if (showLiked) {
+    return (
+      <div className="flex-1 flex flex-col min-h-0">
+        <div className="px-5 pt-4 shrink-0">
+          <button onClick={() => setShowLiked(false)} className="flex items-center gap-1.5 text-text-muted hover:text-text-primary text-sm transition-colors">
+            <ArrowLeft size={15} /> Playlists
+          </button>
+        </div>
+        <LikedSongsView />
+      </div>
+    )
+  }
+
+  // ── Auth guard ─────────────────────────────────────────────────────────────────────────
+
+  if (!account) {
+    // show local playlists + login prompt even when not logged in
+    if (localSelectedId !== null) {
+      const localPl = localPlaylists.find(p => p.id === localSelectedId)
+      if (!localPl) { setLocalSelectedId(null); return <div /> }
+      const libById = new Map(libraryTracks.map(t => [t.id, t]))
+      const localTracks = localPl.trackIds.map(id => libById.get(id)).filter((t): t is LibraryTrack => !!t)
+      const localQTracks: Track[] = localTracks.map(libTrackToTrack)
+      const heroSrc = localPl.coverImage ?? localTracks.map(t => libraryArt[t.id]).find(a => !!a) ?? null
+      // Only actually dark (and so worth white text) with a backdrop AND a
+      // dark skin - Settings > Appearance can turn the backdrop off
+      // entirely, and a light skin's backdrop lightens instead (see
+      // HeroBackdrop), both of which want the normal dark-on-light text.
+      const heroLight = !!heroSrc && isDarkSkin && playlistHeroEnabled
+      return (
+        <div className={DETAIL_PAGE}>
+          <div className="relative overflow-hidden px-6 pb-6 shrink-0">
+            {playlistHeroEnabled && <HeroBackdrop src={heroSrc} isDarkSkin={isDarkSkin} />}
+            <div className="relative z-10 pt-5">
+              <button onClick={() => setLocalSelectedId(null)} className={`flex items-center gap-1.5 text-sm transition-colors ${heroLight ? 'text-white/60 hover:text-white' : 'text-text-muted hover:text-text-primary'}`}>
+                <ArrowLeft size={15} /> Playlists
+              </button>
+            </div>
+            <div className="relative z-10 flex gap-6 items-end pt-6">
+              <div className="shrink-0 rounded-2xl shadow-2xl overflow-hidden bg-[var(--fill)] flex items-center justify-center" style={{ width: 180, height: 180 }}>
+                {localPl.coverImage
+                  ? <img src={localPl.coverImage} alt="" className="w-full h-full object-cover" />
+                  : <LocalPlaylistMosaic trackIds={localPl.trackIds} className="w-full h-full" />
+                }
+              </div>
+              <div className="pb-2">
+                <p className={`text-[11px] font-semibold uppercase tracking-wider mb-1 ${heroLight ? 'text-white/60' : 'text-text-muted'}`}>Local Playlist</p>
+                <h1 className={`text-3xl font-black mb-1 ${heroLight ? 'text-white' : 'text-text-primary'}`}>{localPl.name}</h1>
+                <p className={`text-sm ${heroLight ? 'text-white/60' : 'text-text-muted'}`}>{localTracks.length} songs</p>
+              </div>
+            </div>
+            <div className="relative z-10 flex items-center gap-3 mt-5">
+              {localQTracks.length > 0 && <HeroPlayButton onClick={() => playCollection(localQTracks)} />}
+              {localQTracks.length > 1 && (
+                <HeroShuffleButton onClick={() => { void shufflePlay(localQTracks) }} />
+              )}
+            </div>
+          </div>
+          <div className="shrink-0 px-6 pb-2 grid items-center gap-3 text-text-muted text-xs uppercase tracking-widest" style={{ gridTemplateColumns: '1.75rem 2.5rem 1fr 3.5rem' }}>
+            <span className="text-center">#</span><span /><span>Title</span><div className="flex justify-center"><Clock size={12} /></div>
+          </div>
+          <div className={`${LIST_SCROLLER} px-2`} style={LIST_SCROLLER_STYLE}>
+            {localTracks.map((lt, i) => {
+              const qt = libTrackToTrack(lt)
+              return (
+                <div key={lt.id} className="group grid items-center gap-3 px-4 py-2 rounded-lg hover:bg-[var(--fill)] transition-colors cursor-default select-none"
+                  style={{ gridTemplateColumns: '1.75rem 2.5rem 1fr 3.5rem' }}
+                  onDoubleClick={() => playTrack(qt, localQTracks)}
+                >
+                  <span className="text-center text-xs text-text-muted tabular-nums group-hover:hidden">{i + 1}</span>
+                  <button className="hidden group-hover:flex items-center justify-center text-text-primary" onClick={() => playTrack(qt, localQTracks)}><Play size={14} fill="currentColor" /></button>
+                  <div className="w-10 h-10 rounded-md overflow-hidden shrink-0">
+                    <AlbumArtThumb track={lt} size={40} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-text-primary text-sm font-medium truncate" title={lt.title}>{lt.title}</p>
+                    <p className="text-text-muted text-xs truncate">{lt.artist || 'Unknown Artist'}{lt.album ? ` · ${lt.album}` : ''}</p>
+                  </div>
+                  <span className="text-text-muted text-xs tabular-nums text-center">
+                    {formatDuration(lt.duration, '--:--')}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )
+    }
+    return (
+      <div className="flex-1 flex flex-col min-h-0 overflow-y-auto overflow-x-hidden [scrollbar-gutter:stable] pb-player">
+        <div className="px-5 pt-5 pb-8">
+          <h1 className="text-text-primary text-3xl font-black tracking-tight">Your Library</h1>
+          <p className="text-text-muted text-sm mt-1 mb-7">Local playlists</p>
+          {localPlaylists.length === 0 ? (
+            <p className="text-text-muted text-sm">No local playlists yet. Add music to your library first.</p>
+          ) : (
+            <>
+              {/* Folders sit right in the same grid as the playlists they
+                  group, rather than a separate section. They work logged out
+                  too - membership is device-local (the API only ever stores
+                  synced-playlist ids) - folders holding only synced
+                  playlists are hidden here since their members can't render
+                  without an account. */}
+              {/* Inline margin: .pl-grid's own negative one would otherwise
+                  fight a utility class for margin-bottom. 1rem here + the last
+                  row's own 1rem = the 2rem (mb-8) this grid always had. */}
+              <div ref={setAuthGridEl} className="grid pl-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', '--pl-row-gap': '1rem', marginBottom: '1rem' } as React.CSSProperties} {...gridBackgroundDropProps}>
+                {layoutGridEntries([...folderTileEntries(true), ...ungroupedLocal.map(lp => localEntry(lp))], authGridCols)}
+              </div>
+            </>
+          )}
+          <div className="flex flex-col items-center text-center gap-3 py-6 px-4 mt-4 rounded-2xl glass-pane">
+            <p className="text-text-muted text-sm max-w-xs">Log in to create synced playlists and access your full library.</p>
+            <button onClick={() => setShowUserAuth(true)} className="h-10 px-5 rounded-full bg-accent text-black text-sm font-semibold hover:brightness-105 transition-[filter]">
+              Log in
+            </button>
+          </div>
+        </div>
+        {plSelectMode && (
+          <div className="sticky bottom-0 sticky-dock shrink-0 z-30 px-4 pb-3 pt-1 pointer-events-none" onClick={e => e.stopPropagation()}>
+          <div className="pointer-events-auto glass-thick glass-specular relative rounded-full pl-5 pr-2 py-2 flex items-center gap-1.5">
+            <span className="text-sm text-text-primary font-medium flex-1">
+              {selectedPlaylistKeys.size} {selectedPlaylistKeys.size === 1 ? 'playlist' : 'playlists'} selected
+            </span>
+            <button
+              onClick={() => setSelectedPlaylistKeys(keyMap(localPlaylists.map(lp => `local:${lp.id}`)))}
+              className={BAR_LINK}
+            >
+              Select all
+            </button>
+            <button
+              onClick={() => setSelectedPlaylistKeys(new Map())}
+              className={BAR_LINK}
+            >
+              Clear
+            </button>
+            {selectedPlaylistKind && (
+              <div className="relative">
+                <button
+                  ref={plBulkAddBtnRef}
+                  onClick={() => setShowPlBulkAddMenu(v => !v)}
+                  disabled={selectedPlaylistKeys.size === 0 || bulkAddingPlaylists}
+                  className={BAR_BTN}
+                >
+                  {bulkAddingPlaylists ? <Loader2 size={13} className="animate-spin" /> : <FolderInput size={13} />} Add to playlist
+                </button>
+                {showPlBulkAddMenu && (
+                  <AnchoredContextMenu
+                    anchorRef={plBulkAddBtnRef}
+                    title="Add to playlist"
+                    onClose={() => setShowPlBulkAddMenu(false)}
+                    className="w-56"
+                    items={(() => {
+                      const targets = localPlaylists.filter(lp => !selectedPlaylistKeys.has(`local:${lp.id}`))
+                      return targets.length === 0
+                        ? [{ label: 'No other playlists', disabled: true }]
+                        : targets.map(p => ({ icon: ListMusic, label: p.name, onSelect: () => bulkAddPlaylistsTo({ kind: 'local' as const, id: p.id }) }))
+                    })()}
+                  />
+                )}
+              </div>
+            )}
+            <button
+              onClick={bulkDeletePlaylists}
+              disabled={selectedPlaylistKeys.size === 0 || bulkDeletingPlaylists}
+              className={BAR_BTN_DANGER}
+            >
+              {bulkDeletingPlaylists ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />} Delete
+            </button>
+            <button
+              onClick={exitPlaylistSelectMode}
+              className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[var(--fill)] transition-colors"
+              title="Exit selection"
+            >
+              <X size={15} className="text-text-muted" />
+            </button>
+          </div>
+          </div>
+        )}
+        {plBulkMenu && (
+          <ContextMenu
+            x={plBulkMenu.x}
+            y={plBulkMenu.y}
+            title={`${selectedPlaylistKeys.size} ${selectedPlaylistKeys.size === 1 ? 'playlist' : 'playlists'} selected`}
+            onClose={() => setPlBulkMenu(null)}
+            className="min-w-[210px]"
+            items={[
+              { icon: CheckSquare2, label: 'Select all', onSelect: () => setSelectedPlaylistKeys(keyMap(localPlaylists.map(lp => `local:${lp.id}`))) },
+              selectedPlaylistKind === 'local' && {
+                icon: FolderInput,
+                label: 'Add to playlist',
+                childrenEmpty: 'No other playlists',
+                children: localPlaylists.filter(lp => !selectedPlaylistKeys.has(`local:${lp.id}`)).map(p => ({
+                  label: p.name,
+                  onSelect: () => bulkAddPlaylistsTo({ kind: 'local', id: p.id }),
+                })),
+              },
+              { icon: Trash2, label: 'Delete selected', danger: true, onSelect: () => bulkDeletePlaylists() },
+              'divider',
+              { icon: X, label: 'Exit selection', onSelect: () => exitPlaylistSelectMode() },
+            ]}
+          />
+        )}
+        {renderCardMenu()}
+        {renderFolderMenu()}
+        {trackMenu && (
+          <SongContextMenu
+            state={trackMenu}
+            onClose={() => setTrackMenu(null)}
+            canEdit={canEdit}
+            onInfo={() => trackMenu.songId != null && openSongInfo(trackMenu.songId)}
+            onPlay={() => playTrack(trackMenu.track, expandedTracks)}
+            onPlayNext={() => playNext(trackMenu.track)}
+            onAddToQueue={() => addToQueue(trackMenu.track)}
+            liked={likedTrackIds.includes(trackMenu.track.id)}
+            onToggleLike={() => toggleLike(trackMenu.track.id)}
+          />
+        )}
+      </div>
+    )
+  }
+
+  // ── Playlist detail ────────────────────────────────────────────────────────
+
+  if (selectedId != null) {
+    const durLabel = totalDurationLabel(tracks)
+    // Extra leading checkbox column while selecting. rem, not px, so the fixed
+    // columns (notably the album-art column) scale with the app text-size
+    // setting alongside the rem-sized covers and text - identical at scale 1.
+    const gridCols = selectMode
+      ? '1.25rem 1rem 1.75rem 2.5rem 1fr 6rem 5rem 3.5rem 2.25rem'
+      : '1rem 1.75rem 2.5rem 1fr 6rem 5rem 3.5rem 2.25rem'
+
+    // Compact view shuffles by SONG, not by track - each song one slot, its
+    // version picked by preference (see the store's shufflePlay /
+    // lib/versionPrefs' pickGroupVersion). In normal/grid view each row is
+    // still its own independent track.
+    const playShuffle = (): void => {
+      void shufflePlay(tracks, { bySong: compactView && versionsEnabled })
+    }
+
+    // Plays one of a compact row's versions, in place of that row's lead in
+    // the queue - so playing a version outside the playlist still continues
+    // into the rest of the list. The song pool keeps any later reshuffle of
+    // this queue per-song too.
+    const playCompactVersion = (track: Track, lead: Track): void => {
+      playTrack(track, compactLeads.map(t => (t === lead ? track : t)), null, null, { songPool: tracks })
+    }
+
+    // One track-list row - shared by the normal (windowed) list and compact
+    // view, so compact view's rows are the exact same markup. `queue` is what
+    // playing the row plays through; `expander` swaps the drag grip for the
+    // arrow that opens a song's versions (compact view only).
+    const renderTrackRow = (track: Track, displayIdx: number, { style, canDrag, queue, songPool, expander, compact }: {
+      style?: React.CSSProperties
+      /** Compact view: the row stands for the song, so drop the "(v5)" tag. */
+      compact?: boolean
+      canDrag: boolean
+      queue: Track[]
+      /** Compact view - see the store's queueSongPool. */
+      songPool?: Track[]
+      expander?: { expanded: boolean; count: number; onToggle: () => void }
+    }): JSX.Element => {
+      const originalIdx = trackIndexOf.get(track) ?? -1
+      const songId = track.id ? (userApi.trackIdToSongId(track.id) ?? -1) : -1
+      const isDragging = canDrag && dragIdx === originalIdx
+      const isDropTarget = canDrag && dropIdx === displayIdx && dragIdx !== null && dragIdx !== displayIdx
+      const isSelected = selectedTracks.has(track.id)
+
+      return (
+        <div
+          key={track.id}
+          draggable={!isSharedView && canDrag && !selectMode}
+          onDragStart={() => !isSharedView && canDrag && !selectMode && setDragIdx(originalIdx)}
+          onDragOver={e => { if (!canDrag || selectMode) return; e.preventDefault(); setDropIdx(displayIdx) }}
+          onDragEnd={() => { setDragIdx(null); setDropIdx(null) }}
+          onDrop={() => canDrag && !selectMode && handleDrop(displayIdx)}
+          onClick={e => { if (trackRowLongPress.consumeFired()) return; if (e.ctrlKey || e.metaKey || selectMode) toggleTrackSelect(track) }}
+          {...trackRowLongPress.bind(() => toggleTrackSelect(track))}
+          onContextMenu={e => { e.preventDefault(); e.stopPropagation(); setTrackMenu({ track, songId, x: e.clientX, y: e.clientY }) }}
+          className={`group grid items-center gap-3 px-4 py-2 rounded-lg transition-colors cursor-default select-none ${
+            isDragging ? 'opacity-40 bg-[var(--fill)]' : isDropTarget ? 'border-t-2 border-accent bg-[var(--fill)]' : isSelected ? 'bg-accent/15' : 'hover:bg-[var(--fill)]'
+          }`}
+          style={{ gridTemplateColumns: gridCols, height: TRACK_ROW_H, ...style }}
+        >
+          {selectMode && (
+            <span className="flex items-center justify-center shrink-0">
+              {isSelected ? <CheckSquare2 size={16} className="text-accent" /> : <Square size={16} className="text-text-muted opacity-50" />}
+            </span>
+          )}
+          {expander ? (
+            <button
+              onClick={e => { e.stopPropagation(); expander.onToggle() }}
+              onDoubleClick={e => e.stopPropagation()}
+              className={`flex items-center justify-center transition-colors ${expander.expanded ? 'text-text-primary' : 'text-text-muted hover:text-text-primary'}`}
+              title={`${expander.expanded ? 'Hide' : 'Show'} ${expander.count} versions`}
+              aria-expanded={expander.expanded}
+            >
+              <ChevronRight size={14} className={`transition-transform ${expander.expanded ? 'rotate-90' : ''}`} />
+            </button>
+          ) : (
+            <span className={`flex items-center justify-center text-text-muted ${!isSharedView && canDrag && !selectMode ? 'opacity-0 group-hover:opacity-100 cursor-grab active:cursor-grabbing' : 'opacity-0 pointer-events-none'}`}>
+              <GripVertical size={14} />
+            </span>
+          )}
+          <span className="text-center text-xs text-text-muted tabular-nums group-hover:hidden">{displayIdx + 1}</span>
+          <button className="hidden group-hover:flex items-center justify-center text-text-primary" onClick={e => { e.stopPropagation(); if (selectMode) toggleTrackSelect(track); else playTrack(track, queue, null, null, { songPool }) }}>
+            <Play size={14} fill="currentColor" />
+          </button>
+          <AlbumArtThumbnail track={track} size={40} className="rounded-md" shimmer={false} eager />
+          <div className="min-w-0" onDoubleClick={() => { if (!selectMode) playTrack(track, queue, null, null, { songPool }) }}>
+            <p className="text-text-primary text-sm font-medium truncate" title={track.title}>{compact ? baseTitle(track.title) : track.title}</p>
+            <p className="text-text-muted text-xs truncate flex items-center gap-1">
+              <span className="truncate">{track.artist}{track.album ? ` · ${track.album}` : ''}</span>
+            </p>
+          </div>
+          <span className="text-text-muted text-xs truncate" title={track.era || undefined}>{track.era ? eraLabel(track.era, fullEraNames) : '—'}</span>
+          <span
+            className={`text-xs px-1.5 py-0.5 rounded border text-center truncate ${CATEGORY_COLORS[track.genre] ?? 'text-text-muted bg-surface border-[var(--border)]'}`}
+          >
+            {CATEGORY_LABELS[track.genre] ?? (track.genre || '—')}
+          </span>
+          <span className="text-text-muted text-xs tabular-nums text-center">
+            {formatDuration(track.duration, '--:--')}
+          </span>
+          <div className={`flex items-center justify-end transition-opacity ${selectMode ? 'opacity-0 pointer-events-none' : 'opacity-0 group-hover:opacity-100'}`}>
+            <button onClick={e => { e.stopPropagation(); setTrackMenu({ track, songId, x: e.clientX, y: e.clientY }) }}
+              className="w-7 h-7 items-center justify-center text-text-muted hover:text-text-primary rounded-full hover:bg-[var(--fill-strong)] transition-colors hidden md:flex" title="More options">
+              <MoreHorizontal size={13} />
+            </button>
+          </div>
+        </div>
+      )
+    }
+
+    const heroSrc = playlistCoverUrl(coverData ?? {}) ?? tracks[0]?.imageUrl ?? null
+    // See heroLight elsewhere in this file - was fixed to a light palette
+    // regardless of app theme (the backdrop used to always be a dark
+    // blurred image, so theme-aware text would've flipped to unreadable
+    // dark-on-dark). Now the backdrop itself lightens on a light skin (see
+    // HeroBackdrop) and Settings > Appearance can turn it off entirely, so
+    // the text has to actually track both.
+    const heroLight = !!heroSrc && isDarkSkin && playlistHeroEnabled
+    return (
+      <div className={DETAIL_PAGE} onClick={() => { setTrackMenu(null); setShowHeroMenu(false) }}>
+        {/* ── Hero (shown immediately using summary data) — the backdrop now
+            extends behind the back button too, instead of leaving a plain
+            theme-background strip above the gradient. ── */}
+        <div className="relative overflow-hidden px-6 pb-3 shrink-0">
+          {playlistHeroEnabled && <HeroBackdrop src={heroSrc} isDarkSkin={isDarkSkin} />}
+
+          <div className="relative z-10 px-0 pt-5">
+            <button onClick={() => {
+              setSelectedId(null); setRenaming(false)
+              if (isSharedView) { setIsSharedView(false); window.history.pushState({}, '', '/playlists') }
+            }} className={`flex items-center gap-1.5 text-sm transition-colors ${heroLight ? 'text-white/60 hover:text-white' : 'text-text-muted hover:text-text-primary'}`}>
+              <ArrowLeft size={15} /> Playlists
+            </button>
+          </div>
+
+          {/* Hidden file input */}
+          <input
+            ref={coverInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={e => { const f = e.target.files?.[0]; if (f) handleCoverUpload(f); e.target.value = '' }}
+          />
+
+          <div className="relative z-10 flex gap-6 items-end pt-6">
+            {/* Cover image — clickable to upload (owner only) */}
+            <div className={`shrink-0 self-start group/cover relative rounded-2xl shadow-2xl overflow-hidden ${isSharedView ? "cursor-default" : "cursor-pointer"}`} style={{ width: 180, height: 180 }} onClick={() => !isSharedView && coverInputRef.current?.click()}>
+              {loadingDetail && tracks.length === 0 ? (
+                <div className="w-full h-full bg-[var(--fill)] animate-pulse" />
+              ) : coverLoading ? (
+                <div className="w-full h-full bg-[var(--fill)] flex items-center justify-center">
+                  <Loader2 size={28} className="text-text-muted opacity-50 animate-spin" />
+                </div>
+              ) : playlistCoverUrl(coverData ?? {}) && !coverImgError ? (
+                <img
+                  src={playlistCoverUrl(coverData ?? {})}
+                  alt=""
+                  className="w-full h-full object-cover"
+                  onError={() => setCoverImgError(true)}
+                />
+              ) : (
+                <PlaylistMosaic tracks={tracks} className="w-full h-full" />
+              )}
+              {/* Upload overlay (owner only) */}
+              <div className={`absolute inset-0 bg-black/50 transition-opacity flex flex-col items-center justify-center gap-2 ${isSharedView ? "opacity-0 pointer-events-none" : "opacity-0 group-hover/cover:opacity-100"}`}>
+                {coverUploading ? (
+                  <Loader2 size={24} className="text-white animate-spin" />
+                ) : (
+                  <>
+                    <Pencil size={24} className="text-white" />
+                    <span className="text-white text-xs font-medium">Change cover</span>
+                  </>
+                )}
+              </div>
+              {/* Remove cover button (owner only) */}
+              {!isSharedView && (coverData?.cover_image_url || coverData?.cover_image) && !coverImgError && (
+                <button
+                  className="absolute top-1.5 right-1.5 p-1 rounded-md bg-black/60 text-white opacity-0 group-hover/cover:opacity-100 transition-opacity hover:bg-red-500/80"
+                  onClick={e => { e.stopPropagation(); handleRemoveCover() }}
+                  title="Remove cover"
+                >
+                  <ImageOff size={12} />
+                </button>
+              )}
+            </div>
+
+            <div className="min-w-0 flex-1 pb-1">
+              <p className={`text-xs uppercase tracking-widest font-semibold mb-2 ${heroLight ? 'text-white/60' : 'text-text-muted'}`}>Playlist</p>
+              {renaming ? (
+                <div className="flex items-center gap-2 mb-3">
+                  <input value={renameValue} onChange={e => setRenameValue(e.target.value)} onKeyDown={e => e.key === 'Enter' && renameSelected()} autoFocus className={`border rounded-lg px-3 py-2 text-2xl font-black focus:outline-none focus:border-accent/50 w-full ${heroLight ? 'bg-black/30 border-white/20 text-white' : 'glass-field border-transparent text-text-primary'}`} />
+                  <button onClick={renameSelected} className="p-2 rounded-lg bg-accent/15 text-accent shrink-0"><Check size={16} /></button>
+                  <button onClick={() => setRenaming(false)} className={`p-2 rounded-lg shrink-0 ${heroLight ? 'text-white/60 hover:text-white' : 'text-text-muted hover:text-text-primary'}`}><X size={16} /></button>
+                </div>
+              ) : (
+                <h1 className={`text-3xl md:text-4xl font-black truncate mb-2 ${heroLight ? 'text-white' : 'text-text-primary'}`}>
+                  {detail?.name ?? summary?.name ?? <span className="bg-white/10 rounded animate-pulse text-transparent select-none">Loading…</span>}
+                </h1>
+              )}
+              <div className={`flex items-center gap-1.5 text-sm mb-2 ${heroLight ? 'text-white/60' : 'text-text-muted'}`}>
+                <span className={`font-medium ${heroLight ? 'text-white/85' : 'text-text-secondary'}`}>{account.discord_username}</span>
+                {!loadingDetail && (
+                  <>
+                    <span>·</span>
+                    <span>{tracks.length} {tracks.length === 1 ? 'track' : 'tracks'}</span>
+                    {durLabel && <><span>·</span><span className="flex items-center gap-1"><Clock size={12} />{durLabel}</span></>}
+                  </>
+                )}
+                {loadingDetail && <span className="ml-1 text-xs opacity-50">Loading…</span>}
+              </div>
+
+              {/* Description */}
+              {editingDesc ? (
+                <div className="flex items-start gap-2 mb-3">
+                  <textarea
+                    value={descValue}
+                    onChange={e => setDescValue(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveDescription() } if (e.key === 'Escape') setEditingDesc(false) }}
+                    autoFocus
+                    rows={2}
+                    placeholder="Add a description…"
+                    className={`flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent/50 resize-none ${heroLight ? 'bg-black/30 border-white/20 text-white placeholder:text-white/40' : 'glass-field border-transparent text-text-primary placeholder:text-text-muted'}`}
+                  />
+                  <div className="flex flex-col gap-1 shrink-0">
+                    <button onClick={saveDescription} title="Save description" className="p-1.5 rounded-lg bg-accent/15 text-accent"><Check size={14} /></button>
+                    <button onClick={() => setEditingDesc(false)} className={`p-1.5 rounded-lg ${heroLight ? 'text-white/60 hover:text-white' : 'text-text-muted hover:text-text-primary'}`}><X size={14} /></button>
+                  </div>
+                </div>
+              ) : isSharedView ? (
+                detail?.description ? (
+                  <p className={`text-sm line-clamp-2 mb-3 ${heroLight ? 'text-white/60' : 'text-text-muted'}`}>{detail.description}</p>
+                ) : null
+              ) : (
+                <button
+                  className="text-left mb-3 group/desc flex items-start gap-1.5"
+                  onClick={() => { setDescValue(detail?.description ?? ''); setEditingDesc(true) }}
+                >
+                  {detail?.description ? (
+                    <>
+                      <p className={`text-sm line-clamp-2 transition-colors ${heroLight ? 'text-white/60 group-hover/desc:text-white/80' : 'text-text-muted group-hover/desc:text-text-primary'}`}>{detail.description}</p>
+                      <Pencil size={11} className={`opacity-0 group-hover/desc:opacity-60 transition-opacity shrink-0 mt-1 ${heroLight ? 'text-white/60' : 'text-text-muted'}`} />
+                    </>
+                  ) : (
+                    <p className={`text-sm opacity-40 hover:opacity-70 transition-opacity italic ${heroLight ? 'text-white/60' : 'text-text-muted'}`}>+ Add description</p>
+                  )}
+                </button>
+              )}
+
+              {/* Action row */}
+              <div className="flex items-center gap-2 flex-wrap">
+                {tracks.length > 0 && <HeroPlayButton onClick={() => playCollection(tracks)} />}
+                {tracks.length > 1 && <HeroShuffleButton onClick={playShuffle} />}
+
+                {/* Shared (not-owned) playlists get two ways to keep this
+                    around: Follow (a live pointer - always shows the owner's
+                    current tracks, local to this device) or Save a copy (a
+                    one-time snapshot into an owned playlist, requires an
+                    account). Follow needs no account since it's purely local. */}
+                {isSharedView && tracks.length > 0 && detail && (
+                  <button
+                    onClick={() => {
+                      if (isFollowingCurrent) { unfollowPlaylist(detail.id); return }
+                      followPlaylist({
+                        id: detail.id,
+                        name: detail.name,
+                        trackCount: detail.items.length,
+                        coverUrl: coverData?.cover_image_url ?? coverData?.cover_image ?? null,
+                      })
+                    }}
+                    title={isFollowingCurrent ? 'Unfollow — stop showing this in your Playlists' : 'Follow — always shows the owner\'s current tracks, kept on this device only'}
+                    className={heroPill(isFollowingCurrent)}
+                  >
+                    {isFollowingCurrent ? <Check size={14} /> : <Rss size={14} />}
+                    {isFollowingCurrent ? 'Following' : 'Follow'}
+                  </button>
+                )}
+                {isSharedView && account && tracks.length > 0 && detail && (
+                  <button
+                    onClick={handleImportPlaylist}
+                    disabled={importState === 'loading' || importState === 'done'}
+                    title={importState === 'done' ? 'Saved to library!' : importState === 'error' ? 'Import failed' : 'Save a one-time copy to my library'}
+                    className={`${heroPill(importState === 'done')} ${importState === 'error' ? '!text-red-400' : ''}`}
+                  >
+                    {importState === 'loading' ? <Loader2 size={14} className="animate-spin" /> :
+                     importState === 'done' ? <Check size={14} /> :
+                     <FolderInput size={14} />}
+                    {importState === 'loading' ? 'Saving…' : importState === 'done' ? 'Saved!' : importState === 'error' ? 'Failed' : 'Save a copy'}
+                  </button>
+                )}
+
+                {/* Everything else (download, share, public/private, add-all,
+                    rename, delete) lives behind one "⋯" menu instead of a row
+                    of loose icon buttons. */}
+                {!isSharedView && detail && (
+                  <div className="relative" ref={heroMenuRef}>
+                    <button
+                      ref={heroBtnRef}
+                      onClick={e => { e.stopPropagation(); setShowHeroMenu(v => !v) }}
+                      title="More"
+                      className={`${HERO_ROUND} ${showHeroMenu ? 'is-on' : ''}`}
+                    >
+                      <MoreHorizontal size={18} />
+                    </button>
+                    {showHeroMenu && (() => {
+                      const r = heroBtnRef.current?.getBoundingClientRect()
+                      return (
+                        <ContextMenu
+                          x={r?.left ?? 0}
+                          y={(r?.bottom ?? 0) + 6}
+                          anchor={r ? { top: r.top, bottom: r.bottom } : undefined}
+                          ignoreRef={heroBtnRef}
+                          zIndex={61}
+                          className="w-[210px]"
+                          onClose={() => setShowHeroMenu(false)}
+                          items={[
+                            {
+                              icon: Archive,
+                              label: zipState === 'error' ? 'Download failed' : zipState === 'done' ? 'Download started' : 'Download all',
+                              loading: zipState === 'loading',
+                              disabled: zipState === 'loading' || tracks.length === 0,
+                              keepOpen: true,
+                              onSelect: () => { handleZipDownload(tracks, detail.name ?? summary?.name ?? 'playlist') },
+                            },
+                            {
+                              icon: Download,
+                              label: 'Export playlist',
+                              disabled: tracks.length === 0,
+                              children: [
+                                { label: 'As JSON', onSelect: () => handleExportJson() },
+                                { label: 'As M3U', onSelect: () => handleExportM3u() },
+                              ],
+                            },
+                            'divider',
+                            {
+                              icon: shareCopied ? Check : Link,
+                              label: shareCopied ? 'Link copied!' : 'Copy share link',
+                              disabled: tracks.length === 0,
+                              keepOpen: true,
+                              onSelect: () => { handleShare() },
+                            },
+                            {
+                              icon: detail.is_public ? Globe : Lock,
+                              label: detail.is_public ? 'Make private' : 'Make public',
+                              disabled: togglingPublic,
+                              keepOpen: true,
+                              onSelect: () => { handleTogglePublic() },
+                            },
+                            'divider',
+                            !renaming && { icon: Pencil, label: 'Rename', onSelect: () => { setRenameValue(detail.name); setRenaming(true) } },
+                            otherPlaylists.length > 0 && tracks.length > 0 && {
+                              icon: FolderInput,
+                              label: 'Add all to playlist',
+                              children: otherPlaylists.map(p => ({ label: p.name, onSelect: () => handleAddAllTo(p.id, detail) })),
+                            },
+                            'divider',
+                            { icon: Trash2, label: 'Delete playlist', danger: true, onSelect: () => deleteSelected() },
+                          ]}
+                        />
+                      )
+                    })()}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+
+        {/* ── Tracklist ── */}
+        {loadingDetail ? (
+          <div className="flex-1 min-h-0 overflow-hidden"><TrackSkeleton /></div>
+        ) : tracks.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-40 gap-2 text-center px-8">
+            <Music2 className="text-text-muted opacity-20" size={40} />
+            <p className="text-text-muted text-sm">This playlist is empty.</p>
+            <p className="text-text-muted text-xs">Add tracks from the Tracker or Liked Songs.</p>
+          </div>
+        ) : (
+          <>
+            {/* List header, fixed between the hero and the scrolling rows:
+                controls on one row, column labels on their own full-width row
+                beneath. The controls sit on the LEFT on purpose. Right-aligned
+                they'd land under the window buttons on short windows. Nothing
+                here may share the column row either: anything in that grid
+                steals width from the columns and knocks the duration header
+                out of line with the rows. px-6 lines the grid up with the
+                rows (scroller px-2 + row px-4). */}
+            <div className="shrink-0 px-6 pt-0 pb-2">
+              <div className="flex items-center gap-3 mb-2">
+                {searchOpen ? (
+                  <>
+                    <div className={`${GLASS_SEARCH_WRAP} w-64`}>
+                      <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" />
+                      <input
+                        ref={searchInputRef}
+                        value={search}
+                        onChange={e => setSearch(e.target.value)}
+                        onBlur={() => { if (!search) setSearchOpen(false) }}
+                        onKeyDown={e => { if (e.key === 'Escape') { setSearch(''); (e.target as HTMLInputElement).blur() } }}
+                        placeholder={`Search ${tracks.length} tracks…`}
+                        className={`${GLASS_SEARCH} pl-9 pr-9`}
+                      />
+                      <button
+                        onClick={() => { setSearch(''); setSearchOpen(false) }}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary"
+                        title="Close search"
+                      >
+                        <X size={13} />
+                      </button>
+                    </div>
+                    <SearchHelpButton
+                      size={15}
+                      className={glassToolButton}
+                    />
+                    <button
+                      onClick={() => { setSearch(''); setSearchOpen(false) }}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary"
+                      title="Close search"
+                    >
+                      <X size={13} />
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    ref={searchToggleRef}
+                    onClick={() => setSearchOpen(true)}
+                    className={glassToolButton(false)}
+                    title="Search tracks"
+                  >
+                    <Search size={15} />
+                  </button>
+                )}
+                <GlassSegmented
+                  ariaLabel="Layout"
+                  className="shrink-0"
+                  value={compactView ? 'compact' : gridView ? 'grid' : 'list'}
+                  onChange={(v) => { setLayout(v); if (v === 'compact') clearExpandedGroups() }}
+                  options={[
+                    { value: 'list', icon: <Rows3 size={15} />, title: 'List view' },
+                    { value: 'grid', icon: <LayoutGrid size={15} />, title: 'Grid view' },
+                    ...(versionsEnabled ? [{ value: 'compact' as const, icon: <Layers size={15} />, title: 'Compact view — one row per song, with its versions under an arrow' }] : []),
+                  ]}
+                />
+                {compactView && (
+                  <span className="text-text-secondary text-xs tabular-nums ml-1">
+                    {loadingCompact ? 'Loading…' : `${compactRows.length} song${compactRows.length === 1 ? '' : 's'}`}
+                  </span>
+                )}
+              </div>
+
+              {/* Always rendered (just hidden) rather than conditionally mounted -
+                  otherwise toggling to grid/compact view drops this row's height
+                  and the track list jumps up. Grid view's cards don't line up
+                  with this table layout at all, so it's hidden wholesale there.
+                  Compact view uses the same rows as the list, so every column
+                  (and its sort) stays live. */}
+              <div className={`grid items-center gap-3 border-b border-[var(--glass-rim)] pb-2 text-text-secondary text-xs font-medium ${gridView ? 'invisible' : ''}`} style={{ gridTemplateColumns: gridCols }}>
+                  {selectMode && (
+                    <button
+                      onClick={selectAllTracks}
+                      className="flex items-center justify-center text-text-muted hover:text-text-primary"
+                      title="Select all / none"
+                    >
+                      {displayTracks.length > 0 && displayTracks.every(t => selectedTracks.has(t.id))
+                        ? <CheckSquare2 size={15} className="text-accent" />
+                        : <Square size={15} className="opacity-50" />}
+                    </button>
+                  )}
+                  <span />
+                  <div className="flex justify-center">
+                    <SortHeader label="#" field="index" sort={sort} onSort={handleSort} />
+                  </div>
+                  <span />
+                  <span><SortHeader label="Title" field="title" sort={sort} onSort={handleSort} /></span>
+                  <span><SortHeader label="Era" field="era" sort={sort} onSort={handleSort} /></span>
+                  <span><SortHeader label="Category" field="category" sort={sort} onSort={handleSort} /></span>
+                  <div className="flex justify-center">
+                    <SortHeader label={<Clock size={12} className="inline" />} field="duration" sort={sort} onSort={handleSort} />
+                  </div>
+                  <span />
+                </div>
+            </div>
+
+            <div ref={setListScrollEl} className={LIST_SCROLLER} style={LIST_SCROLLER_STYLE}>
+            {compactView ? (
+              loadingCompact && songUnits.length === 0 ? (
+                <div className="flex items-center justify-center h-40 gap-2 text-text-muted">
+                  <Loader2 size={18} className="animate-spin" />
+                  <span className="text-sm">Loading versions…</span>
+                </div>
+              ) : compactRows.length === 0 ? (
+                <p className="text-text-muted text-sm text-center py-8">No tracks match "{search}"</p>
+              ) : (
+                <div ref={setCompactContentEl} className={rowsCascade ? 'rows-cascade' : undefined} style={{ height: compactTotalHeight, position: 'relative' }}>
+                  {compactRows.slice(compactStart, compactEnd).map(({ lead, unit }, sliceIdx) => {
+                    const idx = compactStart + sliceIdx
+                    const hasVersions = unit.versions.length > 1
+                    const open = hasVersions && expandedGroups.has(unit.groupId!)
+                    return (
+                      <div key={unit.groupId ?? lead.id} style={{ position: 'absolute', top: compactOffsets[idx], left: 0, right: 0 }}>
+                        {renderTrackRow(lead, idx, {
+                          canDrag: false,
+                          queue: compactLeads,
+                          songPool: tracks,
+                          compact: true,
+                          expander: hasVersions
+                            ? { expanded: open, count: unit.versions.length, onToggle: () => toggleGroupExpanded(unit.groupId!) }
+                            : undefined,
+                        })}
+                        {open && (
+                          <MeasuredBlock onHeight={h => setVersionBlockHeight(unit.groupId!, h)}>
+                            <CompactVersionRows
+                              versions={unit.versions}
+                              playlistTracks={playlistTrackBySong}
+                              layout="desktop"
+                              gridCols={gridCols}
+                              selectMode={selectMode}
+                              rowHeight={TRACK_ROW_H}
+                              onPlay={track => playCompactVersion(track, lead)}
+                              onMenu={(track, songId, e) => setTrackMenu({ track, songId, x: e.clientX, y: e.clientY })}
+                            />
+                          </MeasuredBlock>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )
+            ) : gridView ? (
+              displayTracks.length === 0 ? (
+                <p className="text-text-muted text-sm text-center py-8">No tracks match "{search}"</p>
+              ) : (
+                // 4px top inset, the old pt-1 (absolute children ignore padding).
+                <div ref={setTrackGridWrapEl} style={{ height: trackGridHeight + 4, position: 'relative' }}>
+                <div ref={setTrackGridEl} className={`grid gap-4 ${rowsCascade ? 'rows-cascade' : ''}`}
+                  style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(9.5rem, 1fr))', position: 'absolute', left: 0, right: 0, top: 4 + gridRowStart * trackGridStride }}>
+                  {/* Drag-to-reorder mirrors the list view: idx doubles as both
+                      the original playlist index and the displayTracks index
+                      because dragEnabled only allows dragging when there's no
+                      search/sort applied, so the two orders are identical.
+                      Only the visible grid rows are mounted. */}
+                  {displayTracks.slice(gridRowStart * trackGridCols, gridRowEnd * trackGridCols).map((track, sliceIdx) => {
+                    const idx = gridRowStart * trackGridCols + sliceIdx
+                    const songId = track.id ? (userApi.trackIdToSongId(track.id) ?? -1) : -1
+                    const isSelected = selectedTracks.has(track.id)
+                    const isDragging = dragEnabled && dragIdx === idx
+                    const isDropTarget = dragEnabled && dropIdx === idx && dragIdx !== null && dragIdx !== idx
+                    return (
+                      <div
+                        key={track.id}
+                        draggable={!isSharedView && dragEnabled && !selectMode}
+                        onDragStart={() => !isSharedView && dragEnabled && !selectMode && setDragIdx(idx)}
+                        onDragOver={e => { if (!dragEnabled || selectMode) return; e.preventDefault(); setDropIdx(idx) }}
+                        onDragEnd={() => { setDragIdx(null); setDropIdx(null) }}
+                        onDrop={() => dragEnabled && !selectMode && handleDrop(idx)}
+                        className={`rounded-2xl transition-opacity ${isDragging ? 'opacity-40' : ''} ${isDropTarget ? 'ring-2 ring-accent' : ''} ${!isSharedView && dragEnabled && !selectMode ? 'cursor-grab active:cursor-grabbing' : ''}`}
+                      >
+                        <PlaylistCard
+                          name={track.title}
+                          subtitle={track.artist}
+                          // Lazy: this grid isn't windowed, so eager would fetch every card's cover at once.
+                          cover={<AlbumArtThumbnail track={track} fill res={512} className="w-full h-full" shimmer={false} />}
+                          selected={isSelected}
+                          selectMode={selectMode}
+                          onClick={e => { if (e.ctrlKey || e.metaKey || selectMode) toggleTrackSelect(track) }}
+                          onLongPress={() => toggleTrackSelect(track)}
+                          onContextMenu={e => { e.preventDefault(); e.stopPropagation(); setTrackMenu({ track, songId, x: e.clientX, y: e.clientY }) }}
+                          onMenuButton={e => setTrackMenu({ track, songId, x: e.clientX, y: e.clientY })}
+                          onPlay={() => { if (selectMode) toggleTrackSelect(track); else playTrack(track, displayTracks) }}
+                        />
+                      </div>
+                    )
+                  })}
+                </div>
+                </div>
+              )
+            ) : (
+              <>
+            {displayTracks.length === 0 && (
+              <p className="text-text-muted text-sm text-center py-8">No tracks match "{search}"</p>
+            )}
+
+            {/* Windowed rows - absolutely positioned at displayIdx * TRACK_ROW_H
+                inside a container sized to the full list, so only the visible
+                slice is mounted (see useVirtualWindowEl). */}
+            <div ref={setListContentEl} className={rowsCascade ? 'rows-cascade' : undefined} style={{ height: rowsTotalHeight, position: 'relative' }}>
+            {displayTracks.slice(rowStart, rowEnd).map((track, sliceIdx) => {
+              const displayIdx = rowStart + sliceIdx
+              return renderTrackRow(track, displayIdx, {
+                style: { position: 'absolute', top: displayIdx * TRACK_ROW_H, left: 0, right: 0 },
+                canDrag: dragEnabled,
+                queue: displayTracks,
+              })
+            })}
+            </div>
+              </>
+            )}
+            </div>
+          </>
+        )}
+
+        {/* ── Track context menu ── */}
+        {trackMenu && (
+          <SongContextMenu
+            state={trackMenu}
+            onClose={() => setTrackMenu(null)}
+            canEdit={canEdit}
+            onInfo={() => openSongInfo(trackMenu.songId as number)}
+            onPlay={() => playTrack(trackMenu.track, displayTracks)}
+            onAddToQueue={() => addToQueue(trackMenu.track)}
+            onSelect={() => toggleTrackSelect(trackMenu.track)}
+            liked={likedTrackIds.includes(trackMenu.track.id)}
+            onToggleLike={() => toggleLike(trackMenu.track.id)}
+            removeAction={!isSharedView ? { label: 'Remove from playlist', onClick: () => removeTrack(trackMenu.track) } : undefined}
+          />
+        )}
+
+        {/* ── Bulk selection action bar ── (floats over the bottom of the
+            list; the page itself doesn't scroll) */}
+        {selectMode && (
+          <div className={SELECT_BAR_DOCK} onClick={e => e.stopPropagation()}>
+          <div className="pointer-events-auto glass-thick glass-specular relative rounded-full pl-5 pr-2 py-2 flex items-center gap-1.5">
+            <span className="text-sm text-text-primary font-medium flex-1">
+              {selectedTracks.size} {selectedTracks.size === 1 ? 'track' : 'tracks'} selected
+            </span>
+            <button
+              onClick={selectAllTracks}
+              className={BAR_LINK}
+            >
+              Select all
+            </button>
+            <button
+              onClick={clearTrackSelection}
+              className={BAR_LINK}
+            >
+              Clear
+            </button>
+            <button
+              onClick={bulkAddToQueue}
+              disabled={selectedTracks.size === 0}
+              className={BAR_BTN}
+            >
+              <ListPlus size={13} /> Add to queue
+            </button>
+            {otherPlaylists.length > 0 && (
+              <div className="relative">
+                <button
+                  ref={bulkPlBtnRef}
+                  onClick={() => setShowBulkPlaylists(v => !v)}
+                  disabled={selectedTracks.size === 0}
+                  className={BAR_BTN}
+                >
+                  <Plus size={13} /> Add to playlist
+                </button>
+                {showBulkPlaylists && (
+                  <AnchoredContextMenu
+                    anchorRef={bulkPlBtnRef}
+                    title="Add to playlist"
+                    onClose={() => setShowBulkPlaylists(false)}
+                    className="w-56"
+                    items={otherPlaylists.map(p => ({ icon: ListMusic, label: p.name, onSelect: () => bulkAddToPlaylist(p.id) }))}
+                  />
+                )}
+              </div>
+            )}
+            {canEdit && (
+              <button
+                onClick={bulkEdit}
+                disabled={selectedTracks.size === 0 || bulkEditLoading}
+                title="Edit fields across every selected song"
+                className={BAR_BTN}
+              >
+                {bulkEditLoading ? <Loader2 size={13} className="animate-spin" /> : <Pencil size={13} />} Edit
+              </button>
+            )}
+            {!isSharedView && (
+              <button
+                onClick={bulkRemove}
+                disabled={selectedTracks.size === 0 || bulkRemoving}
+                className={BAR_BTN_DANGER}
+              >
+                {bulkRemoving ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />} Remove
+              </button>
+            )}
+            <button
+              onClick={exitSelectMode}
+              className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[var(--fill)] transition-colors"
+              title="Exit selection"
+            >
+              <X size={15} className="text-text-muted" />
+            </button>
+          </div>
+          </div>
+        )}
+
+      </div>
+    )
+  }
+
+  // ── Local playlist detail ─────────────────────────────────────────────────
+
+  if (localSelectedId !== null) {
+    const localPl = localPlaylists.find(p => p.id === localSelectedId)
+    if (!localPl) { setLocalSelectedId(null); return <div /> }
+    const libById = new Map(libraryTracks.map(t => [t.id, t]))
+    const localTracks = localPl.trackIds.map(id => libById.get(id)).filter((t): t is LibraryTrack => !!t)
+    const localQTracks: Track[] = localTracks.map(libTrackToTrack)
+    const localDurLabel = totalDurationLabel(localQTracks)
+    const heroSrc = localPl.coverImage ?? localTracks.map(t => libraryArt[t.id]).find(a => !!a) ?? null
+    // See heroLight in the guest-local-playlist branch above - only actually
+    // dark with a backdrop AND a dark skin AND the setting on.
+    const heroLight = !!heroSrc && isDarkSkin && playlistHeroEnabled
+
+    return (
+      <div className={DETAIL_PAGE} onClick={() => setShowHeroMenu(false)}>
+        {/* Hero */}
+        <div className="relative overflow-hidden px-6 pb-6 shrink-0">
+          {playlistHeroEnabled && <HeroBackdrop src={heroSrc} isDarkSkin={isDarkSkin} />}
+          <div className="relative z-10 pt-5">
+            <button onClick={() => setLocalSelectedId(null)} className={`flex items-center gap-1.5 text-sm transition-colors ${heroLight ? 'text-white/60 hover:text-white' : 'text-text-muted hover:text-text-primary'}`}>
+              <ArrowLeft size={15} /> Playlists
+            </button>
+          </div>
+          <div className="relative z-10 flex gap-6 items-end pt-6">
+            <div
+              className="shrink-0 rounded-xl shadow-2xl overflow-hidden relative"
+              style={{ width: 180, height: 180 }}
+            >
+              {localPl.coverImage
+                ? <img src={localPl.coverImage} alt="" className="w-full h-full object-cover" />
+                : <LocalPlaylistMosaic trackIds={localPl.trackIds} className="w-full h-full" />
+              }
+            </div>
+            <div className="min-w-0 flex-1 pb-1">
+              <p className={`text-xs uppercase tracking-widest font-semibold mb-2 ${heroLight ? 'text-white/60' : 'text-text-muted'}`}>Local Playlist</p>
+              {localRenaming ? (
+                <div className="flex items-center gap-2 mb-3">
+                  <input value={localRenameVal} onChange={e => setLocalRenameVal(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') { renameLocalPlaylist(localPl.id, localRenameVal.trim() || localPl.name); setLocalRenaming(false) } }}
+                    autoFocus className={`border rounded-lg px-3 py-2 text-2xl font-black focus:outline-none focus:border-accent/50 w-full ${heroLight ? 'bg-black/30 border-white/20 text-white' : 'glass-field border-transparent text-text-primary'}`} />
+                  <button onClick={() => { renameLocalPlaylist(localPl.id, localRenameVal.trim() || localPl.name); setLocalRenaming(false) }} className="p-2 rounded-lg bg-accent/15 text-accent shrink-0"><Check size={16} /></button>
+                  <button onClick={() => setLocalRenaming(false)} className={`p-2 rounded-lg shrink-0 ${heroLight ? 'text-white/60 hover:text-white' : 'text-text-muted hover:text-text-primary'}`}><X size={16} /></button>
+                </div>
+              ) : (
+                <h1 className={`text-3xl md:text-4xl font-black truncate mb-2 ${heroLight ? 'text-white' : 'text-text-primary'}`}>{localPl.name}</h1>
+              )}
+              <div className={`flex items-center gap-1.5 text-sm mb-4 ${heroLight ? 'text-white/60' : 'text-text-muted'}`}>
+                <HardDrive size={12} className="shrink-0" />
+                <span>Local</span>
+                <span>·</span>
+                <span>{localTracks.length} {localTracks.length === 1 ? 'track' : 'tracks'}</span>
+                {localDurLabel && <><span>·</span><span className="flex items-center gap-1"><Clock size={12} />{localDurLabel}</span></>}
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                {localQTracks.length > 0 && <HeroPlayButton onClick={() => playCollection(localQTracks)} />}
+                {localQTracks.length > 1 && (
+                  <HeroShuffleButton onClick={() => { void shufflePlay(localQTracks) }} />
+                )}
+                {!localRenaming && (
+                  <button onClick={() => { setLocalRenameVal(localPl.name); setLocalRenaming(true) }} className={`p-2.5 rounded-full text-sm transition-colors ${heroLight ? 'text-white/60 hover:text-white hover:bg-white/10' : 'text-text-muted hover:text-text-primary hover:bg-surface-overlay'}`} title="Rename">
+                    <Pencil size={15} />
+                  </button>
+                )}
+                {localPl.coverImage && (
+                  <button onClick={() => updateLocalPlaylist(localPl.id, { coverImage: null })} className={`p-2.5 rounded-full text-sm transition-colors ${heroLight ? 'text-white/60 hover:text-white hover:bg-white/10' : 'text-text-muted hover:text-text-primary hover:bg-surface-overlay'}`} title="Remove custom cover">
+                    <ImageOff size={15} />
+                  </button>
+                )}
+                <button onClick={() => { deleteLocalPlaylist(localPl.id); setLocalSelectedId(null) }} className={`p-2.5 rounded-full text-sm transition-colors hover:text-red-400 hover:bg-red-500/10 ${heroLight ? 'text-white/60' : 'text-text-muted'}`} title="Delete playlist">
+                  <Trash2 size={15} />
+                </button>
+                {showHeroMenu && (() => {
+                  const r = heroBtnRef.current?.getBoundingClientRect()
+                  return (
+                    <ContextMenu
+                      x={r?.left ?? 0}
+                      y={(r?.bottom ?? 0) + 6}
+                      anchor={r ? { top: r.top, bottom: r.bottom } : undefined}
+                      ignoreRef={heroBtnRef}
+                      zIndex={61}
+                      className="w-[210px]"
+                      onClose={() => setShowHeroMenu(false)}
+                      items={[
+                        !localRenaming && { icon: Pencil, label: 'Rename', onSelect: () => { setLocalRenameVal(localPl.name); setLocalRenaming(true) } },
+                        !!localPl.coverImage && { icon: ImageOff, label: 'Remove custom cover', onSelect: () => updateLocalPlaylist(localPl.id, { coverImage: null }) },
+                        'divider',
+                        { icon: Trash2, label: 'Delete playlist', danger: true, onSelect: () => { deleteLocalPlaylist(localPl.id); setLocalSelectedId(null) } },
+                      ]}
+                    />
+                  )
+                })()}
+              </div>
+            </div>
+          </div>
+        </div>
+
+
+        {/* Track list */}
+        {localTracks.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-40 gap-2 text-center px-8">
+            <Music2 className="text-text-muted opacity-20" size={40} />
+            <p className="text-text-muted text-sm">This playlist is empty.</p>
+            <p className="text-text-muted text-xs">Add tracks from the Library tab.</p>
+          </div>
+        ) : (
+          <>
+          <div className="shrink-0 px-6 pb-2 grid items-center gap-3 text-text-muted text-xs uppercase tracking-widest" style={{ gridTemplateColumns: '1.75rem 2.5rem 1fr 3.5rem' }}>
+            <span>#</span>
+            <span />
+            <span>Title</span>
+            <div className="flex justify-center"><Clock size={12} /></div>
+          </div>
+          <div className={`${LIST_SCROLLER} px-2`} style={LIST_SCROLLER_STYLE}>
+            {localTracks.map((lt, i) => {
+              const qt = libTrackToTrack(lt)
+              return (
+                <div key={lt.id} className="group grid items-center gap-3 px-4 py-2 rounded-lg hover:bg-[var(--fill)] transition-colors cursor-default select-none"
+                  style={{ gridTemplateColumns: '1.75rem 2.5rem 1fr 3.5rem' }}
+                  onDoubleClick={() => playTrack(qt, localQTracks)}
+                >
+                  <span className="text-center text-xs text-text-muted tabular-nums group-hover:hidden">{i + 1}</span>
+                  <button className="hidden group-hover:flex items-center justify-center text-text-primary" onClick={() => playTrack(qt, localQTracks)}>
+                    <Play size={14} fill="currentColor" />
+                  </button>
+                  <div className="w-10 h-10 rounded-md overflow-hidden shrink-0">
+                    <AlbumArtThumb track={lt} size={40} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-text-primary text-sm font-medium truncate" title={lt.title}>{lt.title}</p>
+                    <p className="text-text-muted text-xs truncate">{lt.artist || 'Unknown Artist'}{lt.album ? ` · ${lt.album}` : ''}</p>
+                  </div>
+                  <span className="text-text-muted text-xs tabular-nums text-center">
+                    {formatDuration(lt.duration, '--:--')}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+          </>
+        )}
+      </div>
+    )
+  }
+
+  // ── Playlist library ───────────────────────────────────────────────────────
+
+  return (
+    <div className="flex-1 flex flex-col min-h-0 overflow-y-auto overflow-x-hidden [scrollbar-gutter:stable] pb-player" onClick={() => { setCardMenu(null); setFolderMenu(null) }}>
+      <div className="px-6 pt-6 pb-10">
+        <div className="flex items-center justify-between mb-7">
+          <div>
+            <h1 className="text-text-primary text-3xl font-black tracking-tight">Your Library</h1>
+            <p className="text-text-muted text-sm mt-1">Playlists and saved songs</p>
+          </div>
+          {!creating && !creatingFolder && (
+            <div className="flex items-center gap-2">
+              <button ref={newBtnRef} onClick={() => setLibraryActionMenu(v => v === 'new' ? null : 'new')} aria-haspopup="menu" aria-expanded={libraryActionMenu === 'new'} className="flex items-center gap-1.5 px-4 py-2.5 rounded-full bg-accent text-black text-sm font-semibold shadow-sm hover:shadow-md hover:brightness-105 active:scale-[0.97] transition-all">
+                <Plus size={16} strokeWidth={2.5} /> New
+              </button>
+              {libraryActionMenu === 'new' && (
+                <AnchoredContextMenu
+                  anchorRef={newBtnRef}
+                  title="New"
+                  onClose={() => setLibraryActionMenu(null)}
+                  className="w-48"
+                  items={[
+                    { icon: ListMusic, label: 'Playlist', onSelect: () => setCreating(true) },
+                    { icon: FolderPlus, label: 'Folder', onSelect: () => { setCreatingFolder(true); setNewFolderName('') } },
+                  ]}
+                />
+              )}
+            </div>
+          )}
+        </div>
+
+        {creating && (
+          <div className="flex items-center gap-2 mb-6 max-w-md">
+            <input value={newName} onChange={e => setNewName(e.target.value)} onKeyDown={e => e.key === 'Enter' && createPlaylist()} placeholder="Playlist name" autoFocus className={CREATE_FIELD} />
+            <button onClick={createPlaylist} className={CREATE_BTN}>Create</button>
+            <button onClick={() => { setCreating(false); setNewName('') }} title="Cancel" className={CREATE_CANCEL}><X size={16} /></button>
+          </div>
+        )}
+
+        {creatingFolder && (
+          <div className="flex items-center gap-2 mb-6 max-w-md">
+            <FolderPlus size={18} className="text-text-muted shrink-0" />
+            <input
+              value={newFolderName}
+              onChange={e => setNewFolderName(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && newFolderName.trim()) { const id = createFolder(newFolderName); if (id) { setExpandedKey(null); setPlaylistsOpenFolderId(id) }; setCreatingFolder(false); setNewFolderName('') }
+                else if (e.key === 'Escape') { setCreatingFolder(false); setNewFolderName('') }
+              }}
+              placeholder="Folder name"
+              autoFocus
+              className={CREATE_FIELD}
+            />
+            <button onClick={() => { const id = createFolder(newFolderName); if (id) { setExpandedKey(null); setPlaylistsOpenFolderId(id) }; setCreatingFolder(false); setNewFolderName('')}} className={CREATE_BTN}>Create</button>
+            <button onClick={() => { setCreatingFolder(false); setNewFolderName('') }} title="Cancel" className={CREATE_CANCEL}><X size={16} /></button>
+          </div>
+        )}
+
+        {/* ── Playlists section - folders sit right in the same grid as the
+            playlists they group, rather than a separate section above it. ── */}
+        <h2 className={SECTION_TITLE}>Playlists</h2>
+        <div ref={setMainGridEl} className="grid pl-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))' }} {...gridBackgroundDropProps}>
+          {layoutGridEntries([
+            {
+              key: 'liked',
+              tile: (
+                <button key="liked" onClick={e => handleCardClick('liked', true, e.detail)} onDoubleClick={() => setShowLiked(true)} className="group text-left cursor-pointer">
+                  <div className={`aspect-square rounded-2xl bg-gradient-to-br from-accent/60 to-accent/15 flex items-center justify-center mb-2.5 shadow-md group-hover:shadow-xl group-hover:-translate-y-1 transition-all duration-200 ${expandedKey === 'liked' ? 'ring-2 ring-accent' : ''}`}>
+                    <Heart size={44} className="text-accent" fill="currentColor" />
+                  </div>
+                  <p className="text-text-primary text-sm font-semibold truncate">Liked Songs</p>
+                  <p className="text-text-muted text-xs mt-0.5">{likedTrackIds.length} {likedTrackIds.length === 1 ? 'track' : 'tracks'}</p>
+                </button>
+              ),
+              ...(() => {
+                const pv = quickViewFor('liked')
+                return {
+                  closing: pv?.closing,
+                  panel: pv ? (
+                    <PlaylistExpandPanel
+                      key="panel-liked"
+                      name="Liked Songs"
+                      subtitle={`${pv.tracks.length} ${pv.tracks.length === 1 ? 'track' : 'tracks'}`}
+                      cover={<div className="w-full h-full bg-gradient-to-br from-accent/50 to-accent/10 flex items-center justify-center"><Heart size={28} className="text-accent" fill="currentColor" /></div>}
+                      tracks={pv.tracks}
+                      loading={pv.loading}
+                      onClose={() => setExpandedKey(null)}
+                      onPlayTrack={t => playTrack(t, pv.tracks)}
+                      onTrackContextMenu={openTrackMenu}
+                      onOpenFull={() => { setExpandedKey(null); setShowLiked(true) }}
+                    />
+                  ) : null,
+                }
+              })(),
+            },
+            ...folderTileEntries(false),
+            ...ungroupedApi.map(p => apiEntry(p)),
+          ], mainGridCols)}
+
+          {playlists.length === 0 && (
+            <p className="text-text-muted text-sm col-span-full py-2">No synced playlists yet - choose Playlist from the "New" menu to create one.</p>
+          )}
+        </div>
+
+        {/* ── Following section - other people's playlists followed from a
+            share link. Live pointers, not copies (see FollowedPlaylist);
+            right-click or the "⋯" button unfollows since there's nothing
+            else to do with one from here. ── */}
+        {followedPlaylists.length > 0 && (
+          <>
+            <h2 className={`${SECTION_TITLE} mt-10`}>Following</h2>
+            <div className="grid gap-x-4 gap-y-6" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))' }}>
+              {followedPlaylists.map(renderFollowedCard)}
+            </div>
+          </>
+        )}
+
+        {/* ── On This Device section - separated from synced playlists,
+            mirroring Apple Music's split between iCloud and local library. ── */}
+        {ungroupedLocal.length > 0 && (
+          <>
+            <h2 className={`${SECTION_TITLE} mt-10`}>On This Device</h2>
+            <div ref={setDeviceGridEl} className="grid pl-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))' }} {...gridBackgroundDropProps}>
+              {layoutGridEntries(ungroupedLocal.map(lp => localEntry(lp)), deviceGridCols)}
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Bulk playlist-selection action bar */}
+      {plSelectMode && (
+        <div className="sticky bottom-0 sticky-dock shrink-0 z-30 px-4 pb-3 pt-1 pointer-events-none" onClick={e => e.stopPropagation()}>
+        <div className="pointer-events-auto glass-thick glass-specular relative rounded-full pl-5 pr-2 py-2 flex items-center gap-1.5">
+          <span className="text-sm text-text-primary font-medium flex-1">
+            {selectedPlaylistKeys.size} {selectedPlaylistKeys.size === 1 ? 'playlist' : 'playlists'} selected
+          </span>
+          <button
+            onClick={() => setSelectedPlaylistKeys(keyMap([
+              ...playlists.map(p => `api:${p.id}`),
+              ...localPlaylists.map(lp => `local:${lp.id}`),
+            ]))}
+            className={BAR_LINK}
+          >
+            Select all
+          </button>
+          <button
+            onClick={() => setSelectedPlaylistKeys(new Map())}
+            className={BAR_LINK}
+          >
+            Clear
+          </button>
+          {selectedPlaylistKind && (
+            <div className="relative">
+              <button
+                ref={plBulkAddBtnRef2}
+                onClick={() => setShowPlBulkAddMenu(v => !v)}
+                disabled={selectedPlaylistKeys.size === 0 || bulkAddingPlaylists}
+                className={BAR_BTN}
+              >
+                {bulkAddingPlaylists ? <Loader2 size={13} className="animate-spin" /> : <FolderInput size={13} />} Add to playlist
+              </button>
+              {showPlBulkAddMenu && (
+                <AnchoredContextMenu
+                  anchorRef={plBulkAddBtnRef2}
+                  title="Add to playlist"
+                  onClose={() => setShowPlBulkAddMenu(false)}
+                  className="w-56"
+                  items={(() => {
+                    const targets = selectedPlaylistKind === 'api'
+                      ? playlists.filter(p => !selectedPlaylistKeys.has(`api:${p.id}`))
+                      : localPlaylists.filter(lp => !selectedPlaylistKeys.has(`local:${lp.id}`))
+                    return targets.length === 0
+                      ? [{ label: 'No other playlists', disabled: true }]
+                      : targets.map(p => ({
+                        icon: ListMusic,
+                        label: p.name,
+                        onSelect: () => bulkAddPlaylistsTo(selectedPlaylistKind === 'api' ? { kind: 'api' as const, id: p.id as number } : { kind: 'local' as const, id: p.id as string }),
+                      }))
+                  })()}
+                />
+              )}
+            </div>
+          )}
+          <button
+            onClick={bulkDeletePlaylists}
+            disabled={selectedPlaylistKeys.size === 0 || bulkDeletingPlaylists}
+            className={BAR_BTN_DANGER}
+          >
+            {bulkDeletingPlaylists ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />} Delete
+          </button>
+          <button
+            onClick={exitPlaylistSelectMode}
+            className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[var(--fill)] transition-colors"
+            title="Exit selection"
+          >
+            <X size={15} className="text-text-muted" />
+          </button>
+        </div>
+        </div>
+      )}
+
+      {/* Bulk context menu — shown when right-clicking a card during playlist multi-select */}
+      {plBulkMenu && (() => {
+        const targets = selectedPlaylistKind === 'api'
+          ? playlists.filter(p => !selectedPlaylistKeys.has(`api:${p.id}`))
+          : localPlaylists.filter(lp => !selectedPlaylistKeys.has(`local:${lp.id}`))
+        return (
+          <ContextMenu
+            x={plBulkMenu.x}
+            y={plBulkMenu.y}
+            title={`${selectedPlaylistKeys.size} ${selectedPlaylistKeys.size === 1 ? 'playlist' : 'playlists'} selected`}
+            onClose={() => setPlBulkMenu(null)}
+            className="min-w-[210px]"
+            items={[
+              {
+                icon: CheckSquare2,
+                label: 'Select all',
+                onSelect: () => setSelectedPlaylistKeys(keyMap([
+                  ...playlists.map(p => `api:${p.id}`),
+                  ...localPlaylists.map(lp => `local:${lp.id}`),
+                ])),
+              },
+              !!selectedPlaylistKind && {
+                icon: FolderInput,
+                label: 'Add to playlist',
+                childrenEmpty: 'No other playlists',
+                children: targets.map(p => ({
+                  label: p.name,
+                  onSelect: () => bulkAddPlaylistsTo(selectedPlaylistKind === 'api' ? { kind: 'api', id: p.id as number } : { kind: 'local', id: p.id as string }),
+                })),
+              },
+              selectedPlaylistKeys.size > 0 && {
+                icon: Folder,
+                label: 'Move to folder',
+                children: folderChildren([...selectedPlaylistKeys.keys()]),
+              },
+              { icon: Trash2, label: 'Delete selected', danger: true, onSelect: () => bulkDeletePlaylists() },
+              'divider',
+              { icon: X, label: 'Exit selection', onSelect: () => exitPlaylistSelectMode() },
+            ]}
+          />
+        )
+      })()}
+
+      {/* Unified playlist card context menu - portaled to <body> and
+          self-clamped (see ClampedMenu) so growing content like the "Add all
+          to playlist" submenu can't push it off-screen or get
+          clipped/mis-measured by an ancestor. */}
+      {renderCardMenu()}
+
+      {renderFolderMenu()}
+
+      {trackMenu && (
+        <SongContextMenu
+          state={trackMenu}
+          onClose={() => setTrackMenu(null)}
+          canEdit={canEdit}
+          onInfo={() => trackMenu.songId != null && openSongInfo(trackMenu.songId)}
+          onPlay={() => playTrack(trackMenu.track, expandedTracks)}
+          onPlayNext={() => playNext(trackMenu.track)}
+          onAddToQueue={() => addToQueue(trackMenu.track)}
+          liked={likedTrackIds.includes(trackMenu.track.id)}
+          onToggleLike={() => toggleLike(trackMenu.track.id)}
+        />
+      )}
+    </div>
+  )
+}

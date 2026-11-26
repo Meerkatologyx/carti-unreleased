@@ -1,0 +1,218 @@
+import { useRef, useState } from 'react'
+import { Loader2, Plus, X, Check, AlertCircle, ChevronDown, ChevronUp, Wand2 } from 'lucide-react'
+import { hasEraCoverFile, findEraCoverFile } from '../lib/eraCoverFiles'
+import { errorMessage } from '../lib/format'
+import { toSiteRelativeImageUrl } from '../lib/juicewrldApi'
+import FilePickerModal from './FilePickerModal'
+import { BasicRow, BasicSelect } from './EditorPage.desktop'
+import CopyFromSong from './CopyFromSong'
+import { useAddSongModal } from '../hooks/useAddSongModal'
+import { useEscapeToClose } from '../hooks/useEscapeToClose'
+
+const CATEGORIES = [
+  { value: 'released', label: 'Released' },
+  { value: 'unreleased', label: 'Unreleased' },
+  { value: 'unsurfaced', label: 'Unsurfaced' },
+  { value: 'recording_session', label: 'Session' },
+]
+
+// A small uppercase caption divider between field groups, matching the rest
+// of the profile's `text-[10px] font-bold uppercase tracking-widest
+// text-text-muted` convention instead of the plain blank space that used to
+// separate these groups.
+function SectionLabel({ children }: { children: string }): JSX.Element {
+  return <p className="text-footnote font-semibold text-text-secondary pt-3 pb-1 px-1">{children}</p>
+}
+
+export default function AddSongModal({ onClose, onSubmitted, channel }: {
+  onClose: () => void
+  onSubmitted: () => void
+  channel?: string
+}): JSX.Element {
+  const {
+    f, updateField, copiedFrom, setCopiedFrom,
+    pickingFile, setPickingFile, eras, submitState, submitError, edNotes, setEdNotes, copyFrom: copyFromSong, handleSubmit,
+  } = useAddSongModal(onSubmitted, onClose, channel)
+  const [showMore, setShowMore] = useState(false)
+  const copyFrom = (s: Parameters<typeof copyFromSong>[0]): void => { copyFromSong(s); setShowMore(true) }
+  const [coverBusy, setCoverBusy] = useState(false)
+  const [coverError, setCoverError] = useState<string | null>(null)
+  const [pickingImage, setPickingImage] = useState(false)
+  const era = eras.find(e => String(e.id) === f.eraId)
+  const eraHasCover = hasEraCoverFile(era?.name)
+  const fillEraCover = async (): Promise<void> => {
+    setCoverBusy(true); setCoverError(null)
+    try {
+      const path = await findEraCoverFile(era?.name)
+      if (path) updateField('imageUrl', path)
+      else setCoverError(`No cover found for ${era?.name}`)
+    } catch (err) {
+      setCoverError(errorMessage(err, 'Could not look up the era cover'))
+    } finally {
+      setCoverBusy(false)
+    }
+  }
+  const overlayRef = useRef<HTMLDivElement>(null)
+
+  useEscapeToClose(onClose)
+
+  return (
+    <div ref={overlayRef} className="fixed inset-0 z-50 flex items-end justify-center" onClick={e => { if (e.target === overlayRef.current) onClose() }}>
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="relative w-full max-w-2xl glass-thick rounded-t-[28px] animate-slide-up flex flex-col max-h-[88dvh]">
+        {/* Header */}
+        <div className="flex items-center gap-3 px-5 pt-5 pb-4 border-b border-[var(--separator)] shrink-0">
+          <div className="w-9 h-9 rounded-xl bg-accent/15 flex items-center justify-center shrink-0">
+            <Plus size={16} className="text-accent" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-headline text-text-primary">Propose new song</p>
+            <p className="text-footnote text-text-secondary mt-0.5">Admins review and add it to the database</p>
+          </div>
+          <button onClick={onClose} title="Close" className="w-[30px] h-[30px] flex items-center justify-center rounded-full bg-[var(--fill)] text-text-secondary active:bg-[var(--fill-strong)] transition-colors shrink-0">
+            <X size={15} />
+          </button>
+        </div>
+
+        {/* Scrollable fields - same flat layout as the editor's Basic view, so
+            creating a song and editing one look and behave alike. */}
+        <div className="flex-1 overflow-y-auto min-h-0 px-4 py-3 flex flex-col gap-1.5">
+          <CopyFromSong onCopy={copyFrom} copiedFrom={copiedFrom} onClear={() => setCopiedFrom(null)} variant="mobile" />
+
+          <BasicRow label="Name *" value={f.name} onChange={v => updateField('name', v)} placeholder="Song title" />
+          <div className="grid grid-cols-2 gap-1.5">
+            <BasicSelect
+              label="Era" value={f.eraId} original="" onChange={v => updateField('eraId', v)}
+              options={eras.map(e => ({ value: String(e.id), label: e.name }))}
+            />
+            <BasicSelect label="Category" value={f.cat} original="" onChange={v => updateField('cat', v)} options={CATEGORIES} />
+          </div>
+          <BasicRow label="Album" value={f.album} onChange={v => updateField('album', v)} placeholder="Album name" suggest="album" />
+          <BasicRow label="Alternate titles (one per line)" value={f.altNames} onChange={v => updateField('altNames', v)} rows={3} />
+          <BasicRow label="Credited artists" value={f.artists} onChange={v => updateField('artists', v)} placeholder="Playboi Carti ft. …" suggest="credited_artists" />
+
+          <button onClick={() => setShowMore(v => !v)}
+            className="flex items-center gap-1.5 self-start px-1 py-1.5 text-footnote font-semibold text-accent active:opacity-60 transition-opacity select-none">
+            {showMore ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
+            {showMore ? 'Fewer fields' : 'More fields'}
+          </button>
+
+          {showMore && (
+            <>
+              <SectionLabel>Credits & dates</SectionLabel>
+              <div className="grid grid-cols-2 gap-1.5">
+                <BasicRow label="Producers" value={f.prod} onChange={v => updateField('prod', v)} placeholder="Producer names" suggest="producers" />
+                <BasicRow label="Engineers" value={f.engineer} onChange={v => updateField('engineer', v)} placeholder="Engineer name" suggest="engineers" />
+              </div>
+              <BasicRow label="Recording locations" value={f.location} onChange={v => updateField('location', v)} rows={2} placeholder="Studio / city" suggest="recording_locations" />
+              <BasicRow label="Record dates" value={f.recDate} onChange={v => updateField('recDate', v)} rows={2} placeholder="YYYY-MM-DD" mono />
+              <div className="grid grid-cols-2 gap-1.5">
+                <BasicRow label="Length" value={f.songLength} onChange={v => updateField('songLength', v)} placeholder="3:59" mono />
+                <BasicRow label="BPM" value={f.bpm} onChange={v => updateField('bpm', v)} placeholder="140" mono />
+              </div>
+              <div className="grid grid-cols-2 gap-1.5">
+                <BasicRow label="Key" value={f.musicalKey} onChange={v => updateField('musicalKey', v)} placeholder="C# Minor" />
+                <BasicRow label="Bitrate" value={f.bitrate} onChange={v => updateField('bitrate', v)} rows={2} placeholder="Original File&#10;320kbps (.mp3)" mono />
+              </div>
+
+              <SectionLabel>Notes & files</SectionLabel>
+              <BasicRow label="Additional information" value={f.addInfo} onChange={v => updateField('addInfo', v)} rows={3} placeholder="Any other info…" />
+              <div className="grid grid-cols-2 gap-1.5">
+                <BasicRow label="File names" value={f.fileNames} onChange={v => updateField('fileNames', v)} rows={2} />
+                <BasicRow label="Instrumentals" value={f.instrumentals} onChange={v => updateField('instrumentals', v)} rows={2} placeholder="Instrumental versions available" />
+              </div>
+              <div className="grid grid-cols-2 gap-1.5">
+                <BasicRow label="Preview date" value={f.previewDate} onChange={v => updateField('previewDate', v)} placeholder="YYYY-MM-DD" mono />
+                <BasicRow label="Release date" value={f.relDate} onChange={v => updateField('relDate', v)} placeholder="YYYY-MM-DD" mono />
+              </div>
+              <div className="grid grid-cols-2 gap-1.5">
+                <BasicRow label="Instrumental names" value={f.instrumentalNames} onChange={v => updateField('instrumentalNames', v)} rows={2} />
+                <BasicRow label="Notes" value={f.notes} onChange={v => updateField('notes', v)} rows={2} placeholder="Internal notes…" />
+              </div>
+
+              <SectionLabel>Lyrics</SectionLabel>
+              <BasicRow label="Lyrics" value={f.lyrics} onChange={v => updateField('lyrics', v)} rows={8} placeholder="Plain lyrics…" />
+
+              <div className="rounded-xl border border-transparent bg-[var(--fill)] px-2.5 py-1.5">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-semibold tracking-wide text-text-muted leading-tight">Synced lyrics</span>
+                </div>
+                <textarea rows={6} value={f.syncedLyrics} onChange={e => updateField('syncedLyrics', e.target.value)} placeholder="[mm:ss.xx] line…"
+                    className="w-full bg-transparent border-0 p-0 mt-1 text-xs font-mono leading-snug text-text-primary focus:outline-none resize-y placeholder:text-text-muted placeholder:opacity-40" />
+              </div>
+
+              <SectionLabel>Leak & media</SectionLabel>
+              <div className="grid grid-cols-2 gap-1.5">
+                <BasicRow label="Date leaked" value={f.dateLeaked} onChange={v => updateField('dateLeaked', v)} placeholder="YYYY-MM-DD" mono />
+                <BasicRow label="Leak type" value={f.leakType} onChange={v => updateField('leakType', v)} placeholder="e.g. Stem, Master, Video…" suggest="leak_type" />
+              </div>
+              <div className="grid grid-cols-2 gap-1.5">
+                <BasicRow label="Image URL" value={f.imageUrl} onChange={v => updateField('imageUrl', v)} placeholder="https://…" mono
+                  onBrowse={() => setPickingImage(true)}
+                  trailing={
+                    <button
+                      type="button"
+                      onClick={e => { e.preventDefault(); void fillEraCover() }}
+                      disabled={!eraHasCover || coverBusy}
+                      title={!era ? 'Pick an era first' : eraHasCover ? `Use the ${era.name} cover from Cover Art / Unreleased Discography` : `No cover for ${era.name} in Unreleased Discography`}
+                      className="shrink-0 -my-0.5 flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold text-text-muted active:text-text-primary disabled:opacity-30 transition-colors"
+                    >
+                      {coverBusy ? <Loader2 size={11} className="animate-spin" /> : <Wand2 size={11} />}
+                      From era
+                    </button>
+                  } />
+                <BasicRow label="File path" value={f.filePath} onChange={v => updateField('filePath', v)} placeholder="Path to the audio file" mono onBrowse={() => setPickingFile(true)} />
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="shrink-0 border-t border-[var(--separator)] px-5 pt-3 space-y-3" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 0.75rem)' }}>
+          <input value={edNotes} onChange={e => setEdNotes(e.target.value)} placeholder="Editor notes (optional)…"
+            className="w-full bg-[var(--fill)] border border-transparent rounded-xl px-3.5 py-2.5 text-subhead text-text-primary placeholder:text-text-muted placeholder:opacity-30 focus:outline-none focus:border-accent/40 transition-colors" />
+          {(submitError || coverError) && (
+            <div className="flex items-center gap-2 text-red-500 text-footnote">
+              <AlertCircle size={12} className="shrink-0" /> {submitError || coverError}
+            </div>
+          )}
+          <button onClick={handleSubmit} disabled={!f.name.trim() || submitState === 'submitting' || submitState === 'submitted'}
+            className={`w-full h-12 rounded-full text-headline transition-[background-color,color,opacity] flex items-center justify-center gap-2 ${
+              submitState === 'submitted' ? 'bg-emerald-500/20 text-emerald-400' :
+              submitState === 'error'     ? 'bg-red-500/20 text-red-400' :
+              !f.name.trim()              ? 'bg-[var(--fill)] text-text-muted opacity-50 cursor-not-allowed' :
+              'bg-accent text-white active:opacity-80'
+            }`}>
+            {submitState === 'submitting' && <Loader2 size={14} className="animate-spin" />}
+            {submitState === 'submitted'  && <Check size={14} />}
+            {submitState === 'error'      && <AlertCircle size={14} />}
+            {submitState === 'idle'       && 'Submit proposal'}
+            {submitState === 'submitting' && 'Submitting…'}
+            {submitState === 'submitted'  && 'Submitted!'}
+            {submitState === 'error'      && 'Try again'}
+          </button>
+        </div>
+      </div>
+
+      {pickingFile && (
+        <FilePickerModal
+          kind="audio"
+          songTitle={f.name}
+          altTitles={f.altNames.split('\n').map(s => s.trim()).filter(Boolean)}
+          onSelect={p => { updateField('filePath', p); setPickingFile(false) }}
+          onClose={() => setPickingFile(false)}
+        />
+      )}
+
+      {pickingImage && (
+        <FilePickerModal
+          kind="image"
+          songTitle={f.name}
+          altTitles={f.altNames.split('\n').map(s => s.trim()).filter(Boolean)}
+          onSelect={p => { updateField('imageUrl', toSiteRelativeImageUrl(p)); setPickingImage(false) }}
+          onClose={() => setPickingImage(false)}
+        />
+      )}
+    </div>
+  )
+}

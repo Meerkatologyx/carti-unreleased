@@ -1,0 +1,2316 @@
+import { useEffect, useLayoutEffect, useRef, useState, memo, useCallback, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
+import {
+  Music, Radio, Search, SkipForward, ThumbsUp, ThumbsDown, X, ChevronDown, Play, Pause,
+  SkipBack, SkipForward as SkipFwd, Shuffle, Repeat, Repeat1, Volume, Volume2, VolumeX,
+  MoreHorizontal, Heart, ListMusic, Trash2, History, SlidersHorizontal,
+  Layers, Loader2, RefreshCw, Settings2, AlignLeft, AlignCenter, MicVocal, MessageCircle,
+} from 'lucide-react'
+import { lazyOverlay } from '../lib/lazyView'
+import { useStore, useStorePick } from '../store/useStore'
+import { useShallow } from 'zustand/react/shallow'
+import { getCurrentLineIndex, downloadSyncedLyrics, splitAdLibs, splitColorWords, ADLIB_OPACITY } from '../lib/lyrics'
+import { formatDuration } from '../lib/format'
+import { seekAudio, getAudioDuration, getAudioCurrentTime, runPlayerCommand, usePlayerLoading } from './Player'
+import { apiFetch, getSongsByIds, fullCoverUrl, smallCoverUrl } from '../lib/juicewrldApi'
+import { getActiveRadioClient } from '../lib/radioSocketService'
+import { EFFECTS_SUPPORTED, fxInUse } from '../lib/audioEffects'
+import { getVersionGroup } from '../lib/versionsApi'
+import type { JWApiSong } from '../lib/juicewrldApi'
+import type { SyncedLyricLine, Track } from '../types'
+import * as userApi from '../lib/userApi'
+import { useCanEdit } from '../hooks/useChannelRoles'
+import SongInfoModal from './SongInfoModal'
+import CoverEditor from './CoverEditor'
+import { AlbumArtThumbnail } from './AlbumArtThumbnail'
+import { FallbackImg, ProgressiveCover } from './ProgressiveCover'
+import { LikePop, SwapIcon, TrackSwap } from './PlayerMotion'
+import SongContextMenu from './SongContextMenu'
+import RadioChatPanel from './RadioChatPanel'
+import { getSkin } from '../lib/skins'
+import { IS_IOS } from '../lib/platform'
+import { Sheet, SheetItem, SheetDivider } from './mobile/Sheet'
+import { useDragReorder } from './mobile/useDragReorder'
+import { useLongPress } from './mobile/useLongPress'
+import { useBackToClose } from '../hooks/useBackToClose'
+import { useEscapeToClose } from '../hooks/useEscapeToClose'
+import { useDragToDismiss } from '../hooks/useDragToDismiss'
+import { useExitGhost } from '../hooks/useExitGhost'
+import { dimThemeColorMeta, syncThemeColorMeta } from '../lib/themeEffects'
+import {
+  useWrldArt, useArtTextContrast, useWrldLyricsSource, useWrldNowPlaying,
+  usePlayVersion, useRadioSuggest, useRadioVoteCountdown,
+} from '../hooks/useWrldCore'
+
+// Pulls in html-to-image for the export - only worth downloading once opened.
+const ShareLyricsModal = lazyOverlay(() => import('./ShareLyricsModal'))
+
+// Swipe-down release / chevron: how long WRLD takes to finish sliding
+// off-screen before it collapses (see useDragToDismiss's slideOutMs).
+const WRLD_SLIDE_OUT_MS = 380
+// Opening: the rise up from the mini bar.
+const WRLD_SLIDE_IN_MS = 420
+// LyricsScreen's close - the reverse of its .animate-sheet-in entrance.
+const LYRICS_SLIDE_OUT_MS = 300
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   WRLD - the full-screen player, and since the mini bar now expands into it,
+   the only "now playing" screen the app has.
+
+   Built for a phone rather than folded down from the desktop two-column layout
+   (big cover + lyrics side by side), which is gone: there is no room here to
+   show artwork and lyrics at once, and every affordance that layout leaned on
+   was pointer-only - a hover-revealed scrub knob, a version menu poking out of
+   the cover's left edge, drag-to-reorder in the queue, right-click to download
+   lyrics, an audio-output picker Android doesn't need.
+
+   What it is instead: one column - cover, title, seek, transport - with the
+   secondary surfaces (lyrics, queue, radio, versions) as chips under the
+   controls that open full-height sheets. Everything below the presentation
+   layer is unchanged: the FM socket, voting and song proposals, the version
+   lookup, the rAF-driven synced-lyrics engine and the queue store actions are
+   all the same code.
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+export default function WrldView(): JSX.Element {
+  const {
+    currentTrack, currentTrackFull, account, theme, previousView, setActiveView,
+    radioFmActive, setRadioFmActive, radioFmIsLive, radioFmNowPlaying,
+    radioFmVote, radioFmUpNext, radioFmQueuePreview,
+    radioFmMatchedSong,
+    playTrack, queueIndex,
+    isPlaying, setIsPlaying,
+    showQueue, setShowQueue,
+    toggleEqPanel, eqFxActive,
+  } = useStore(useShallow(s => ({
+    currentTrack: s.currentTrack,
+    currentTrackFull: s.currentTrackFull,
+    account: s.account,
+    theme: s.theme,
+    previousView: s.previousView,
+    setActiveView: s.setActiveView,
+    radioFmActive: s.radioFmActive,
+    setRadioFmActive: s.setRadioFmActive,
+    radioFmIsLive: s.radioFmIsLive,
+    radioFmNowPlaying: s.radioFmNowPlaying,
+    radioFmVote: s.radioFmVote,
+    radioFmUpNext: s.radioFmUpNext,
+    radioFmQueuePreview: s.radioFmQueuePreview,
+    radioFmMatchedSong: s.radioFmMatchedSong,
+    playTrack: s.playTrack,
+    queueIndex: s.queueIndex,
+    isPlaying: s.isPlaying,
+    setIsPlaying: s.setIsPlaying,
+    showQueue: s.showQueue,
+    setShowQueue: s.setShowQueue,
+    toggleEqPanel: s.toggleEqPanel,
+    // Same "anything non-neutral" indicator as the player bar's EQ button.
+    eqFxActive: s.playbackSpeed !== 1 || s.eqEnabled || (EFFECTS_SUPPORTED && (s.eqBalance !== 0 || s.eqMono || s.eqBoost !== 1 || s.skipSilence || s.reverbEnabled || fxInUse(s.audioFx, s.eqEnabled))),
+  })))
+
+  // Skins beyond the classic pair mean `theme === 'dark'` no longer covers
+  // "is this a dark look" - Ocean, Mocha, etc. need the dark treatment too.
+  const isDarkSkin = getSkin(theme).dark
+
+  const [sheet, setSheet] = useState<'radio' | 'versions' | null>(null)
+  // Which tab of the 999 FM sheet is showing. The Chat chip opens it straight on chat.
+  const [fmSheetTab, setFmSheetTab] = useState<'radio' | 'chat'>('radio')
+  const openFmSheet = (tab: 'radio' | 'chat'): void => { setFmSheetTab(tab); setSheet('radio') }
+  const [lyricsOpen, setLyricsOpen] = useState(false)
+  // Keep the queue sheet mounted after its first open instead of unmounting
+  // it on close - same reasoning as the app-wide QueuePanel in App.tsx:
+  // unmounting destroyed every cover <img>, so reopening the queue made them
+  // all reload/re-decode from scratch instead of just reappearing.
+  const [queueEverOpened, setQueueEverOpened] = useState(showQueue)
+  useEffect(() => { if (showQueue) setQueueEverOpened(true) }, [showQueue])
+
+  // iOS's installed-PWA safe-area sliver at the very top of the screen isn't
+  // always actually covered by .app-shell - see the html.wrld-active rule in
+  // index.css for the full story. Toggled here (not derived from CSS alone)
+  // since it has to track exactly how long this component is mounted.
+  useEffect(() => {
+    document.documentElement.classList.add('wrld-active')
+    return () => document.documentElement.classList.remove('wrld-active')
+  }, [])
+
+  const { artSrc, artError, setArtError, coverSongId } = useWrldArt(
+    radioFmActive, radioFmMatchedSong, radioFmNowPlaying, currentTrackFull, currentTrack,
+  )
+
+  // ── 999 FM: voting ──
+  const [voteDismissed, setVoteDismissed] = useState(false)
+  const { myVote, setMyVote, localSecondsLeft } = useRadioVoteCountdown(
+    radioFmVote?.active, radioFmVote?.seconds_left, () => setVoteDismissed(false),
+  )
+
+  // ── 999 FM: proposing the next song ──
+  const {
+    suggestQuery, setSuggestQuery, suggestResults, suggestLoading,
+    proposed, proposeError, handlePropose, dismissProposed,
+  } = useRadioSuggest('Not connected to 999 FM - try again in a moment')
+
+  // Sibling versions of the currently playing song (v1/v2/TV Mix/etc, linked
+  // via juicewrldapi's /versions/ table - see versionsApi.ts). On desktop these
+  // hung off a notch on the cover's edge; here they're a chip under the
+  // transport that opens a picker sheet.
+  const [songVersions, setSongVersions] = useState<{ songId: number; label: string | null }[]>([])
+  useEffect(() => {
+    if (radioFmActive || !currentTrack?.id) { setSongVersions([]); return }
+    const numericId = parseInt(currentTrack.id.replace('jw-', ''), 10)
+    if (isNaN(numericId)) { setSongVersions([]); return }
+    let cancelled = false
+    getVersionGroup(numericId).then(async metas => {
+      if (cancelled) return
+      // A version linked in the /versions/ table isn't necessarily playable -
+      // recording-session songs (and some unsurfaced ones) have no `path`,
+      // same gate used for bulk queue/playlist adds elsewhere in the app.
+      const songs = await getSongsByIds(metas.map(m => m.songId)).catch(() => [])
+      const byId = new Map(songs.map(s => [s.id, s]))
+      const withPaths = metas.map(m => {
+        const song = byId.get(m.songId)
+        return song?.path ? m : null
+      })
+      if (cancelled) return
+      setSongVersions(
+        withPaths
+          .filter((m): m is NonNullable<typeof m> => !!m)
+          .map(m => ({ songId: m.songId, label: m.version ?? m.versionTitle }))
+      )
+    })
+    return () => { cancelled = true }
+  }, [currentTrack?.id, radioFmActive])
+
+  const handlePlayVersion = usePlayVersion()
+
+  // Long-press the cover for a quick "Change cover" sheet - the same picker
+  // Personalize's "Custom cover" section offers (see CoverEditor), just
+  // reached directly instead of via Song info. Stream metadata's song_id is
+  // sometimes missing on FM; fall back to RadioFmPlayer's title-search match,
+  // same as SongMenu does.
+  const [showCoverPicker, setShowCoverPicker] = useState(false)
+  const [coverPickerSong, setCoverPickerSong] = useState<JWApiSong | null>(null)
+  const openCoverPicker = (): void => {
+    if (coverSongId == null) return
+    setCoverPickerSong(null)
+    setShowCoverPicker(true)
+    apiFetch<JWApiSong>(`/songs/${coverSongId}/`)
+      .then(song => setCoverPickerSong(song))
+      .catch(() => setShowCoverPicker(false))
+  }
+  const coverPress = useLongPress({ onTap: () => {}, onLongPress: openCoverPicker })
+
+  // Everything on this page sits on the blurred cover, so text colour has to
+  // follow the artwork's brightness rather than the theme.
+  const textIsDark = useArtTextContrast(artSrc, artError, isDarkSkin, radioFmActive, null)
+
+  const { rawLyrics, isSynced, isEditor, syncedLines } = useWrldLyricsSource(
+    radioFmActive, radioFmMatchedSong, currentTrackFull, account,
+  )
+
+  const txtPri   = textIsDark ? 'rgba(0,0,0,0.85)'  : 'rgba(255,255,255,1)'
+  const txtSec   = textIsDark ? 'rgba(0,0,0,0.5)'   : 'rgba(255,255,255,0.5)'
+  const txtTer   = textIsDark ? 'rgba(0,0,0,0.35)'  : 'rgba(255,255,255,0.3)'
+  const txtFaint = textIsDark ? 'rgba(0,0,0,0.22)'  : 'rgba(255,255,255,0.2)'
+  // Unplayed part of the progress/volume troughs. It used to be a hardcoded
+  // white wash, which is invisible on a light surface - now it follows the
+  // same polarity as the text.
+  const trackBg  = textIsDark ? 'rgba(0,0,0,0.15)'  : 'rgba(255,255,255,0.2)'
+  // Fill for the small frosted surfaces (FM buttons, the vote card). Same
+  // polarity rule - a white wash vanishes on a light backdrop.
+  const glass    = textIsDark ? 'rgba(0,0,0,0.06)'  : 'rgba(255,255,255,0.1)'
+
+  const { displayTitle, displayArtist, displayAlbum, fmDisabled, noTrack, toggleFm } = useWrldNowPlaying(
+    radioFmActive, radioFmIsLive, radioFmNowPlaying, currentTrack,
+  )
+  // Same keys as the Player bar's TrackSwap, so the title slides the way the
+  // queue moved (next from the right, previous from the left).
+  const swapKey = radioFmActive ? `fm:${radioFmNowPlaying?.title ?? ''}:${radioFmNowPlaying?.artist ?? ''}` : (currentTrack?.id ?? '')
+  const swapOrder = radioFmActive ? undefined : queueIndex
+
+  // The chevron collapses the player back to wherever you came from - the same
+  // gesture as any full-screen player. `previousView` can point back at this
+  // page (a reload lands here), hence the fallback.
+  const collapse = (): void => setActiveView(previousView && previousView !== 'wrld' ? previousView : 'api-tracker')
+
+  // Cover size - measured, not CSS-derived (see the comment by coverRowRef's
+  // use below for why). Biggest square that fits the row, capped at 420px.
+  const coverRowRef = useRef<HTMLDivElement>(null)
+  const [coverSize, setCoverSize] = useState(280)
+  useLayoutEffect(() => {
+    const el = coverRowRef.current
+    if (!el) return
+    const measure = (): void => {
+      const r = el.getBoundingClientRect()
+      setCoverSize(Math.max(0, Math.min(r.width, r.height, 420)))
+    }
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
+  // Swipe-down-to-dismiss, same as the chevron - only armed from the header/
+  // cover area so it doesn't fight the progress bar or volume slider's own
+  // drag handling. Touch events keep targeting the element the touch started
+  // on even once the finger moves past its bounds, so this stays live for
+  // the whole gesture.
+  //
+  // `elRef` + `applyStyle` write the transform/border-radius straight to the
+  // wrapper's DOM node on every touchmove instead of through setState - this
+  // component's subtree (blurred cover backdrop, lyrics, queue, everything)
+  // is large enough that re-rendering it on every finger move was visibly
+  // janky. `dragging` still comes through state (only flips at drag
+  // start/end, so it's cheap) to drive the transition below.
+  const dragWrapRef = useRef<HTMLDivElement>(null)
+  const { dragging, dismissing, dismiss, handlers: dragHandlers } = useDragToDismiss(collapse, {
+    elRef: dragWrapRef,
+    slideOutMs: WRLD_SLIDE_OUT_MS,
+    applyStyle: (el, dy) => {
+      el.style.transform = dy ? `translateY(${dy}px)` : ''
+      el.style.borderRadius = dy ? `${Math.min(dy, 32)}px` : '0px'
+    },
+  })
+
+  // Rises up from the mini bar on open - it used to just appear, full-screen,
+  // in one frame. Composited onto the inline transform so a drag started
+  // mid-rise still tracks the finger.
+  useLayoutEffect(() => {
+    const el = dragWrapRef.current
+    if (!el || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    el.animate(
+      [{ transform: 'translateY(100%)' }, { transform: 'translateY(0)' }],
+      { duration: WRLD_SLIDE_IN_MS, easing: 'cubic-bezier(0.33,0,0.15,1)', composite: 'add' },
+    )
+  }, [])
+
+  const voteActive = !!radioFmVote?.active && !voteDismissed
+
+  // App.tsx skips its usual safe-area-inset-top padding for this view
+  // specifically, so WRLD's backdrop can paint full-bleed under the status
+  // bar - which means WRLD has to pad its own header down to compensate
+  // instead (every other view gets that inset for free from the shell).
+  // Always true: mobile's nav bar is bottom-only now (see BottomNav), so the
+  // shell always reserves this inset itself.
+  const ownsTopInset = true
+
+  return (
+    <div
+      // Transform lives here, on the whole sheet (backdrop included) - not
+      // just the inner content - so dragging down actually reveals whatever
+      // App.tsx is rendering behind this overlay (see bgView there), Spotify-
+      // curtain style, instead of leaving the opaque backdrop covering it
+      // while only the text/controls slide.
+      //
+      // `isolate`: ArtBackdrop's noise-texture layer uses mix-blend-overlay,
+      // which blends with whatever is painted behind it in the same stacking
+      // context. bgView stays mounted directly behind this overlay now (for
+      // that same curtain reveal) - without a boundary here, that blend
+      // reaches past this whole view into bgView underneath, visible as a
+      // faint colour/tint bleeding through the top of the screen (nav
+      // bars, accent-tinted rows, etc. from whatever page is still mounted
+      // there). LyricsScreen already isolates itself for the identical
+      // reason; the main page never needed to until bgView started
+      // persisting behind it.
+      ref={dragWrapRef}
+      className="relative flex-1 h-full w-full overflow-hidden flex flex-col isolate"
+      style={{
+        // Released past the threshold (or the chevron tapped): carry on down
+        // off-screen on a gentle curve before collapse() unmounts this view.
+        transition: dragging ? 'none'
+          : dismissing ? `transform ${WRLD_SLIDE_OUT_MS}ms cubic-bezier(0.33,0,0.15,1), border-radius 0.2s ease-out`
+          : 'transform 0.25s ease-out, border-radius 0.25s ease-out',
+      }}
+    >
+      <ArtBackdrop
+        artSrc={artSrc} artError={artError} isDarkSkin={isDarkSkin}
+        radioFmActive={radioFmActive} onError={() => setArtError(true)}
+      />
+
+      <div className="relative z-10 flex flex-col h-full min-h-0">
+        {/* Drag arms only over the header/cover area - not the whole sheet -
+            so it doesn't fight the progress bar, volume slider, or (below)
+            the transport controls' own touch handling. `touch-none` stops
+            the browser from also treating this gesture as a page scroll,
+            which otherwise animates the mobile browser's own chrome (URL
+            bar) in and out - visible as the rest of the app appearing to
+            "nudge" vertically while dragging. */}
+        <div className="flex-1 min-h-0 flex flex-col touch-none" {...dragHandlers}>
+        {/* ── Header ─────────────────────────────────────────────────────── */}
+        {/* iOS's grabber in place of a chevron: the sheet already drags down
+            from anywhere up here, and the grabber says so. Still a button -
+            a tap (or a screen reader) collapses the player too. It sits in
+            the breathing room --top-inset leaves under the status bar, so
+            the header row below keeps its old position. */}
+        <div
+          className="shrink-0 flex justify-center"
+          style={{ paddingTop: ownsTopInset ? 'max(0.25rem, calc(var(--top-inset) - 1rem))' : '0.25rem' }}
+        >
+          <button
+            onClick={dismiss}
+            aria-label="Collapse player"
+            title="Collapse player"
+            className="w-20 h-4 flex items-center justify-center"
+          >
+            <span className="w-9 h-[5px] rounded-full" style={{ background: txtTer }} />
+          </button>
+        </div>
+        {/* Apple Music's layout: nothing but the grabber above the artwork.
+            The FM switch moved to the row under the controls and the "···"
+            menu sits beside the title. */}
+
+        {/* ── Cover ──────────────────────────────────────────────────────── */}
+        {/* CSS-only attempts (width-driven, height-driven, stretch+aspect-
+            ratio) all broke on real iOS Safari - either clipped to a
+            rectangle or, worse, left width at min-content while height
+            stretched to the row's full height (a tall thin pill). Measuring
+            the row and setting an explicit equal width/height is the only
+            approach that's actually correct everywhere.
+            px-6 matches the controls, so the artwork's edges line up with
+            the title and the scrubber below, as Apple Music's do. */}
+        <div className="flex-1 min-h-0 flex flex-col items-center px-6 pt-3 pb-4">
+          <div ref={coverRowRef} className="flex-1 min-h-0 w-full flex items-center justify-center">
+            <div
+              className="rounded-xl overflow-hidden touch-none"
+              style={{
+                width: coverSize, height: coverSize,
+                // Paused, the artwork sinks back like Apple Music's, and its
+                // shadow tightens with it.
+                transform: isPlaying || radioFmActive ? 'scale(1)' : 'scale(0.8)',
+                boxShadow: isPlaying || radioFmActive ? '0 24px 60px rgba(0,0,0,0.5)' : '0 10px 28px rgba(0,0,0,0.35)',
+                // Gentle-start, like the rest of WRLD's motion - Tailwind's
+                // ease-out front-loads the move and read as a snap.
+                transition: 'transform 0.6s cubic-bezier(0.33,0,0.15,1), box-shadow 0.6s cubic-bezier(0.33,0,0.15,1)',
+                // Without this, iOS Safari's own long-press-on-<img> callout
+                // (Save to Photos / Copy / etc) wins the gesture before our
+                // long-press timer ever fires - this property is inherited,
+                // so it reaches the <img> ProgressiveCover renders below.
+                WebkitTouchCallout: 'none',
+                WebkitUserSelect: 'none',
+              }}
+              {...(coverSongId != null ? coverPress : {})}
+            >
+              {artSrc && !artError ? (
+                <ProgressiveCover src={artSrc} alt="Album art" className="w-full h-full object-cover" onError={() => setArtError(true)} />
+              ) : radioFmActive ? (
+                <div className="w-full h-full bg-gradient-to-br from-red-900/60 to-black flex flex-col items-center justify-center gap-3">
+                  <Radio className="text-red-400 opacity-70 w-14 h-14" />
+                  <span className="text-red-300/70 text-xl font-bold tracking-widest">999 FM</span>
+                </div>
+              ) : (
+                <div className="w-full h-full bg-white/10 flex items-center justify-center">
+                  <Music className="text-white/20 w-14 h-14" />
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+        </div>
+
+        {/* ── Controls ───────────────────────────────────────────────────── */}
+        <div
+          className="shrink-0 px-6 pt-1 flex flex-col gap-3"
+          style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom, 0px))' }}
+        >
+          {/* Title block, with the like heart and "···" beside it in small
+              frosted circles, as Apple Music has its star and menu. Slides in
+              on a song change the same way the mini player's does. */}
+          <div className="flex items-center gap-3">
+            <TrackSwap swapKey={swapKey} order={swapOrder} className="flex-1 min-w-0">
+              <p className="text-[21px] leading-tight font-semibold truncate" style={{ color: txtPri }}>
+                {displayTitle || (radioFmActive ? 'Tuning in…' : 'Not Playing')}
+              </p>
+              <p className="text-[19px] leading-tight mt-0.5 truncate" style={{ color: txtSec }}>
+                {[displayArtist, displayAlbum].filter(Boolean).join(' · ') || ' '}
+              </p>
+            </TrackSwap>
+            <div className="shrink-0 flex items-center gap-2.5">
+              <FmLikeButton light={textIsDark} />
+              <SongMenu light={textIsDark} />
+            </div>
+          </div>
+
+          {radioFmActive ? <FmProgressBar txtPri={txtPri} txtSec={txtSec} trackBg={trackBg} /> : <ProgressBar txtPri={txtPri} txtSec={txtSec} trackBg={trackBg} />}
+
+          {/* Transport. 999 FM is a live stream - there is nothing local to
+              play, pause or seek, so that mode gets the vote card (or its
+              two entry points) in the same slot instead. */}
+          {radioFmActive ? (
+            voteActive ? (
+              <VoteCard
+                vote={radioFmVote!}
+                secondsLeft={localSecondsLeft}
+                myVote={myVote}
+                onVote={(v) => { setMyVote(v); getActiveRadioClient()?.castVote(v) }}
+                onDismiss={() => setVoteDismissed(true)}
+                txtPri={txtPri} txtSec={txtSec} txtTer={txtTer} glass={glass}
+              />
+            ) : (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => { setVoteDismissed(false); getActiveRadioClient()?.proposeSkip() }}
+                  className="flex-1 h-11 rounded-full text-sm font-semibold flex items-center justify-center gap-2 active:scale-[0.97] transition-transform"
+                  style={{ background: glass, color: txtPri }}
+                ><SkipForward size={16} /> Vote to skip</button>
+                <button
+                  onClick={() => openFmSheet('radio')}
+                  className="flex-1 h-11 rounded-full text-sm font-semibold flex items-center justify-center gap-2 active:scale-[0.97] transition-transform"
+                  style={{ background: glass, color: txtPri }}
+                ><Search size={16} /> Suggest</button>
+              </div>
+            )
+          ) : (
+            // Just previous / play / next, spread across the width like Apple
+            // Music's. Shuffle and repeat live in the queue sheet's header,
+            // where Apple keeps them too. Plain glyphs with no disc behind
+            // play; a press flashes a soft circle behind the glyph.
+            <div
+              className={`flex items-center justify-evenly py-1 transition-opacity ${noTrack ? 'opacity-35 pointer-events-none' : ''}`}
+              style={{ '--press': glass } as React.CSSProperties}
+            >
+              <button
+                onClick={() => runPlayerCommand('previous')}
+                disabled={noTrack}
+                aria-label="Previous"
+                className="w-16 h-16 flex items-center justify-center rounded-full active:scale-90 active:bg-[var(--press)] transition-[transform,background-color]"
+                style={{ color: txtPri }}
+              ><SkipBack size={36} fill="currentColor" strokeWidth={0} /></button>
+              <button
+                onClick={() => setIsPlaying(!isPlaying)}
+                disabled={noTrack}
+                aria-label={isPlaying ? 'Pause' : 'Play'}
+                className="w-20 h-20 rounded-full flex items-center justify-center active:scale-90 active:bg-[var(--press)] transition-[transform,background-color]"
+                style={{ color: txtPri }}
+              >
+                <SwapIcon swapKey={isPlaying}>
+                  {isPlaying
+                    ? <Pause size={44} fill="currentColor" strokeWidth={0} />
+                    : <Play size={44} fill="currentColor" strokeWidth={0} className="ml-1" />}
+                </SwapIcon>
+              </button>
+              <button
+                onClick={() => runPlayerCommand('next')}
+                disabled={noTrack}
+                aria-label="Next"
+                className="w-16 h-16 flex items-center justify-center rounded-full active:scale-90 active:bg-[var(--press)] transition-[transform,background-color]"
+                style={{ color: txtPri }}
+              ><SkipFwd size={36} fill="currentColor" strokeWidth={0} /></button>
+            </div>
+          )}
+
+          {!IS_IOS && <VolumeRow txtPri={txtPri} txtSec={txtSec} trackBg={trackBg} />}
+
+          {/* Apple Music's bottom row: lyrics on the left, queue on the
+              right, the rest between them. Everything that used to occupy a
+              second column hangs off these - each opens a sheet over the
+              player rather than replacing it, so what's playing never leaves
+              the screen. The 999 FM switch takes AirPlay's middle slot; live
+              shows in red. Each keeps its name as its accessible label. */}
+          <div className="flex items-stretch justify-evenly">
+            <ActionChip icon={MicVocal} label="Lyrics" onClick={() => setLyricsOpen(true)} light={textIsDark} />
+            {!radioFmActive && songVersions.length > 0 && (
+              <ActionChip icon={Layers} label="Versions" onClick={() => setSheet('versions')} light={textIsDark} />
+            )}
+            <ActionChip
+              icon={Radio}
+              label={radioFmActive && radioFmIsLive ? '999 FM, live' : radioFmIsLive === false ? '999 FM, off air' : '999 FM'}
+              onClick={toggleFm}
+              active={radioFmActive}
+              disabled={fmDisabled}
+              tint={radioFmActive && radioFmIsLive ? '#ef4444' : undefined}
+              light={textIsDark}
+            />
+            <ActionChip icon={SlidersHorizontal} label="EQ" onClick={toggleEqPanel} active={eqFxActive} light={textIsDark} />
+            {radioFmActive && (
+              <ActionChip icon={MessageCircle} label="999 FM chat" onClick={() => openFmSheet('chat')} light={textIsDark} />
+            )}
+            {radioFmActive
+              ? <ActionChip icon={ListMusic} label="Radio" onClick={() => openFmSheet('radio')} light={textIsDark} />
+              : <ActionChip icon={ListMusic} label="Queue" onClick={() => setShowQueue(true)} light={textIsDark} />}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Lyrics, full screen ──────────────────────────────────────────── */}
+      {lyricsOpen && (
+        <LyricsScreen
+          onClose={() => setLyricsOpen(false)}
+          title={displayTitle}
+          artist={displayArtist}
+          rawLyrics={rawLyrics}
+          isSynced={isSynced}
+          syncedLines={syncedLines}
+          radioFmActive={radioFmActive}
+          currentTrack={currentTrack}
+          isEditor={isEditor}
+          txtPri={txtPri} txtSec={txtSec} txtTer={txtTer} txtFaint={txtFaint}
+          textIsDark={textIsDark}
+          artSrc={artSrc} artError={artError} isDarkSkin={isDarkSkin}
+        />
+      )}
+
+      {/* ── Queue ────────────────────────────────────────────────────────── */}
+      {queueEverOpened && <QueueSheet open={showQueue && !radioFmActive} onClose={() => setShowQueue(false)} />}
+
+      {/* ── 999 FM panel ─────────────────────────────────────────────────── */}
+      {sheet === 'radio' && (
+        <Sheet
+          onClose={() => setSheet(null)}
+          title="999 FM"
+          header={
+            <div role="tablist" className="mx-5 mt-2 mb-1 flex p-0.5 rounded-full bg-[var(--fill)]">
+              {(['radio', 'chat'] as const).map(tab => (
+                <button
+                  key={tab}
+                  role="tab"
+                  aria-selected={fmSheetTab === tab}
+                  onClick={() => setFmSheetTab(tab)}
+                  className={`flex-1 h-8 rounded-full text-[13px] font-semibold transition-colors ${fmSheetTab === tab ? 'bg-[var(--fill-strong)] text-text-primary' : 'text-text-muted'}`}
+                >
+                  {tab === 'radio' ? 'Radio' : 'Chat'}
+                </button>
+              ))}
+            </div>
+          }
+        >
+          {/* Both tabs share one height so the sheet doesn't jump between them. */}
+          {fmSheetTab === 'chat' ? (
+            // RadioChatPanel is styled for a dark backdrop (white text), so it sits on a dark card
+            // here rather than the skin-coloured glass, which can be light.
+            <div className="h-[58svh] flex flex-col px-5 pb-1">
+              <div className="flex-1 min-h-0 flex flex-col rounded-2xl bg-black/60 pt-3">
+                <RadioChatPanel />
+              </div>
+            </div>
+          ) : (
+          <div className="h-[58svh] overflow-y-auto overscroll-contain">
+          <div className="px-5 pb-2 flex flex-col gap-4">
+            {/* Suggest */}
+            <div className="flex flex-col gap-2">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">Suggest next song</p>
+              {proposed ? (
+                <div className="flex items-center justify-between gap-2 bg-green-900/20 border border-green-500/20 rounded-xl px-3 py-2.5">
+                  <p className="text-green-400 text-sm min-w-0 truncate">
+                    Proposed: <span className="text-green-300 font-medium">{proposed}</span>
+                  </p>
+                  <button
+                    onClick={dismissProposed}
+                    className="shrink-0 w-8 h-8 flex items-center justify-center text-green-500/70"
+                    aria-label="Dismiss"
+                  ><X size={15} /></button>
+                </div>
+              ) : (
+                <>
+                  {proposeError && <p className="text-red-400/90 text-xs">{proposeError}</p>}
+                  <div className="relative flex items-center">
+                    <Search size={16} className="absolute left-3.5 text-text-muted pointer-events-none" />
+                    <input
+                      type="search"
+                      value={suggestQuery}
+                      onChange={(e) => setSuggestQuery(e.target.value)}
+                      placeholder="Search songs"
+                      enterKeyHint="search"
+                      autoCorrect="off"
+                      autoCapitalize="off"
+                      spellCheck={false}
+                      className="w-full h-11 bg-surface-overlay rounded-full pl-10 pr-4 text-[15px] text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/50 [&::-webkit-search-cancel-button]:hidden"
+                    />
+                  </div>
+                  {suggestLoading && (
+                    <p className="flex items-center gap-2 text-text-muted text-xs"><Loader2 size={13} className="animate-spin" /> Searching…</p>
+                  )}
+                  {suggestResults.map(track => (
+                    <button
+                      key={track.id}
+                      onClick={() => handlePropose(track)}
+                      className="text-left -mx-2 px-2 py-2 rounded-xl active:bg-surface-overlay"
+                    >
+                      <p className="text-text-primary text-[15px] truncate">{track.title}</p>
+                      <p className="text-text-muted text-xs truncate mt-0.5">{track.artist}</p>
+                    </button>
+                  ))}
+                </>
+              )}
+            </div>
+
+            {radioFmUpNext && (
+              <div className="flex flex-col gap-2">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">Up next</p>
+                <div className="bg-surface-overlay rounded-xl px-4 py-3">
+                  <p className="text-text-primary text-[15px] truncate">{radioFmUpNext.title}</p>
+                  {radioFmUpNext.artist && <p className="text-text-muted text-xs truncate mt-0.5">{radioFmUpNext.artist}</p>}
+                </div>
+              </div>
+            )}
+
+            {radioFmQueuePreview.length > 0 && (
+              <div className="flex flex-col gap-1">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-text-muted mb-1">Coming up</p>
+                {radioFmQueuePreview.map((title, i) => (
+                  <div key={i} className="flex items-center gap-3 py-1.5">
+                    <span className="w-4 shrink-0 text-right text-text-muted text-xs tabular-nums">{i + 1}</span>
+                    <p className="text-text-secondary text-sm truncate">{title}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <SheetDivider />
+          <SheetItem
+            icon={SkipForward}
+            label="Vote to skip this song"
+            onClick={() => { setVoteDismissed(false); getActiveRadioClient()?.proposeSkip(); setSheet(null) }}
+          />
+          </div>
+          )}
+        </Sheet>
+      )}
+
+      {/* ── Other versions ───────────────────────────────────────────────── */}
+      {sheet === 'versions' && (
+        <Sheet onClose={() => setSheet(null)} title="Other versions">
+          {songVersions.map((v, i) => (
+            <SheetItem
+              key={v.songId}
+              icon={Layers}
+              label={v.label ?? `Version ${i + 1}`}
+              onClick={() => { setSheet(null); void handlePlayVersion(v.songId) }}
+            />
+          ))}
+        </Sheet>
+      )}
+
+      {/* ── Cover long-press → Change cover ─────────────────────────────── */}
+      {showCoverPicker && (
+        <Sheet onClose={() => setShowCoverPicker(false)} title="Change cover">
+          <div className="px-5 pb-4">
+            {coverPickerSong ? (
+              <CoverEditor
+                songId={coverPickerSong.id}
+                apiTitle={coverPickerSong.name}
+                ownImageRaw={coverPickerSong.image_url}
+                altTitles={(coverPickerSong.track_titles ?? []).filter(t => t && t !== coverPickerSong.name)}
+                onPicked={() => setShowCoverPicker(false)}
+              />
+            ) : (
+              <div className="flex items-center justify-center gap-2 text-text-muted text-xs py-6">
+                <Loader2 size={13} className="animate-spin" /> Loading…
+              </div>
+            )}
+          </div>
+        </Sheet>
+      )}
+    </div>
+  )
+}
+
+// ─── chrome ───────────────────────────────────────────────────────────────────
+
+/** The cover, blurred into a wash of its own colours. Every text colour on
+ *  this page is picked against it (see textIsDark), so any surface that covers
+ *  the page - the lyrics screen - has to repaint it rather than sit on an
+ *  opaque theme colour, or a dark cover under a light skin puts white text on
+ *  a white background. */
+function ArtBackdrop({ artSrc, artError, isDarkSkin, radioFmActive, onError, extraDim }: {
+  artSrc: string | null
+  artError: boolean
+  isDarkSkin: boolean
+  radioFmActive: boolean
+  onError?: () => void
+  /** The base gradient below leaves the vertical middle fully transparent
+   *  (`via-transparent`), which is fine for the main WRLD page but leaves the
+   *  lyrics screen's text sitting directly on the raw blurred cover with no
+   *  extra darkening where the lines actually are - busy art underneath can
+   *  fight the faded past/future lines for legibility. LyricsScreen opts into
+   *  a flat wash over the whole backdrop to fix that without touching the
+   *  main page's look. */
+  extraDim?: boolean
+}): JSX.Element {
+  return (
+    // bg-black: a guaranteed opaque base underneath every layer below. The
+    // stack above it (blurred cover, gradients with a `via-transparent`
+    // middle, the noise texture) was never meant to be fully opaque on its
+    // own - each layer assumes something solid sits behind it - which is
+    // fine on the main WRLD page (nothing behind it but the app shell) but
+    // left the portaled lyrics screen showing whatever page was still
+    // mounted behind it through the transparent middle. The blurred cover
+    // still paints on top of this exactly as before, so it still reads as
+    // "matches the cover" - this only guarantees there's always something
+    // solid under it.
+    <div className="absolute inset-0 overflow-hidden bg-black">
+      {artSrc && !artError ? (
+        // The full-res cover, not the ~128px `small=1` degraded variant - see
+        // the resolution note below, this is a separate problem from that one.
+        //
+        // The img is laid out at HALF the container's size (width/height:50%,
+        // recentred) and blurred at HALF the radius, then blown back up with
+        // `transform: scale(2.4)` - 2x to restore full size, further scaled by
+        // the same 1.2 "zoom in" the old single-element version used, so
+        // 2 * 1.2 = 2.4. `filter` rasterizes at the element's actual layout
+        // size, before transform ever runs, so this computes the Gaussian
+        // blur over a quarter of the pixels a full-size element would need -
+        // both cheaper AND less likely to trip a renderer's "blur radius is
+        // large relative to layer size" fallback, which on a software
+        // rasterizer (a GPU-less emulator, notably) approximates by
+        // downsampling first and produces exactly the hard-edged blocky
+        // patches this was reported against. transform's own upscale is a
+        // separate, always-smooth bilinear step, so the visible result is
+        // softer even though the source blur radius is smaller.
+        //
+        // The wrapper drifts slowly (wrld-backdrop-drift in index.css), the
+        // way Apple Music's background is never quite still. It only
+        // translates and scales up, so the image always covers the screen,
+        // and the blurred layer is composited once and moved, not re-blurred.
+        <div className="absolute inset-0 wrld-backdrop-drift">
+          <FallbackImg key={artSrc} sources={[artSrc, fullCoverUrl(artSrc), smallCoverUrl(artSrc)]}
+            className="absolute object-cover"
+            style={{
+              width: '50%', height: '50%', left: '50%', top: '50%',
+              transform: 'translate(-50%, -50%) scale(2.4)',
+              filter: `blur(30px) brightness(${isDarkSkin ? 0.22 : 0.45}) saturate(${isDarkSkin ? 2.4 : 1.8})`,
+            }}
+            onError={onError}
+          />
+        </div>
+      ) : (
+        <div className={`absolute inset-0 ${radioFmActive ? 'bg-gradient-to-br from-red-950/60 to-black' : 'bg-gradient-to-br from-gray-200 to-gray-100 dark:from-gray-900 dark:to-black'}`} />
+      )}
+      <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/20 dark:from-black/40 dark:via-transparent dark:to-black/70" />
+      {extraDim && <div className="absolute inset-0 bg-black/35" />}
+      {/* A near-black diagonal gradient (or a 60px blur pushed to very low
+          brightness) has almost no per-pixel colour variation, which is
+          exactly what triggers 8-bit banding on phone panels - flat
+          rings/patches instead of a smooth wash. A faint noise texture breaks
+          the flat bands up; at 3% opacity it isn't visible as texture, only
+          as the absence of banding. */}
+      <div
+        className="absolute inset-0 opacity-[0.035] mix-blend-overlay"
+        style={{
+          backgroundImage:
+            "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='128' height='128'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")",
+        }}
+      />
+    </div>
+  )
+}
+
+// ─── bottom row ───────────────────────────────────────────────────────────────
+
+/** One of the icons along the bottom of the player, Apple Music style. `active`
+ *  (EQ with effects on, 999 FM switched on) gets a dot under it - "dot = on"
+ *  across the whole page, instead of accent text that could disappear into the
+ *  art. `tint` overrides the colour (FM live is red). */
+function ActionChip({ icon: Icon, label, onClick, active, disabled, tint, light }: {
+  icon: typeof Radio
+  label: string
+  onClick: () => void
+  active?: boolean
+  disabled?: boolean
+  tint?: string
+  light: boolean
+}): JSX.Element {
+  const fg = tint ?? (light ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.75)')
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={label}
+      title={label}
+      aria-pressed={active}
+      className="relative w-12 h-12 flex items-center justify-center rounded-full active:scale-90 transition-[transform,color] disabled:opacity-40"
+      style={{ color: fg }}
+    >
+      <Icon size={22} />
+      <OnDot on={!!active} color={fg} />
+    </button>
+  )
+}
+
+/** The little "this is on" dot under a toggle. Always rendered so it can fade
+ *  and grow in rather than pop. */
+function OnDot({ on, color }: { on: boolean; color: string }): JSX.Element {
+  return (
+    <span
+      aria-hidden
+      className="absolute bottom-0.5 left-1/2 w-1 h-1 -ml-0.5 rounded-full pointer-events-none"
+      style={{
+        background: color,
+        opacity: on ? 1 : 0,
+        transform: on ? 'scale(1)' : 'scale(0.3)',
+        transition: 'opacity 0.3s cubic-bezier(0.4,0,0.2,1), transform 0.3s cubic-bezier(0.4,0,0.2,1)',
+      }}
+    />
+  )
+}
+
+// ─── 999 FM vote ──────────────────────────────────────────────────────────────
+
+// Text and fill follow the backdrop's polarity like the rest of the page -
+// these were hardcoded white, which vanished over a bright cover.
+function VoteCard({ vote, secondsLeft, myVote, onVote, onDismiss, txtPri, txtSec, txtTer, glass }: {
+  vote: NonNullable<ReturnType<typeof useStore.getState>['radioFmVote']>
+  secondsLeft: number | null
+  myVote: 'yes' | 'no' | null
+  onVote: (v: 'yes' | 'no') => void
+  onDismiss: () => void
+  txtPri: string
+  txtSec: string
+  txtTer: string
+  glass: string
+}): JSX.Element {
+  return (
+    <div className="rounded-2xl p-3.5 flex flex-col gap-2.5" style={{ background: glass }}>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: txtSec }}>
+          {vote.kind === 'skip' ? 'Vote to skip' : 'Vote to queue'}
+        </p>
+        <div className="flex items-center gap-1">
+          {secondsLeft != null && (
+            <span
+              className={`text-xs tabular-nums font-semibold ${secondsLeft <= 5 ? 'text-red-400' : ''}`}
+              style={secondsLeft <= 5 ? undefined : { color: txtTer }}
+            >
+              {secondsLeft}s
+            </span>
+          )}
+          <button onClick={onDismiss} className="w-8 h-8 flex items-center justify-center" style={{ color: txtTer }} aria-label="Dismiss vote">
+            <X size={15} />
+          </button>
+        </div>
+      </div>
+      {vote.track && <p className="text-sm font-medium truncate" style={{ color: txtPri }}>{vote.track}</p>}
+      <p className="text-xs" style={{ color: txtTer }}>
+        {vote.yes ?? 0} yes · {vote.no ?? 0} no
+        {vote.votes_needed != null && <span> · need {vote.votes_needed}</span>}
+      </p>
+      <div className="flex gap-2">
+        <button
+          onClick={() => onVote('yes')}
+          className={`flex-1 h-11 flex items-center justify-center gap-2 rounded-full text-sm font-semibold transition-colors ${
+            myVote === 'yes' ? 'bg-green-600/45 text-green-200 ring-1 ring-green-400/50' : 'bg-green-600/20 text-green-300 active:bg-green-600/35'
+          }`}
+        ><ThumbsUp size={15} /> Yes</button>
+        <button
+          onClick={() => onVote('no')}
+          className={`flex-1 h-11 flex items-center justify-center gap-2 rounded-full text-sm font-semibold transition-colors ${
+            myVote === 'no' ? 'bg-red-600/45 text-red-200 ring-1 ring-red-400/50' : 'bg-red-900/25 text-red-300 active:bg-red-900/40'
+          }`}
+        ><ThumbsDown size={15} /> No</button>
+      </div>
+    </div>
+  )
+}
+
+// ─── like / menu ──────────────────────────────────────────────────────────────
+
+// One-tap "like" for the 999 FM now-playing track. FM is server-driven and
+// only hands us title/artist, so the likeable target is the resolved song id
+// (stream metadata's song_id, or RadioFmPlayer's title-search fallback match).
+// Reuses the same `jw-<id>` track id / toggleLike path as every other API song,
+// so it lands in Liked Songs identically. Self-hides off FM or until the
+// broadcast resolves to a known song.
+const FmLikeButton = memo(function FmLikeButton({ light }: { light: boolean }): JSX.Element {
+  const { radioFmActive, radioFmNowPlaying, radioFmMatchedSong, currentTrack, likedTrackIds, toggleLike } = useStore(useShallow(s => ({
+    radioFmActive: s.radioFmActive,
+    radioFmNowPlaying: s.radioFmNowPlaying,
+    radioFmMatchedSong: s.radioFmMatchedSong,
+    currentTrack: s.currentTrack,
+    likedTrackIds: s.likedTrackIds,
+    toggleLike: s.toggleLike,
+  })))
+
+  // Off FM this used to render nothing at all, which meant the one screen
+  // dedicated to the current song had no like button on it.
+  const fmSongId = radioFmActive ? (radioFmNowPlaying?.song_id ?? radioFmMatchedSong?.songId ?? null) : null
+  const targetId = radioFmActive ? (fmSongId != null ? `jw-${fmSongId}` : null) : (currentTrack?.id ?? null)
+  if (!targetId) return <></>
+
+  const liked = likedTrackIds.includes(targetId)
+  return (
+    <button
+      onClick={() => toggleLike(targetId)}
+      aria-label={liked ? 'Remove from Liked Songs' : 'Add to Liked Songs'}
+      aria-pressed={liked}
+      // A small frosted circle, like Apple Music's star beside the title.
+      className="w-8 h-8 shrink-0 flex items-center justify-center rounded-full transition-colors active:scale-90"
+      style={{
+        color: liked ? 'var(--accent)' : (light ? 'rgba(0,0,0,0.7)' : 'rgba(255,255,255,0.9)'),
+        background: light ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.14)',
+      }}
+    >
+      {/* Same pop + ring as the mini player's heart. */}
+      <LikePop liked={liked} trackKey={targetId}>
+        <Heart size={16} strokeWidth={2.4} fill={liked ? 'currentColor' : 'none'} />
+      </LikePop>
+    </button>
+  )
+})
+
+// "···" for the current track. SongContextMenu is the app-wide one and already
+// comes up as a bottom sheet on a phone, so the x/y it takes are ignored here.
+const SongMenu = memo(function SongMenu({ light }: { light: boolean }): JSX.Element {
+  const { currentTrack, radioFmActive, radioFmNowPlaying, radioFmMatchedSong, likedTrackIds, toggleLike, playNext, setActiveView, setPendingEditorSongId } = useStore(useShallow(s => ({
+    currentTrack: s.currentTrack,
+    radioFmActive: s.radioFmActive,
+    radioFmNowPlaying: s.radioFmNowPlaying,
+    radioFmMatchedSong: s.radioFmMatchedSong,
+    likedTrackIds: s.likedTrackIds,
+    toggleLike: s.toggleLike,
+    playNext: s.playNext,
+    setActiveView: s.setActiveView,
+    setPendingEditorSongId: s.setPendingEditorSongId,
+  })))
+  const canEdit = useCanEdit()
+
+  const [open, setOpen] = useState(false)
+  const [showSongInfo, setShowSongInfo] = useState(false)
+  const [songInfoData, setSongInfoData] = useState<JWApiSong | null>(null)
+
+  const currentSongId = !radioFmActive && currentTrack ? userApi.trackIdToSongId(currentTrack.id) : null
+  // Stream metadata's song_id is sometimes missing; RadioFmPlayer's title-search
+  // fallback resolves the actual song separately, so fall back to that match.
+  const fmSongId = radioFmActive ? (radioFmNowPlaying?.song_id ?? radioFmMatchedSong?.songId ?? null) : null
+  const hasTarget = radioFmActive ? fmSongId != null : !!currentTrack
+
+  const openInfo = (songId: number): void => {
+    setOpen(false)
+    setSongInfoData(null)
+    setShowSongInfo(true)
+    apiFetch<JWApiSong>(`/songs/${songId}/`)
+      .then(song => setSongInfoData(song))
+      .catch(() => setShowSongInfo(false))
+  }
+
+  if (!hasTarget) return <></>
+
+  return (
+    <>
+      <button
+        // Stop the touch from reaching SongContextMenu's document-level
+        // outside-press listener - otherwise pressing this while the menu is
+        // open closes it and then reopens it, so it never appears to toggle.
+        onMouseDown={(e) => e.stopPropagation()}
+        onClick={() => setOpen(v => !v)}
+        aria-label="More options"
+        // Frosted circle, matching the heart beside it.
+        className="w-8 h-8 shrink-0 flex items-center justify-center rounded-full active:scale-90 transition-transform"
+        style={{
+          color: light ? 'rgba(0,0,0,0.7)' : 'rgba(255,255,255,0.9)',
+          background: light ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.14)',
+        }}
+      >
+        <MoreHorizontal size={18} strokeWidth={2.4} />
+      </button>
+
+      {/* FM radio is server-driven - Play/Play next/Add to queue/version
+          switching don't make sense mid-broadcast, so those are left off,
+          but Song info and Add to playlist still apply to the now-playing
+          track. Synthesize a minimal Track since FM only gives us title/
+          artist/album, not a full local/API track object. */}
+      {open && radioFmActive && fmSongId != null && createPortal(
+        <SongContextMenu
+          state={{
+            track: {
+              id: `fm-${fmSongId}`,
+              path: '',
+              title: radioFmNowPlaying?.title ?? '',
+              artist: radioFmNowPlaying?.artist ?? '',
+              album: radioFmNowPlaying?.album ?? '',
+              albumArtist: '',
+              year: null,
+              trackNumber: null,
+              duration: 0,
+              genre: '',
+              hasAlbumArt: false,
+            },
+            songId: fmSongId,
+            x: 0,
+            y: 0,
+          }}
+          onClose={() => setOpen(false)}
+          canEdit={canEdit}
+          onInfo={() => openInfo(fmSongId)}
+          liked={likedTrackIds.includes(`jw-${fmSongId}`)}
+          onToggleLike={() => toggleLike(`jw-${fmSongId}`)}
+          disableChangeVersion
+        />,
+        document.body
+      )}
+
+      {open && !radioFmActive && currentTrack && createPortal(
+        <SongContextMenu
+          state={{ track: currentTrack, songId: currentSongId, x: 0, y: 0 }}
+          onClose={() => setOpen(false)}
+          canEdit={canEdit}
+          onInfo={() => currentSongId != null && openInfo(currentSongId)}
+          onPlayNext={() => playNext(currentTrack)}
+          liked={likedTrackIds.includes(currentTrack.id)}
+          onToggleLike={() => toggleLike(currentTrack.id)}
+        />,
+        document.body
+      )}
+
+      {showSongInfo && createPortal(
+        <SongInfoModal
+          song={songInfoData}
+          onClose={() => { setShowSongInfo(false); setSongInfoData(null) }}
+          onEdit={canEdit ? (songId) => {
+            setShowSongInfo(false); setSongInfoData(null)
+            setPendingEditorSongId(songId)
+            setActiveView('editor')
+          } : undefined}
+        />,
+        document.body
+      )}
+    </>
+  )
+})
+
+// ─── queue ────────────────────────────────────────────────────────────────────
+
+const MAX_HISTORY_SHOWN = 10
+
+// Full-height sheet rather than the desktop side panel. Drag-to-reorder is
+// gone - there's no HTML5 drag on touch - replaced by an explicit reorder mode
+// with up/down buttons, the same pattern the Playlists tab uses.
+// Kept in sync with mobile/Sheet.tsx's EXIT_MS / .animate-sheet-out duration.
+const QUEUE_SHEET_EXIT_MS = 200
+
+function QueueSheet({ open, onClose }: { open: boolean; onClose: () => void }): JSX.Element {
+  const { queue, queueIndex, currentTrack, isPlaying, shuffle, repeat, toggleShuffle, toggleRepeat, radioMode, playHistory, playFromHistory, playTrack, jumpToTrack, removeFromQueue, clearQueue, reorderQueue, reshuffleQueue } = useStore(useShallow(s => ({
+    queue: s.queue,
+    queueIndex: s.queueIndex,
+    currentTrack: s.currentTrack,
+    isPlaying: s.isPlaying,
+    shuffle: s.shuffle,
+    repeat: s.repeat,
+    toggleShuffle: s.toggleShuffle,
+    toggleRepeat: s.toggleRepeat,
+    radioMode: s.radioMode,
+    playTrack: s.playTrack,
+    jumpToTrack: s.jumpToTrack,
+    playHistory: s.playHistory,
+    playFromHistory: s.playFromHistory,
+    removeFromQueue: s.removeFromQueue,
+    clearQueue: s.clearQueue,
+    reorderQueue: s.reorderQueue,
+    reshuffleQueue: s.reshuffleQueue,
+  })))
+
+  const history = playHistory // what was actually played, newest first - see QueuePanel
+  const upcoming = queue.slice(queueIndex + 1)
+  const [historyOpen, setHistoryOpen] = useState(false)
+  // reorderQueue's (from, to) are indices within `upcoming` itself - see its
+  // definition in queueSlice.ts - which is exactly what useDragReorder tracks.
+  // Started by a press-and-hold directly on the row (QueueRow's own
+  // long-press timer calls drag.startFrom) rather than a separate "Reorder"
+  // mode + dedicated grip handle - one gesture instead of a mode switch.
+  const drag = useDragReorder(upcoming.length, reorderQueue)
+  const [search, setSearch] = useState('')
+
+  const query = search.trim().toLowerCase()
+  const matchesQuery = (track: Track): boolean =>
+    !query || track.title.toLowerCase().includes(query) || track.artist.toLowerCase().includes(query)
+  // Pair each track with its original absolute index so onPlay/onRemove keep
+  // working correctly after filtering shrinks the array.
+  const upcomingIndexed = upcoming.map((track, i) => ({ track, i }))
+  const filteredUpcoming = query ? upcomingIndexed.filter(({ track }) => matchesQuery(track)) : upcomingIndexed
+
+  // ── Persistent shell ──────────────────────────────────────────────────────
+  // Reimplements mobile/Sheet.tsx's chrome (scrim, slide-up card, drag-to-
+  // dismiss, back/escape handling) driven by an `open` prop instead of mount
+  // lifecycle. The generic Sheet is designed to mount only while open and
+  // unmount itself after its exit animation - fine for menus/pickers, but
+  // here it destroyed every cover <img> on close, so reopening the queue
+  // reloaded/re-decoded them all from scratch. This stays mounted (once
+  // opened) and just plays the same animations, hiding via CSS afterward.
+  const [closing, setClosing] = useState(false)
+  const [entered, setEntered] = useState(false)
+  const wasOpenRef = useRef(open)
+  const closeRef = useRef(onClose)
+  closeRef.current = onClose
+
+  useEffect(() => {
+    if (open) {
+      setClosing(false)
+      setEntered(false)
+    } else if (wasOpenRef.current) {
+      setClosing(true)
+      const t = window.setTimeout(() => setClosing(false), QUEUE_SHEET_EXIT_MS)
+      wasOpenRef.current = open
+      return () => window.clearTimeout(t)
+    }
+    wasOpenRef.current = open
+  }, [open])
+
+  const requestClose = useCallback(() => closeRef.current(), [])
+
+  useBackToClose(requestClose, open)
+  useEscapeToClose(requestClose, open)
+
+  useEffect(() => {
+    if (!open) return
+    dimThemeColorMeta(0.4)
+    return () => syncThemeColorMeta()
+  }, [open])
+
+  const { style: dragStyle, reset: resetDrag, handlers: dragHandlers } = useDragToDismiss(requestClose, {
+    threshold: 90,
+    rubberBand: true,
+    transition: 'transform 220ms cubic-bezier(0.16,1,0.3,1)',
+    holdOnDismiss: true,
+  })
+  // A swipe-close leaves the offset where the finger let go (see
+  // holdOnDismiss) and this sheet stays mounted, so clear it for next time.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { if (open) resetDrag() }, [open])
+
+  const showing = open || closing
+
+  return createPortal(
+    <>
+      <div
+        className={`fixed inset-0 z-[80] bg-black/40 ${closing ? 'animate-scrim-out' : open ? 'animate-scrim-in' : ''}`}
+        style={showing ? undefined : { display: 'none' }}
+        onClick={requestClose}
+        onContextMenu={(e) => { e.preventDefault(); requestClose() }}
+      />
+      <div
+        className={`fixed z-[81] inset-x-0 bottom-0 flex flex-col max-h-[82svh] glass-thick rounded-t-[28px] overflow-hidden ${
+          closing ? 'animate-sheet-out' : entered ? '' : open ? 'animate-sheet-in' : ''
+        }`}
+        style={{ ...dragStyle, ...(showing ? {} : { display: 'none' }) }}
+        onAnimationEnd={(e) => { if (e.target === e.currentTarget) setEntered(true) }}
+      >
+        <div className="shrink-0 pt-2 pb-1 touch-none" {...dragHandlers}>
+          <div className="mx-auto w-9 h-[5px] rounded-full bg-[var(--fill-strong)]" />
+          {/* Shuffle and repeat sit here, beside the heading, as in Apple
+              Music's queue - the player itself only has previous/play/next.
+              On fills the button. */}
+          <div className="flex items-center gap-2 px-5 pt-2.5">
+            <h3 className="flex-1 min-w-0 text-headline text-text-primary">Playing Next</h3>
+            <QueueModeToggle
+              on={shuffle}
+              onClick={toggleShuffle}
+              disabled={!currentTrack}
+              label={shuffle ? 'Shuffle on' : 'Shuffle off'}
+            ><Shuffle size={16} /></QueueModeToggle>
+            <QueueModeToggle
+              on={repeat !== 'none'}
+              onClick={toggleRepeat}
+              disabled={!currentTrack}
+              label={repeat === 'none' ? 'No repeat' : repeat === 'all' ? 'Repeat all' : 'Repeat one'}
+            >
+              <SwapIcon swapKey={repeat === 'one'}>{repeat === 'one' ? <Repeat1 size={16} /> : <Repeat size={16} />}</SwapIcon>
+            </QueueModeToggle>
+          </div>
+          <div className="flex items-center gap-2 px-5 pt-2">
+            {shuffle && upcoming.length > 0 && (
+              <button
+                onClick={reshuffleQueue}
+                className="h-8 px-3 rounded-full text-footnote font-semibold bg-[var(--fill)] text-text-primary flex items-center gap-1.5 active:bg-[var(--fill-strong)] transition-colors"
+              ><RefreshCw size={13} /> Reshuffle</button>
+            )}
+            {upcoming.length > 0 && (
+              <button
+                onClick={clearQueue}
+                className="h-8 px-3 rounded-full text-footnote font-semibold bg-[var(--fill)] text-red-500 flex items-center gap-1.5 active:bg-[var(--fill-strong)] transition-colors"
+              ><Trash2 size={13} /> Clear</button>
+            )}
+          </div>
+        </div>
+        <div
+          className="overflow-y-auto overscroll-contain py-1"
+          style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 0.5rem)' }}
+        >
+      {/* History - during radio the queue holds *only* played history, so
+          without this the sheet looks empty in radio mode. */}
+      {history.length > 0 && (
+        <>
+          <button
+            onClick={() => setHistoryOpen(o => !o)}
+            className="w-full flex items-center gap-2 px-5 py-2.5 text-text-muted"
+          >
+            <History size={14} />
+            <span className="text-[11px] font-semibold uppercase tracking-wider flex-1 text-left">History · {history.length}</span>
+            <ChevronDown size={15} className={`transition-transform ${historyOpen ? 'rotate-180' : ''}`} />
+          </button>
+          {historyOpen && (() => {
+            const filtered = query ? history.filter(matchesQuery) : history
+            const shown = query ? filtered : filtered.slice(0, MAX_HISTORY_SHOWN)
+            return (
+              <div className="opacity-70">
+                {shown.map((track) => (
+                  <QueueRow
+                    key={`hist-${track.id}`}
+                    track={track}
+                    onPlay={() => playFromHistory(track)}
+                  />
+                ))}
+                {!query && filtered.length > MAX_HISTORY_SHOWN && (
+                  <p className="text-text-muted text-xs text-center py-1.5">+{filtered.length - MAX_HISTORY_SHOWN} older</p>
+                )}
+                {query && shown.length === 0 && (
+                  <p className="text-text-muted text-xs text-center py-1.5">No matches</p>
+                )}
+              </div>
+            )
+          })()}
+          <SheetDivider />
+        </>
+      )}
+
+      {queue.length > 0 && (
+        <div className="px-5 pt-2 pb-1">
+          <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-surface-overlay focus-within:ring-1 focus-within:ring-accent/50 transition-shadow">
+            <Search size={13} className="text-text-muted shrink-0" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search queue"
+              className="flex-1 min-w-0 bg-transparent text-xs text-text-primary placeholder:text-text-muted outline-none"
+            />
+            {search && (
+              <button onClick={() => setSearch('')} className="text-text-muted transition-colors shrink-0">
+                <X size={12} />
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {!query && (currentTrack ? (
+        <>
+          <p className="px-5 pb-1 pt-1 text-[11px] font-semibold uppercase tracking-wider text-text-muted">Now playing</p>
+          <QueueRow track={currentTrack} active playing={isPlaying} />
+        </>
+      ) : (
+        <div className="flex flex-col items-center gap-2 py-12">
+          <ListMusic size={28} className="text-text-muted" />
+          <p className="text-text-muted text-sm">Queue is empty</p>
+        </div>
+      ))}
+
+      {filteredUpcoming.length > 0 ? (
+        <>
+          <SheetDivider />
+          <p className="px-5 pb-1 text-[11px] font-semibold uppercase tracking-wider text-text-muted">
+            {query ? 'Results' : shuffle ? 'Shuffle' : 'Up next'} · {filteredUpcoming.length}
+          </p>
+          {filteredUpcoming.map(({ track, i }) => (
+            <QueueRow
+              key={`${track.id}-${queueIndex + 1 + i}`}
+              track={track}
+              dragging={drag.dragIndex === i}
+              anyDragging={drag.dragIndex !== null}
+              rowStyle={drag.rowStyle(i)}
+              onDragStart={query ? undefined : (clientY, rowEl) => drag.startFrom(i, clientY, rowEl)}
+              onPlay={() => playTrack(track, queue.slice(queueIndex + 1 + i))}
+              onRemove={() => removeFromQueue(queueIndex + 1 + i)}
+            />
+          ))}
+        </>
+      ) : query ? (
+        <p className="text-text-muted text-xs text-center py-5">No matches</p>
+      ) : currentTrack ? (
+        <p className="text-text-muted text-xs text-center py-5">Nothing up next</p>
+      ) : null}
+        </div>
+      </div>
+    </>,
+    document.body,
+  )
+}
+
+/** Apple Music's queue-header toggles: a rounded square, filled when on. */
+function QueueModeToggle({ on, onClick, disabled, label, children }: {
+  on: boolean
+  onClick: () => void
+  disabled: boolean
+  label: string
+  children: ReactNode
+}): JSX.Element {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={label}
+      title={label}
+      aria-pressed={on}
+      className={`w-11 h-8 shrink-0 rounded-lg flex items-center justify-center active:scale-90 transition-[transform,background-color,color] duration-200 disabled:opacity-40 ${
+        on ? 'bg-text-primary text-surface' : 'bg-[var(--fill)] text-text-secondary'
+      }`}
+    >
+      {children}
+    </button>
+  )
+}
+
+// A press held on the row for LONG_PRESS_MS (without moving past the slop)
+// starts a reorder drag - no separate "Reorder" mode toggle or dedicated grip
+// handle. A deliberate leftward swipe removes the track instead, revealing a
+// red backdrop as it goes. Both gestures start from the same touchstart, so
+// the first real movement has to arbitrate: mostly-horizontal commits to the
+// swipe, mostly-vertical (or none at all, within the hold) leaves the
+// long-press timer running for reorder, and unmistakable vertical movement
+// before the timer fires cancels it outright so the list still scrolls.
+const QUEUE_LONG_PRESS_MS = 420
+const QUEUE_AXIS_SLOP = 10
+const QUEUE_SWIPE_REVEAL = 72
+const QUEUE_SWIPE_THRESHOLD = 56
+
+function QueueRow({ track, active, playing, dragging, anyDragging, rowStyle, onDragStart, onPlay, onRemove }: {
+  track: Track
+  active?: boolean
+  playing?: boolean
+  dragging?: boolean
+  /** True while ANY row in the list is mid-drag - suppresses tap-to-play on
+   *  every row while one is reordering, since the drag's live reflow can
+   *  shift a different row under the finger by the time it lifts. */
+  anyDragging?: boolean
+  rowStyle?: React.CSSProperties
+  onDragStart?: (clientY: number, rowEl: HTMLElement | null) => void
+  onPlay?: () => void
+  onRemove?: () => void
+}): JSX.Element {
+  const rowRef = useRef<HTMLDivElement>(null)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const originRef = useRef<{ x: number; y: number } | null>(null)
+  const axisRef = useRef<'swipe' | 'scroll' | 'reorder' | null>(null)
+  const suppressClickRef = useRef(false)
+  const [dragX, setDragX] = useState(0)
+  const [swiping, setSwiping] = useState(false)
+  const [removing, setRemoving] = useState(false)
+
+  const cancelPress = (): void => {
+    if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null }
+  }
+  const handleTouchStart = (e: React.TouchEvent): void => {
+    if (e.touches.length !== 1) return
+    const t = e.touches[0]
+    originRef.current = { x: t.clientX, y: t.clientY }
+    axisRef.current = null
+    if (onDragStart) {
+      timerRef.current = setTimeout(() => {
+        axisRef.current = 'reorder'
+        suppressClickRef.current = true
+        onDragStart(t.clientY, rowRef.current)
+      }, QUEUE_LONG_PRESS_MS)
+    }
+  }
+  const handleTouchMove = (e: React.TouchEvent): void => {
+    const origin = originRef.current
+    if (!origin) return
+    const t = e.touches[0]
+    const dx = t.clientX - origin.x
+    const dy = t.clientY - origin.y
+    if (!axisRef.current) {
+      if (Math.abs(dx) < QUEUE_AXIS_SLOP && Math.abs(dy) < QUEUE_AXIS_SLOP) return
+      // Any deliberate movement before the long-press timer fires means this
+      // wasn't a hold - cancel it either way, then decide swipe vs. scroll.
+      cancelPress()
+      if (onRemove && Math.abs(dx) > Math.abs(dy)) {
+        axisRef.current = 'swipe'
+        setSwiping(true)
+      } else {
+        axisRef.current = 'scroll'
+      }
+    }
+    if (axisRef.current !== 'swipe') return
+    e.preventDefault()
+    const raw = Math.min(dx, 0)
+    setDragX(raw < -QUEUE_SWIPE_REVEAL ? -QUEUE_SWIPE_REVEAL + (raw + QUEUE_SWIPE_REVEAL) / 4 : raw)
+  }
+  const handleTouchEnd = (): void => {
+    cancelPress()
+    if (axisRef.current === 'swipe') {
+      if (dragX < -QUEUE_SWIPE_THRESHOLD && onRemove) {
+        suppressClickRef.current = true
+        setRemoving(true)
+        setDragX(-window.innerWidth)
+        window.setTimeout(onRemove, 180)
+      } else {
+        setDragX(0)
+      }
+    }
+    setSwiping(false)
+    originRef.current = null
+    axisRef.current = null
+  }
+
+  return (
+    <div ref={rowRef} data-drag-row style={rowStyle} className="relative overflow-hidden">
+      {onRemove && (
+        <div
+          className="absolute inset-0 bg-red-500 flex items-center justify-end pr-6 pointer-events-none"
+          style={{ opacity: dragX < 0 ? Math.min(1, -dragX / QUEUE_SWIPE_THRESHOLD) : 0 }}
+        >
+          <Trash2 size={16} className="text-white" />
+        </div>
+      )}
+      <div
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchEnd}
+        className={`flex items-center gap-3 px-5 py-2 transition-colors ${
+          active ? 'bg-accent/10' : dragging ? 'bg-white/10 shadow-xl rounded-xl' : onPlay ? 'active:bg-[var(--fill)]' : ''
+        }`}
+        style={{
+          transform: dragX ? `translateX(${dragX}px)` : undefined,
+          transition: swiping ? 'none' : 'transform 0.2s ease-out, opacity 0.2s ease-out',
+          opacity: removing ? 0 : 1,
+          background: dragX ? 'var(--surface)' : undefined,
+        }}
+        onClick={() => {
+          if (suppressClickRef.current) { suppressClickRef.current = false; return }
+          if (!anyDragging && onPlay && !active) onPlay()
+        }}
+      >
+        <div className="w-11 h-11 rounded-lg shrink-0 overflow-hidden bg-surface-overlay">
+          <AlbumArtThumbnail track={track} size={44} fill className="w-full h-full" shimmer={false} eager />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className={`text-[15px] truncate leading-snug ${active ? 'text-accent font-semibold' : 'text-text-primary'}`}>{track.title}</p>
+          <p className="text-text-muted text-xs truncate mt-0.5">{track.artist}</p>
+        </div>
+        {playing ? (
+          <span className="flex gap-[3px] items-end h-3.5 shrink-0">
+            {[0, 1, 2].map(i => (
+              <span key={i} className="w-[3px] h-full rounded-full bg-accent eq-bar" style={{ animationDelay: `${i * 0.18}s` }} />
+            ))}
+          </span>
+        ) : (
+          <>
+            <span className="text-text-muted text-[11px] tabular-nums shrink-0">
+              {track.duration ? formatDuration(track.duration) : ''}
+            </span>
+            {onRemove && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onRemove() }}
+                aria-label="Remove from queue"
+                className="w-10 h-11 -mr-2 shrink-0 flex items-center justify-center text-text-muted active:text-red-400"
+              ><X size={17} /></button>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ─── transport widgets ────────────────────────────────────────────────────────
+// Each keeps its own store subscription so a ticking clock, a volume drag or a
+// pause doesn't re-render the whole page (and with it the cover and lyrics).
+
+/** Volume. The knob is always drawn - a hover-only one is invisible on touch,
+ *  and there's no other cue that the line is draggable.
+ *
+ *  Not rendered on iOS at all (see call site) - Safari ignores
+ *  HTMLMediaElement.volume entirely there (see Player.tsx), so this would be
+ *  a control that looks interactive but does nothing. */
+const VolumeRow = memo(function VolumeRow({ txtPri, txtSec, trackBg }: { txtPri: string; txtSec: string; trackBg: string }): JSX.Element {
+  const { volume, setVolume } = useStorePick('volume', 'setVolume')
+  const barRef = useRef<HTMLDivElement>(null)
+  const [touching, setTouching] = useState(false)
+  // Remember the level before muting so unmuting restores it, instead of
+  // jumping to a hardcoded one (mirrors the Player bar's toggleMute).
+  const prevVolumeRef = useRef(volume || 0.8)
+  useEffect(() => { if (volume > 0) prevVolumeRef.current = volume }, [volume])
+
+  const setFrom = (clientX: number): void => {
+    const bar = barRef.current
+    if (!bar) return
+    const r = bar.getBoundingClientRect()
+    setVolume(Math.max(0, Math.min(1, (clientX - r.left) / r.width)))
+  }
+
+  return (
+    // Quiet speaker on the left (also the mute toggle), loud one on the right,
+    // so the row reads as a range rather than a lone button and a line.
+    <div className="flex items-center gap-3">
+      <button
+        onClick={() => setVolume(volume === 0 ? (prevVolumeRef.current || 0.8) : 0)}
+        aria-label={volume === 0 ? 'Unmute' : 'Mute'}
+        className="w-9 h-9 -ml-2 shrink-0 flex items-center justify-center active:scale-90 transition-transform"
+        style={{ color: txtSec }}
+      >
+        <SwapIcon swapKey={volume === 0}>{volume === 0 ? <VolumeX size={17} /> : <Volume size={17} />}</SwapIcon>
+      </button>
+      <div
+        ref={barRef}
+        // touch-none, or the browser claims the drag as a scroll and the
+        // slider never sees it.
+        className="relative flex-1 h-6 flex items-center touch-none"
+        onTouchStart={(e) => { setTouching(true); setFrom(e.touches[0].clientX) }}
+        onTouchMove={(e) => setFrom(e.touches[0].clientX)}
+        onTouchEnd={() => setTouching(false)}
+        onTouchCancel={() => setTouching(false)}
+      >
+        {/* Same look as the scrubber: no knob, a thin line that swells and
+            brightens under the finger. */}
+        <div
+          className="relative w-full h-1.5 rounded-full overflow-hidden transition-transform duration-200 motion-reduce:transition-none"
+          style={{ background: trackBg, transform: touching ? 'scaleY(1.6)' : 'none' }}
+        >
+          <div
+            className="h-full transition-opacity duration-200"
+            style={{ width: `${volume * 100}%`, background: txtPri, opacity: touching ? 1 : 0.75 }}
+          />
+        </div>
+      </div>
+      <span aria-hidden className="w-9 h-9 -mr-2 shrink-0 flex items-center justify-center" style={{ color: txtSec }}>
+        <Volume2 size={17} />
+      </span>
+    </div>
+  )
+})
+
+// Read-only bar for 999FM - it's a live stream, so no scrubbing, but
+// elapsed/duration are still known (from the radio WS) and ticked locally
+// between updates the same way the bottom Player bar does.
+const FmProgressBar = memo(function FmProgressBar({ txtPri, txtSec, trackBg }: { txtPri: string; txtSec: string; trackBg: string }): JSX.Element {
+  const radioFmNowPlaying = useStore(s => s.radioFmNowPlaying)
+  const radioFmIsLive = useStore(s => s.radioFmIsLive)
+  const [elapsedMs, setElapsedMs] = useState(0)
+  const baseRef = useRef<{ elapsed: number; at: number }>({ elapsed: 0, at: 0 })
+
+  useEffect(() => {
+    if (!radioFmNowPlaying?.elapsed_ms) { setElapsedMs(0); return }
+    baseRef.current = { elapsed: radioFmNowPlaying.elapsed_ms, at: Date.now() }
+    setElapsedMs(radioFmNowPlaying.elapsed_ms)
+    const t = setInterval(() => {
+      const { elapsed, at } = baseRef.current
+      setElapsedMs(elapsed + (Date.now() - at))
+    }, 500)
+    return () => clearInterval(t)
+  }, [radioFmNowPlaying])
+
+  const durationMs = radioFmNowPlaying?.duration_ms ?? 0
+  const pct = durationMs > 0 ? Math.min(100, (elapsedMs / durationMs) * 100) : 0
+
+  return (
+    <div className="w-full flex flex-col gap-1.5 select-none">
+      <div className="relative h-1 rounded-full overflow-hidden" style={{ background: trackBg }}>
+        <div className="h-full" style={{ width: `${pct}%`, background: txtPri }} />
+      </div>
+      {/* The station's status sits between the times, where Apple Music puts
+          its Lossless / LIVE badge - the header pill that used to say it is
+          gone. */}
+      <div className="flex items-center justify-between">
+        <span className="flex-1 text-caption2 font-medium tabular-nums" style={{ color: txtSec }}>{formatDuration(elapsedMs / 1000)}</span>
+        <span
+          className={`px-1.5 rounded text-[10px] leading-4 font-bold tracking-wider ${radioFmIsLive ? 'bg-red-600/85 text-white' : ''}`}
+          style={radioFmIsLive ? undefined : { color: txtSec, boxShadow: `inset 0 0 0 1px ${trackBg}` }}
+        >
+          {radioFmIsLive ? '999 FM · LIVE' : radioFmIsLive === false ? '999 FM · OFF AIR' : '999 FM'}
+        </span>
+        <span className="flex-1 text-right text-caption2 font-medium tabular-nums" style={{ color: txtSec }}>{durationMs > 0 ? formatDuration(durationMs / 1000) : '-∞'}</span>
+      </div>
+    </div>
+  )
+})
+
+const ProgressBar = memo(function ProgressBar({ txtPri, txtSec, trackBg }: { txtPri: string; txtSec: string; trackBg: string }): JSX.Element {
+  const { progress, currentTime } = useStore(useShallow(s => ({ progress: s.progress, currentTime: s.currentTime })))
+  const loading = usePlayerLoading(s => s.on)
+  const barRef = useRef<HTMLDivElement>(null)
+  // Buffer the scrub position visually while dragging - only call seekAudio
+  // on release, since seeking on every move makes playback glitch/stutter.
+  const [dragPct, setDragPct] = useState<number | null>(null)
+
+  const pctFromClientX = useCallback((clientX: number): number | null => {
+    const bar = barRef.current
+    if (!bar) return null
+    const rect = bar.getBoundingClientRect()
+    return Math.max(0, Math.min(1, (clientX - rect.left) / rect.width))
+  }, [])
+
+  const duration    = getAudioDuration()
+  const displayTime = dragPct !== null && duration > 0 ? dragPct * duration : currentTime
+  const remaining   = duration > 0 ? duration - displayTime : 0
+  const pct         = Math.min(100, (dragPct !== null ? dragPct : (progress || 0)) * 100)
+
+  return (
+    <div className="w-full flex flex-col gap-1.5 select-none">
+      <div
+        ref={barRef}
+        // The hit area is 24px tall so it's grabbable; only the inner 4px
+        // paints. touch-none stops the browser claiming the drag as a scroll,
+        // which is what used to make seeking do nothing here.
+        className="relative h-6 flex items-center touch-none"
+        onTouchStart={e => {
+          const startPct = pctFromClientX(e.touches[0].clientX)
+          if (startPct !== null) setDragPct(startPct)
+          const onMove = (ev: TouchEvent): void => {
+            const p = pctFromClientX(ev.touches[0].clientX)
+            if (p !== null) setDragPct(p)
+          }
+          const detach = (): void => {
+            document.removeEventListener('touchmove', onMove)
+            document.removeEventListener('touchend', onEnd)
+            document.removeEventListener('touchcancel', onCancel)
+          }
+          const onEnd = (ev: TouchEvent): void => {
+            const p = pctFromClientX(ev.changedTouches[0]?.clientX ?? 0)
+            const dur = getAudioDuration()
+            if (p !== null && dur > 0) seekAudio(p * dur)
+            setDragPct(null)
+            detach()
+          }
+          // A cancelled touch (a system gesture) never sends touchend: let go without seeking.
+          const onCancel = (): void => { setDragPct(null); detach() }
+          document.addEventListener('touchmove', onMove, { passive: true })
+          document.addEventListener('touchend', onEnd)
+          document.addEventListener('touchcancel', onCancel)
+        }}
+      >
+        {/* Apple Music's scrubber: no thumb at rest, just a thin line that
+            swells under the finger (scaleY, so nothing reflows) and brightens
+            from its resting dim. */}
+        <div
+          className="relative w-full h-1 rounded-full overflow-hidden transition-transform duration-200 motion-reduce:transition-none"
+          style={{ background: trackBg, transform: dragPct !== null ? 'scaleY(1.75)' : 'none' }}
+        >
+          <div
+            className="h-full transition-opacity duration-200"
+            style={{ width: `${pct}%`, background: txtPri, opacity: dragPct !== null ? 1 : 0.75 }}
+          />
+          {/* Same sweep as the player bars, in this screen's text color. */}
+          <span
+            className={`player-loading ${loading ? 'on' : ''}`}
+            style={{ '--sweep': `color-mix(in srgb, ${txtPri} 70%, transparent)` } as React.CSSProperties}
+          />
+        </div>
+      </div>
+      <div className="flex justify-between">
+        <span className="text-caption2 font-medium tabular-nums" style={{ color: txtSec }}>{formatDuration(displayTime)}</span>
+        <span className="text-caption2 font-medium tabular-nums" style={{ color: txtSec }}>{duration > 0 ? `-${formatDuration(remaining)}` : '--:--'}</span>
+      </div>
+    </div>
+  )
+})
+
+// ─── lyrics ───────────────────────────────────────────────────────────────────
+
+/** Lyrics get the whole screen: at a readable size a phone fits about six
+ *  lines, so sharing the page with the cover left room for neither. Playback
+ *  stays reachable through the strip pinned at the bottom. */
+function LyricsScreen({
+  onClose, title, artist, rawLyrics, isSynced, syncedLines,
+  radioFmActive, currentTrack, isEditor, txtPri, txtSec, txtTer, txtFaint,
+  textIsDark, artSrc, artError, isDarkSkin,
+}: {
+  onClose: () => void
+  title?: string
+  artist?: string
+  textIsDark: boolean
+  artSrc: string | null
+  artError: boolean
+  isDarkSkin: boolean
+} & Omit<LyricsPanelProps, 'padded'>): JSX.Element {
+  const { isPlaying, setIsPlaying } = useStore(useShallow(s => ({
+    isPlaying: s.isPlaying,
+    setIsPlaying: s.setIsPlaying,
+  })))
+  useBackToClose(onClose)
+  const [showLyricsSettings, setShowLyricsSettings] = useState(false)
+  const [showShareLyrics, setShowShareLyrics] = useState(false)
+
+  // Opens with .animate-sheet-in but closes by unmounting, so it used to
+  // vanish in one frame - slide a copy back down instead.
+  const rootRef = useRef<HTMLDivElement>(null)
+  useExitGhost(rootRef, (ghost) => ghost.animate(
+    [{ transform: 'translateY(0)' }, { transform: 'translateY(100%)' }],
+    { duration: LYRICS_SLIDE_OUT_MS, easing: 'cubic-bezier(0.4,0,0.6,1)', fill: 'forwards' },
+  ))
+
+  return createPortal(
+    // isolate: ArtBackdrop's noise-texture layer uses mix-blend-overlay,
+    // which blends with whatever's painted behind it in the same stacking
+    // context - without a boundary here, that reaches past this portal into
+    // the still-mounted page behind it (this overlay sits on top of it, not
+    // in place of it) and visibly ghosts that page's content through. Seen
+    // as faint text from the Tracker list bleeding through the lyrics
+    // screen's backdrop, reading as "the background is transparent".
+    <div ref={rootRef} className="fixed inset-0 z-[70] flex flex-col animate-sheet-in isolate">
+      {/* Repaints the page's own backdrop instead of an opaque theme colour -
+          the text colours below were picked against the artwork, not against
+          --surface. */}
+      <ArtBackdrop artSrc={artSrc} artError={artError} isDarkSkin={isDarkSkin} radioFmActive={radioFmActive} extraDim />
+
+      <div
+        className="relative shrink-0 flex items-center gap-1 px-2"
+        style={{ paddingTop: 'max(0.25rem, var(--top-inset))' }}
+      >
+        <button
+          onClick={onClose}
+          aria-label="Close lyrics"
+          className="w-11 h-11 shrink-0 flex items-center justify-center rounded-full active:scale-90 transition-transform"
+          style={{ color: txtPri }}
+        ><ChevronDown size={22} /></button>
+        <div className="flex-1 min-w-0 text-center">
+          <p className="text-subhead font-semibold truncate" style={{ color: txtPri }}>{title || 'Lyrics'}</p>
+          {artist && <p className="text-footnote truncate" style={{ color: txtSec }}>{artist}</p>}
+        </div>
+        {rawLyrics && (
+          <button
+            onClick={() => setShowShareLyrics(true)}
+            aria-label="Share lyrics"
+            className="w-11 h-11 shrink-0 flex items-center justify-center rounded-full active:scale-90 transition-transform"
+            style={{ color: txtTer }}
+          ><MicVocal size={18} /></button>
+        )}
+        {/* Lyric display settings (size, alignment, blur, colors, sync
+            offset) shown right here as a sheet instead of sending the user
+            off to Settings - they're mid-song, tucking away to a different
+            screen just to nudge the text size would lose the moment. */}
+        <button
+          onClick={() => setShowLyricsSettings(true)}
+          aria-label="Lyrics display settings"
+          className="w-11 h-11 shrink-0 flex items-center justify-center rounded-full active:scale-90 transition-transform"
+          style={{ color: txtTer }}
+        ><Settings2 size={19} /></button>
+      </div>
+
+      <LyricsPanel
+        padded
+        rawLyrics={rawLyrics}
+        isSynced={isSynced}
+        syncedLines={syncedLines}
+        radioFmActive={radioFmActive}
+        currentTrack={currentTrack}
+        isEditor={isEditor}
+        txtPri={txtPri} txtSec={txtSec} txtTer={txtTer} txtFaint={txtFaint}
+      />
+
+      {showLyricsSettings && <LyricsSettingsSheet onClose={() => setShowLyricsSettings(false)} />}
+      {showShareLyrics && (
+        <ShareLyricsModal
+          title={title || 'Lyrics'}
+          artist={artist || ''}
+          imageUrl={artSrc}
+          rawLyrics={rawLyrics}
+          onClose={() => setShowShareLyrics(false)}
+        />
+      )}
+
+      {!radioFmActive && (
+        <div
+          className="relative shrink-0 px-6 pt-1 flex items-center justify-center gap-8"
+          style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom, 0px))' }}
+        >
+          <button onClick={() => runPlayerCommand('previous')} aria-label="Previous" className="w-12 h-12 flex items-center justify-center active:scale-90 transition-transform" style={{ color: txtPri }}>
+            <SkipBack size={28} fill="currentColor" strokeWidth={0} />
+          </button>
+          <button
+            onClick={() => setIsPlaying(!isPlaying)}
+            aria-label={isPlaying ? 'Pause' : 'Play'}
+            className="w-14 h-14 rounded-full flex items-center justify-center active:scale-90 transition-transform"
+            style={{ color: txtPri }}
+          >
+            <SwapIcon swapKey={isPlaying}>
+              {isPlaying ? <Pause size={36} fill="currentColor" strokeWidth={0} /> : <Play size={36} fill="currentColor" strokeWidth={0} className="ml-1" />}
+            </SwapIcon>
+          </button>
+          <button onClick={() => runPlayerCommand('next')} aria-label="Next" className="w-12 h-12 flex items-center justify-center active:scale-90 transition-transform" style={{ color: txtPri }}>
+            <SkipFwd size={28} fill="currentColor" strokeWidth={0} />
+          </button>
+        </div>
+      )}
+    </div>,
+    document.body,
+  )
+}
+
+// ─── lyrics display settings ─────────────────────────────────────────────────
+
+const LYRICS_TEXT_SIZES: { label: string; value: number }[] = [
+  { label: 'Small', value: 0.85 },
+  { label: 'Default', value: 1 },
+  { label: 'Large', value: 1.2 },
+  { label: 'Huge', value: 1.4 },
+]
+
+const LYRICS_ACTIVE_PRESETS = ['#ffffff', '#1db954', '#a78bfa', '#60a5fa', '#f472b6', '#facc15']
+const LYRICS_INACTIVE_PRESETS = ['#9ca3af', '#6b7280', '#94a3b8', '#c4b5fd', '#7dd3fc', '#fda4af']
+
+// One row of color swatches - "Auto" (null) defers to the surface's own
+// text colors, otherwise a preset or a custom pick via the native color input.
+function LyricColorRow({ label, presets, value, fallback, onChange }: {
+  label: string
+  presets: string[]
+  value: string | null
+  fallback: string
+  onChange: (color: string | null) => void
+}): JSX.Element {
+  return (
+    <div className="flex items-center gap-2 flex-wrap">
+      <span className="text-text-muted text-xs w-full">{label}</span>
+      <button
+        onClick={() => onChange(null)}
+        className={`h-8 px-2.5 rounded-lg text-[11px] font-semibold border transition-colors ${
+          value === null
+            ? 'bg-accent/15 text-accent border-[var(--accent)]'
+            : 'text-text-muted border-[var(--border)] active:bg-[var(--surface-raised)]'
+        }`}
+      >
+        Auto
+      </button>
+      {presets.map((c) => (
+        <button
+          key={c}
+          onClick={() => onChange(c)}
+          className="w-8 h-8 rounded-full border border-[var(--border)] shrink-0"
+          style={{ backgroundColor: c, outline: value?.toLowerCase() === c ? `2px solid ${c}` : 'none', outlineOffset: '2px' }}
+          title={c}
+        />
+      ))}
+      <input
+        type="color"
+        value={value ?? fallback}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-8 h-8 rounded-full border border-[var(--border)] shrink-0 bg-transparent p-0"
+      />
+    </div>
+  )
+}
+
+/** The lyric-display controls (text size, alignment, blur, colors, sync
+ *  offset) shown right in the full lyrics screen - this used to mean leaving
+ *  the song to dig through Settings just to nudge the text size, which is
+ *  exactly the wrong moment to lose the lyrics view. */
+function LyricsSettingsSheet({ onClose }: { onClose: () => void }): JSX.Element {
+  const {
+    lyricsScale, setLyricsScale,
+    lyricsAlign, setLyricsAlign,
+    lyricsBlur, setLyricsBlur,
+    lyricsBlurAmount, setLyricsBlurAmount,
+    lyricsColorActive, setLyricsColorActive,
+    lyricsColorInactive, setLyricsColorInactive,
+    lyricsOffset, setLyricsOffset,
+  } = useStorePick(
+    'lyricsScale', 'setLyricsScale', 'lyricsAlign', 'setLyricsAlign',
+    'lyricsBlur', 'setLyricsBlur', 'lyricsBlurAmount', 'setLyricsBlurAmount',
+    'lyricsColorActive', 'setLyricsColorActive', 'lyricsColorInactive', 'setLyricsColorInactive',
+    'lyricsOffset', 'setLyricsOffset',
+  )
+
+  return (
+    <Sheet onClose={onClose} title="Lyrics display">
+      <div className="px-5 pb-2 flex flex-col gap-5">
+        <div>
+          <p className="text-text-secondary text-xs mb-2">Text size</p>
+          <div className="flex items-center gap-1 p-1 rounded-xl bg-[var(--surface-highest)]">
+            {LYRICS_TEXT_SIZES.map(({ label, value }) => {
+              const active = lyricsScale === value
+              return (
+                <button
+                  key={value}
+                  onClick={() => setLyricsScale(value)}
+                  aria-pressed={active}
+                  className={`flex-1 min-w-0 h-9 rounded-lg text-[13px] font-medium transition-colors ${
+                    active ? 'bg-accent text-white' : 'text-text-secondary active:bg-[var(--surface-overlay)]'
+                  }`}
+                >
+                  {label}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        <div>
+          <p className="text-text-secondary text-xs mb-2">Alignment</p>
+          <div className="flex items-center gap-1 p-1 rounded-xl bg-[var(--surface-highest)]">
+            {[
+              { value: 'left' as const, label: 'Left', icon: AlignLeft },
+              { value: 'center' as const, label: 'Center', icon: AlignCenter },
+            ].map(({ value, label, icon: Icon }) => {
+              const active = lyricsAlign === value
+              return (
+                <button
+                  key={value}
+                  onClick={() => setLyricsAlign(value)}
+                  aria-pressed={active}
+                  className={`flex-1 min-w-0 flex items-center justify-center gap-1.5 h-9 rounded-lg text-[13px] font-medium transition-colors ${
+                    active ? 'bg-accent text-white' : 'text-text-secondary active:bg-[var(--surface-overlay)]'
+                  }`}
+                >
+                  <Icon size={14} /> {label}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        <div>
+          <div className="flex items-center justify-between mb-1">
+            <p className="text-text-primary text-sm">Blur inactive lines</p>
+            <button
+              onClick={() => setLyricsBlur(!lyricsBlur)}
+              aria-pressed={lyricsBlur}
+              className={`flex items-center shrink-0 w-11 h-6 p-0.5 rounded-full transition-colors ${
+                lyricsBlur ? 'bg-accent justify-end' : 'bg-[var(--surface-highest)] justify-start'
+              }`}
+            >
+              <span className="w-5 h-5 rounded-full bg-white" />
+            </button>
+          </div>
+          {lyricsBlur && (
+            <div className="flex items-center gap-2 mt-2">
+              <input
+                type="range" min={0.25} max={4} step={0.25}
+                value={lyricsBlurAmount}
+                onChange={(e) => setLyricsBlurAmount(parseFloat(e.target.value))}
+                className="flex-1 accent-[var(--accent)]"
+              />
+              <span className="text-text-muted text-xs tabular-nums w-8 text-right">{lyricsBlurAmount}×</span>
+            </div>
+          )}
+        </div>
+
+        <div className="flex flex-col gap-3">
+          <p className="text-text-secondary text-xs -mb-1">Colors</p>
+          <LyricColorRow
+            label="Current line"
+            presets={LYRICS_ACTIVE_PRESETS}
+            value={lyricsColorActive}
+            fallback="#ffffff"
+            onChange={setLyricsColorActive}
+          />
+          <LyricColorRow
+            label="Other lines"
+            presets={LYRICS_INACTIVE_PRESETS}
+            value={lyricsColorInactive}
+            fallback="#9ca3af"
+            onChange={setLyricsColorInactive}
+          />
+        </div>
+
+        <div className="flex items-center justify-between">
+          <p className="text-text-primary text-sm">Sync offset</p>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setLyricsOffset(Math.round((lyricsOffset - 0.1) * 10) / 10)}
+              className="w-8 h-8 rounded-full bg-[var(--surface-highest)] text-text-primary text-base font-medium active:bg-[var(--surface-overlay)]"
+            >−</button>
+            <span className="text-text-primary text-sm tabular-nums w-14 text-center">
+              {lyricsOffset > 0 ? '+' : ''}{lyricsOffset.toFixed(1)}s
+            </span>
+            <button
+              onClick={() => setLyricsOffset(Math.round((lyricsOffset + 0.1) * 10) / 10)}
+              className="w-8 h-8 rounded-full bg-[var(--surface-highest)] text-text-primary text-base font-medium active:bg-[var(--surface-overlay)]"
+            >+</button>
+          </div>
+        </div>
+      </div>
+    </Sheet>
+  )
+}
+
+interface LyricsPanelProps {
+  rawLyrics: string | null
+  isSynced: boolean
+  syncedLines: SyncedLyricLine[]
+  padded?: boolean
+  radioFmActive: boolean
+  currentTrack: Track | null
+  isEditor: boolean | null | undefined
+  txtPri: string; txtSec: string; txtTer: string; txtFaint: string
+}
+
+// Tracks which synced line is current, against the LIVE audio.currentTime via
+// requestAnimationFrame rather than the Zustand-stored value (which only
+// updates on the native 'timeupdate' event, ~4x/sec - that throttling is what
+// made the active line snap every ~250ms instead of transitioning smoothly).
+// Shared by the full lyrics screen and the mini line under the cover art, so
+// both agree on exactly which line is "now" without a second rAF loop.
+function useActiveSyncedLine(isSynced: boolean, syncedLines: SyncedLyricLine[]): number {
+  const lyricsOffset = useStore(s => s.lyricsOffset)
+  // Lazily computed from the live audio position (not just -1) so a remount
+  // doesn't momentarily render with no active line before the next rAf tick
+  // corrects it - for the lyrics screen that was a visible "jump to the top,
+  // then glide back down" flash.
+  const [idx, setIdx] = useState(() =>
+    isSynced && syncedLines.length > 0
+      ? getCurrentLineIndex(syncedLines, getAudioCurrentTime() - lyricsOffset)
+      : -1
+  )
+  const idxRef = useRef(idx)
+
+  useEffect(() => {
+    if (!isSynced || syncedLines.length === 0) {
+      setIdx(-1)
+      idxRef.current = -1
+      return
+    }
+    let raf = 0
+    const tick = (): void => {
+      const i = getCurrentLineIndex(syncedLines, getAudioCurrentTime() - lyricsOffset)
+      if (i !== idxRef.current) {
+        idxRef.current = i
+        setIdx(i)
+      }
+      raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [isSynced, syncedLines, lyricsOffset])
+
+  return idx
+}
+
+const LyricsPanel = memo(function LyricsPanel({
+  rawLyrics, isSynced, syncedLines, padded,
+  radioFmActive, currentTrack, isEditor,
+  txtPri, txtSec, txtTer,
+}: LyricsPanelProps) {
+  const viewportRef = useRef<HTMLDivElement>(null)
+  const linesRef    = useRef<HTMLDivElement>(null)
+  const activeRef   = useRef<HTMLDivElement>(null)
+  const { lyricsScale, lyricsAlign, lyricsBlur, lyricsBlurAmount, lyricsColorActive, lyricsColorInactive } = useStorePick(
+    'lyricsScale', 'lyricsAlign', 'lyricsBlur', 'lyricsBlurAmount', 'lyricsColorActive', 'lyricsColorInactive')
+
+  const currentLineIdx = useActiveSyncedLine(isSynced, syncedLines)
+
+  // Center the active line by translating the whole lyric column rather than
+  // using native `scrollIntoView({behavior:'smooth'})`. Native smooth-scroll
+  // steps in discrete chunks and visibly fights the active line's font-size
+  // reflow, which read as a choppy, low-fps animation. A GPU-composited
+  // transform with a CSS transition glides at the display's full refresh rate.
+  const [translateY, setTranslateY] = useState(0)
+  const [vpHalf, setVpHalf] = useState(0)
+
+  // Manual-scroll override - the lyric column isn't a native scroll container
+  // (its position is driven by a `transform`, not `scrollTop`), so a plain
+  // touch drag would otherwise do nothing. When the user scrolls manually we
+  // take over `translateY` here and stop auto-centering the active line until
+  // they opt back in via the "Resume" button.
+  const [autoFollow, setAutoFollow] = useState(true)
+  const [manualTranslateY, setManualTranslateY] = useState(0)
+  const dragRef = useRef<{ startY: number; startTranslate: number } | null>(null)
+
+  const clampTranslate = (v: number): number => {
+    const vp = viewportRef.current
+    const lines = linesRef.current
+    if (!vp || !lines) return Math.max(v, 0)
+    const max = Math.max(0, lines.scrollHeight - vp.clientHeight)
+    return Math.min(Math.max(v, 0), max)
+  }
+
+  // Press-and-hold the lyrics to download the .lrc - the touch equivalent of
+  // desktop's right-click menu. Only offered for synced lyrics, since plain
+  // text has no timestamps worth exporting. Cancelled by any real scroll drag
+  // so it doesn't fire mid-swipe, and it swallows the click that would
+  // otherwise land on release and seek to whatever line was under the thumb.
+  const longPressTimerRef = useRef<number | null>(null)
+  const longPressFiredRef = useRef(false)
+  const clearLongPressTimer = (): void => {
+    if (longPressTimerRef.current != null) {
+      window.clearTimeout(longPressTimerRef.current)
+      longPressTimerRef.current = null
+    }
+  }
+
+  const handleTouchStart = (e: React.TouchEvent): void => {
+    if (!isSynced || syncedLines.length === 0) return
+    dragRef.current = { startY: e.touches[0].clientY, startTranslate: autoFollow ? translateY : manualTranslateY }
+    longPressFiredRef.current = false
+    if (rawLyrics) {
+      longPressTimerRef.current = window.setTimeout(() => {
+        longPressFiredRef.current = true
+        navigator.vibrate?.(10)
+        downloadSyncedLyrics(currentTrack?.title ?? 'lyrics', currentTrack?.artist ?? '', rawLyrics)
+      }, 550)
+    }
+  }
+
+  const handleTouchMove = (e: React.TouchEvent): void => {
+    if (!dragRef.current) return
+    const dy = dragRef.current.startY - e.touches[0].clientY
+    if (Math.abs(dy) > 10) clearLongPressTimer()
+    setManualTranslateY(clampTranslate(dragRef.current.startTranslate + dy))
+    if (autoFollow) setAutoFollow(false)
+  }
+
+  const handleTouchEnd = (): void => { dragRef.current = null; clearLongPressTimer() }
+
+  useLayoutEffect(() => {
+    const vp = viewportRef.current
+    if (!vp) return
+    const measure = (): void => setVpHalf(vp.clientHeight / 2)
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(vp)
+    return () => ro.disconnect()
+  }, [isSynced, syncedLines.length])
+
+  useLayoutEffect(() => {
+    if (currentLineIdx < 0) { setTranslateY(0); return }
+    const active = activeRef.current
+    if (!active) return
+    // offsetTop is relative to linesRef (position: relative), unaffected by the
+    // transform - so this stays correct mid-animation. lyricsScale is a dep
+    // because changing the text size reflows every line's offsetTop.
+    setTranslateY(active.offsetTop + active.offsetHeight / 2 - vpHalf)
+  }, [currentLineIdx, vpHalf, lyricsScale])
+
+  // No glide until the first centring has landed. translateY starts at 0, so
+  // every mount scrolled the whole song past from the top down to the current
+  // line. Waits for a measured viewport: a panel mounted hidden has none yet.
+  const [placed, setPlaced] = useState(false)
+  useEffect(() => {
+    if (placed || vpHalf === 0) return
+    const raf = requestAnimationFrame(() => setPlaced(true))
+    return () => cancelAnimationFrame(raf)
+  }, [placed, vpHalf])
+
+
+  if (!rawLyrics) {
+    return (
+      <div className="relative flex-1 flex flex-col items-center justify-center gap-3 px-8">
+        {!radioFmActive && !currentTrack
+          ? <p className="text-sm text-center" style={{ color: txtTer }}>No track playing</p>
+          : radioFmActive
+            ? <p className="text-sm text-center" style={{ color: txtTer }}>No lyrics found for this track</p>
+            : <>
+                <div className="text-5xl opacity-10">♪</div>
+                <p className="text-sm text-center" style={{ color: txtTer }}>No lyrics available</p>
+                {isEditor && <p className="text-xs text-center" style={{ color: txtTer }}>Open the editor to add lyrics</p>}
+              </>
+        }
+      </div>
+    )
+  }
+
+  if (isSynced && syncedLines.length > 0) {
+    // Edge fade is done with a mask on the lines themselves, not an opaque
+    // overlay - painting flat bands on top added darkness confined to this
+    // panel's box, creating a visible "aura" rectangle. A mask fades the text
+    // to transparent, letting the page's own background show through.
+    const edgeMask = 'linear-gradient(to bottom, transparent, black 80px, black calc(100% - 80px), transparent)'
+    const displayTranslateY = autoFollow ? translateY : manualTranslateY
+    return (
+      <div
+        ref={viewportRef}
+        className="relative flex-1 min-h-0 overflow-hidden"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchEnd}
+      >
+        {/* Mask lives on this static wrapper, not the translating element
+            below - a mask-image sharing a compositing layer with an animated
+            transform can show a thin colour-fringed seam at the mask's edge
+            during GPU compositing (visible here as a faint stray line while
+            the lines were sliding). Keeping the mask on a layer that never
+            moves avoids that. */}
+        <div className="relative w-full h-full" style={{ WebkitMaskImage: edgeMask, maskImage: edgeMask }}>
+        <div
+          ref={linesRef}
+          className={`relative flex flex-col ${padded ? 'gap-5 px-7' : 'gap-4 px-5'}`}
+          style={{
+            transform: `translateY(${-displayTranslateY}px)`,
+            transition: autoFollow && placed ? 'transform 0.6s cubic-bezier(0.22,1,0.36,1)' : 'none',
+            willChange: 'transform',
+          }}
+        >
+          {/* Half-viewport spacers so the first and last lines can sit at center. */}
+          <div style={{ height: vpHalf }} />
+          {syncedLines.map((line, i) => {
+            if (!line.text) return <div key={i} className="h-3" />
+            const isActive = i === currentLineIdx
+            const isPast   = i < currentLineIdx
+            const dist     = Math.abs(i - currentLineIdx)
+            // The active line grows via `transform: scale()`, not a literal
+            // font-size change. font-size is a layout property - animating it
+            // keeps reflowing this line's box (and shifting every line below
+            // it) for the whole 0.4s, which raced the translateY centering
+            // calculation above: that math runs once off the pre-growth
+            // offsetTop/offsetHeight, so the line kept growing for a few more
+            // frames after the scroll settled, reading as a sudden late pop.
+            // A transform never affects layout/offsetHeight, so the centering
+            // stays correct for the whole transition with no second jump.
+            const baseFontSize = `${(padded ? 1.4 : 1.15) * lyricsScale}rem`
+            const scale = isActive ? (padded ? 1.25 : 1.217) : 1
+            return (
+              <div
+                key={i}
+                ref={isActive ? activeRef : undefined}
+                onClick={() => { if (longPressFiredRef.current) return; seekAudio(line.time) }}
+                className={`select-none ${lyricsAlign === 'center' ? 'origin-center mx-auto text-center' : 'origin-left'}`}
+                style={{
+                  // scale() is purely visual and doesn't reflow layout, so a
+                  // line already near the container's full width would have
+                  // its right edge pushed past the viewport once scaled up,
+                  // and get clipped by this panel's overflow-hidden. Capping
+                  // each line's own width leaves enough headroom that even the
+                  // largest growth still fits.
+                  maxWidth:   padded ? '84%' : '82%',
+                  fontFamily: 'var(--font-lyrics)',
+                  fontSize:   baseFontSize,
+                  // Bold weight is the active line's style only - not
+                  // animated. Most fonts here aren't variable fonts, so
+                  // `font-weight` can't interpolate between steps like
+                  // 400→800; the browser snaps partway through the
+                  // transition, reading as the text suddenly going bold once
+                  // the (truly smooth) scale/opacity/colour animation appears
+                  // to settle.
+                  fontWeight: isActive ? 800 : 500,
+                  lineHeight: 1.25,
+                  color:      isActive ? (lyricsColorActive ?? txtPri) : (lyricsColorInactive ?? txtSec),
+                  opacity:    isActive ? 1 : dist === 1 ? 0.55 : dist === 2 ? 0.35 : 0.2,
+                  filter:     (!isActive && !isPast && dist >= 2 && lyricsBlur) ? `blur(${(0.6 * lyricsBlurAmount).toFixed(2)}px)` : 'none',
+                  transform:  `scale(${scale})`,
+                  transition: 'opacity 0.4s cubic-bezier(0.4,0,0.2,1), color 0.4s cubic-bezier(0.4,0,0.2,1), transform 0.4s cubic-bezier(0.4,0,0.2,1), filter 0.4s cubic-bezier(0.4,0,0.2,1)',
+                  textShadow: isActive ? '0 0 30px rgba(255,255,255,0.12)' : 'none',
+                }}
+              >
+                {splitAdLibs(line.text).map((seg, si) => (
+                  <span key={si} style={seg.adLib ? { opacity: ADLIB_OPACITY } : undefined}>
+                    {splitColorWords(seg.text).map((cseg, ci) => (
+                      cseg.color
+                        ? <span key={ci} style={{ color: cseg.color }}>{cseg.text}</span>
+                        : cseg.text
+                    ))}
+                  </span>
+                ))}
+              </div>
+            )
+          })}
+          <div style={{ height: vpHalf }} />
+        </div>
+        </div>
+
+        {!autoFollow && (
+          <button
+            onClick={() => setAutoFollow(true)}
+            className="absolute left-1/2 -translate-x-1/2 bottom-4 z-10 flex items-center gap-1.5 px-4 h-9 rounded-full bg-black/60 backdrop-blur-md border border-white/15 text-white/85 text-[13px] font-medium"
+          >
+            <ChevronDown size={14} />
+            Resume
+          </button>
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <div className={`relative flex-1 min-h-0 overflow-y-auto ${padded ? 'py-8 px-7' : 'py-4 px-5'}`} style={{ scrollbarWidth: 'none' }}>
+      <pre
+        className="text-sm leading-7 whitespace-pre-wrap"
+        style={{
+          color: lyricsColorInactive ?? txtSec,
+          fontFamily: 'var(--font-lyrics)',
+          textAlign: lyricsAlign,
+          // Only override the base size when the user actually changed it;
+          // unitless line-height keeps spacing proportional.
+          ...(lyricsScale !== 1 ? { fontSize: `${0.875 * lyricsScale}rem`, lineHeight: 1.9 } : {}),
+        }}
+      >{splitAdLibs(rawLyrics).map((seg, si) => (
+        <span key={si} style={seg.adLib ? { opacity: ADLIB_OPACITY } : undefined}>{seg.text}</span>
+      ))}</pre>
+    </div>
+  )
+})

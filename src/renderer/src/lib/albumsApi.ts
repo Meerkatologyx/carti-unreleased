@@ -1,0 +1,175 @@
+import { routeUrl, apiFetch, apiPeek, buildImageUrl, resolvePrefCoverUrl, type JWApiSong } from './juicewrldApi'
+import type { SongPrefMap } from './songPrefs'
+import { apiRequest, authedRequest } from './apiClient'
+import { getToken } from './userApi'
+
+const ACCOUNT_BASE = routeUrl('/accounts')
+
+export interface Artist {
+  id: number
+  name: string
+  bio?: string
+}
+
+/** The catalogue song at a track's path, as album reads return it (null when
+ *  no song has that path; absent on servers older than this field). */
+export interface AlbumTrackSong {
+  id: number
+  public_id: number | null
+  name: string
+  category: string
+  length: string
+  image_url: string | null
+}
+
+export interface AlbumSongEntry {
+  order: number
+  path: string
+  /** Read-only: writes only take {order, path}. */
+  song?: AlbumTrackSong | null
+}
+
+export interface Album {
+  id: number
+  title: string
+  type?: string
+  artist: Artist
+  release_date: string
+  description?: string
+  cover_url: string
+  play_count: number
+  songs: AlbumSongEntry[]
+}
+
+/** An album's entries in play order. */
+export const albumTracks = (album: Album): AlbumSongEntry[] => [...album.songs].sort((a, b) => a.order - b.order)
+
+/** Album entries carry track paths, not full song metadata - this path→song
+ *  lookup, built from the whole catalogue (loadAllSongs), resolves them. */
+// Kept per catalogue array: loadAllSongs hands every caller the same array
+// until its TTL runs out, so Home, WRLD and Albums share one index, and a view
+// that remounts gets the very Map it already holds (its setState bails out
+// instead of re-rendering the whole page).
+const songIndexByList = new WeakMap<JWApiSong[], Map<string, JWApiSong>>()
+export const indexSongsByPath = (songs: JWApiSong[]): Map<string, JWApiSong> => {
+  let index = songIndexByList.get(songs)
+  if (!index) {
+    index = new Map(songs.filter(s => s.path).map(s => [s.path as string, s]))
+    songIndexByList.set(songs, index)
+  }
+  return index
+}
+
+/** The lead track's personalized cover wins, then the album's own cover, then
+ *  the lead track's API art. The raw `image_url` alone skipped both of the
+ *  first two - and comes back "null" for most unreleased songs. */
+export function albumCoverUrl(album: Album, songIndex: Map<string, JWApiSong>, songPrefs: SongPrefMap): string | undefined {
+  const lead = songIndex.get(albumTracks(album)[0]?.path ?? '')
+  return (lead ? resolvePrefCoverUrl(songPrefs[lead.id]?.cover_url) : undefined)
+    ?? buildImageUrl(album.cover_url)
+    ?? buildImageUrl(lead?.image_url)
+}
+
+function request<T>(url: string, options: RequestInit = {}): Promise<T> {
+  return authedRequest<T>(url, options, getToken())
+}
+
+// The docs for these list endpoints promise a bare array, but the live API
+// paginates /artists/ and /albums/ ({count, next, previous, results}, 20 per
+// page). `next` is http://, so walk the page number on our own base instead
+// of following that URL. A bare array (older servers) is the whole list.
+const MAX_LIST_PAGES = 10
+
+type Paged<T> = T[] | { results?: T[]; next?: string | null }
+
+async function collectPages<T>(load: (page: number) => Promise<Paged<T>>): Promise<T[]> {
+  const all: T[] = []
+  for (let page = 1; page <= MAX_LIST_PAGES; page++) {
+    let data: Paged<T>
+    try {
+      data = await load(page)
+    } catch (error) {
+      if (page === 1) throw error
+      return all
+    }
+    if (Array.isArray(data)) return data
+    all.push(...(data?.results ?? []))
+    if (!data?.next) return all
+  }
+  return all
+}
+
+// ── Public (no auth) ─────────────────────────────────────────────────────────
+
+export async function fetchArtists(): Promise<Artist[]> {
+  return collectPages((page) => apiFetch<Paged<Artist>>('/artists/', page === 1 ? {} : { page }))
+}
+
+// The last list fetchAlbums returned. An unchanged list comes back as this very
+// array, so a view refreshing on mount (Home, WRLD) doesn't re-render for it.
+let lastAlbums: { list: Album[]; json: string } | null = null
+
+export async function fetchAlbums(): Promise<Album[]> {
+  const list = await collectPages((page) => apiFetch<Paged<Album>>('/albums/', page === 1 ? {} : { page }))
+  const json = JSON.stringify(list)
+  if (lastAlbums?.json === json) return lastAlbums.list
+  lastAlbums = { list, json }
+  return list
+}
+
+/** The list fetchAlbums last returned this session, with no request. */
+export function lastFetchedAlbums(): Album[] | undefined {
+  return lastAlbums?.list
+}
+
+/** The album list as `fetchAlbums` last cached it, page by page, with no
+ *  request. Undefined when page 1 was never cached. */
+export function peekAlbums(): Album[] | undefined {
+  const all: Album[] = []
+  for (let page = 1; page <= MAX_LIST_PAGES; page++) {
+    const data = apiPeek<Paged<Album> | Album[]>('/albums/', page === 1 ? {} : { page })
+    if (!data) return page === 1 ? undefined : all
+    if (Array.isArray(data)) return data
+    all.push(...(data.results ?? []))
+    if (!data.next) return all
+  }
+  return all
+}
+
+// ── Admin (Token + is_administrator + OTP) ───────────────────────────────────
+
+export async function adminFetchAlbums(): Promise<Album[]> {
+  return collectPages((page) => request<Paged<Album>>(
+    page === 1 ? `${ACCOUNT_BASE}/admin/albums/` : `${ACCOUNT_BASE}/admin/albums/?page=${page}`,
+    { method: 'GET' },
+  ))
+}
+
+export interface AlbumWritePayload {
+  title: string
+  artist_id: number
+  release_date: string
+  type?: string
+  description?: string
+  cover_url?: string
+  play_count?: number
+  songs?: AlbumSongEntry[]
+}
+
+export async function adminCreateAlbum(payload: AlbumWritePayload): Promise<Album> {
+  return request(`${ACCOUNT_BASE}/admin/albums/`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export async function adminUpdateAlbum(id: number, payload: Partial<AlbumWritePayload>): Promise<Album> {
+  return request(`${ACCOUNT_BASE}/admin/albums/${id}/`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  })
+}
+
+export async function adminDeleteAlbum(id: number): Promise<void> {
+  await request(`${ACCOUNT_BASE}/admin/albums/${id}/`, { method: 'DELETE' })
+}

@@ -1,0 +1,222 @@
+import { useState } from 'react'
+import { RefreshCw, ChevronLeft, Plus, FolderOpen, User, Trophy, Pencil, Check, X, Loader2 } from 'lucide-react'
+import { useStore, useStorePick } from '../store/useStore'
+import RoleBadges from './RoleBadges'
+import { Tile } from './Tile'
+import HomeHero from './HomeHero'
+import { useIsMobile } from '../hooks/useIsMobile'
+import { useStaffRoles } from '../hooks/useStaffRoles'
+import { useMyCompProposals } from '../hooks/useMyCompProposals'
+import CompProposalList, { CompFilterBar, filterCompProposals } from './CompProposalList'
+import { updateDisplayName } from '../lib/userApi'
+import { accountDisplayName, initial } from '../lib/format'
+
+// A contributor-only account's home. Reviewing other people's proposals is
+// deliberately NOT here - that queue lives in exactly one place, the Admin
+// page's "Comp files" tab, reachable from the editor profile.
+
+// Bento tile grid - mirrors the tile treatment EditorProfileView.desktop/
+// .mobile.tsx use (see "Visual Redesign v2 - Bento Dashboard Pivot" in the
+// rewrite plan), but this page stays a single file (no .desktop/.mobile
+// split, per the plan's explicit decision - it's the smallest surface and
+// doesn't need two layouts). The grid below is a simple responsive
+// `grid-cols-2` stack that escalates to 4 columns at `sm`, closer to
+// EditorProfileView.mobile.tsx's approach than the desktop file's
+// height-filling bento - there just isn't enough content here to justify a
+// dedicated per-platform layout.
+export default function ContributorProfileView(): JSX.Element {
+  const { account, setActiveView, activeChannel, channels } = useStorePick('account', 'setActiveView', 'activeChannel', 'channels')
+  const go = setActiveView
+  const [refreshKey, setRefreshKey] = useState(0)
+
+  const [editingName, setEditingName] = useState(false)
+  const [nameInput, setNameInput] = useState('')
+  const [savingName, setSavingName] = useState(false)
+  const [nameError, setNameError] = useState<string | null>(null)
+
+  function startEditName(): void {
+    setNameInput(accountDisplayName(account))
+    setNameError(null)
+    setEditingName(true)
+  }
+
+  async function saveDisplayName(): Promise<void> {
+    const trimmed = nameInput.trim()
+    if (!trimmed || trimmed === account?.display_name) { setEditingName(false); return }
+    setSavingName(true)
+    setNameError(null)
+    try {
+      const updated = await updateDisplayName(trimmed)
+      useStore.setState({ account: updated })
+      setEditingName(false)
+    } catch {
+      setNameError('Could not save. Try again.')
+    } finally {
+      setSavingName(false)
+    }
+  }
+
+  const { isContributor, isAdmin, isManager, isEditor, canReviewProposals } = useStaffRoles(account, activeChannel, channels)
+
+  const {
+    compProposals: proposals, loading, filter, setFilter, withdrawingId, handleWithdraw: withdraw,
+    reviewingId, handleReview,
+  } = useMyCompProposals(isContributor, activeChannel, refreshKey, () => setRefreshKey(k => k + 1))
+
+  const filtered = filterCompProposals(proposals, filter)
+  const approvedCount = proposals.filter(p => p.status === 'approved').length
+
+  if (!account) {
+    return (
+      <div className="flex-1 min-w-0 flex items-center justify-center h-full text-text-muted text-sm">Sign in to view your contributor profile.</div>
+    )
+  }
+
+  if (!isContributor) {
+    return (
+      <div className="flex-1 min-w-0 flex flex-col items-center justify-center h-full gap-4 px-6 text-center">
+        <p className="text-sm text-text-muted">You are not a contributor yet.</p>
+        <button onClick={() => go('contributor')} className="px-4 py-2 rounded-xl bg-accent text-white text-sm font-semibold">Apply or submit</button>
+      </div>
+    )
+  }
+
+  const isMobile = useIsMobile()
+
+  return (
+    <div className="flex-1 min-w-0 h-full flex flex-col overflow-hidden">
+      {/* Desktop shares Home's header across the dashboard transition. */}
+      {isMobile ? (
+        <div className="shrink-0 px-4 py-3 flex items-center gap-2">
+          <button onClick={() => go('api-tracker')} aria-label="Back to Tracker" className="p-1.5 text-text-muted"><ChevronLeft size={18} /></button>
+          <h1 className="text-base font-bold text-text-primary truncate">Contributor profile</h1>
+        </div>
+      ) : (
+        <div className="shrink-0 px-6 pt-5 pb-4">
+          <HomeHero on="staff" />
+        </div>
+      )}
+
+      <div className="flex-1 overflow-y-auto px-4 sm:px-6 pb-4 sm:pb-5 pb-player">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+
+          {/* Identity */}
+          <Tile span="col-span-2 sm:col-span-2">
+            <div className="flex items-center gap-3">
+              {account.avatar ? (
+                <img src={account.avatar} alt="" className="w-12 h-12 rounded-full object-cover shrink-0 ring-2 ring-[var(--border)]" />
+              ) : (
+                <div className="w-12 h-12 rounded-full bg-accent/20 text-accent flex items-center justify-center text-lg font-bold shrink-0">
+                  {initial(accountDisplayName(account))}
+                </div>
+              )}
+              <div className="min-w-0">
+                {editingName ? (
+                  <div className="flex items-center gap-1">
+                    <input
+                      autoFocus
+                      value={nameInput}
+                      onChange={(e) => setNameInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') saveDisplayName()
+                        if (e.key === 'Escape') setEditingName(false)
+                      }}
+                      maxLength={50}
+                      disabled={savingName}
+                      className="min-w-0 w-36 bg-[var(--surface-raised)] border border-[var(--border)] rounded-md px-1.5 py-0.5 text-text-primary text-sm font-bold focus:outline-none focus:ring-1 focus:ring-accent"
+                    />
+                    <button
+                      onClick={saveDisplayName}
+                      disabled={savingName}
+                      className="p-1 rounded text-accent hover:bg-accent/15 transition-colors disabled:opacity-40"
+                      title="Save"
+                    >
+                      {savingName ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
+                    </button>
+                    <button
+                      onClick={() => setEditingName(false)}
+                      disabled={savingName}
+                      className="p-1 rounded text-text-muted hover:bg-[var(--surface-raised)] transition-colors disabled:opacity-40"
+                      title="Cancel"
+                    >
+                      <X size={13} />
+                    </button>
+                  </div>
+                ) : (
+                  <h2 className="text-text-primary text-base font-bold truncate flex items-center gap-1.5 group">
+                    {accountDisplayName(account)}
+                    <button
+                      onClick={startEditName}
+                      className="p-0.5 rounded text-text-muted opacity-0 group-hover:opacity-100 hover:text-text-primary hover:bg-[var(--surface-raised)] transition-colors shrink-0"
+                      title="Edit display name"
+                    >
+                      <Pencil size={11} />
+                    </button>
+                  </h2>
+                )}
+                {nameError && <p className="text-[10px] text-red-400 mt-0.5">{nameError}</p>}
+                <div className="mt-1 flex flex-wrap gap-1.5">
+                  <RoleBadges isAdmin={isAdmin} isManager={isManager} isEditor={isEditor} isContributor={isContributor} />
+                </div>
+              </div>
+            </div>
+          </Tile>
+
+          {/* Stats */}
+          <Tile title="Stats" icon={<Trophy size={13} />} span="col-span-2 sm:col-span-2">
+            <div className="flex-1 flex flex-col justify-center gap-1.5">
+              <p className="text-footnote font-semibold text-text-secondary md:text-[10px] md:font-bold md:uppercase md:tracking-widest md:text-text-muted">
+                {approvedCount} approved
+              </p>
+            </div>
+          </Tile>
+
+          {/* Quick actions */}
+          <Tile
+            title="Quick actions"
+            icon={<User size={13} />}
+            span="col-span-2 sm:col-span-4"
+            controls={
+              <button onClick={() => setRefreshKey(k => k + 1)} title="Refresh" className="p-1.5 rounded-lg text-text-muted hover:text-text-primary hover:bg-surface-raised transition-colors">
+                <RefreshCw size={15} />
+              </button>
+            }
+          >
+            <div className="flex items-center gap-2 flex-wrap">
+              <button onClick={() => go('contributor')} className="flex items-center gap-1.5 h-8 px-3 rounded-full bg-accent/15 hover:bg-accent/25 text-accent text-xs font-semibold transition-colors">
+                <Plus size={12} /> New comp proposal
+              </button>
+              <button onClick={() => go('api-files')} className="flex items-center gap-1.5 h-8 px-3 rounded-full bg-surface-raised hover:bg-surface-highest text-text-secondary hover:text-text-primary text-xs font-semibold transition-colors">
+                <FolderOpen size={12} /> Browse comp files
+              </button>
+              {(isEditor || isManager) && (
+                <button onClick={() => go('editor-profile')} className="flex items-center gap-1.5 h-8 px-3 rounded-full bg-surface-raised hover:bg-surface-highest text-text-secondary hover:text-text-primary text-xs font-semibold transition-colors">
+                  {isEditor ? 'Editor profile' : 'Manager profile'}
+                </button>
+              )}
+            </div>
+          </Tile>
+
+          {/* Comp Files - large */}
+          <Tile title="Comp Files" icon={<FolderOpen size={13} />} span="col-span-2 sm:col-span-4">
+            <div className="flex items-center gap-2 mb-2 shrink-0">
+              <CompFilterBar filter={filter} setFilter={setFilter} />
+            </div>
+            <div className="flex-1 overflow-y-auto min-h-0">
+              <CompProposalList
+                proposals={filtered}
+                loading={loading}
+                onSelect={() => go('contributor')}
+                onWithdraw={withdraw}
+                withdrawingId={withdrawingId}
+                onReview={canReviewProposals ? handleReview : undefined}
+                reviewingId={reviewingId}
+              />
+            </div>
+          </Tile>
+
+        </div>
+      </div>
+    </div>
+  )
+}
