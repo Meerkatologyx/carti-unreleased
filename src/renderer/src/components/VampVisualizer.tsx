@@ -12,6 +12,7 @@ import { useVizStore, useVampEdgeLook } from '../store/vizStore'
 import VizControls from './VizControls'
 import VampEdgeLight from './VampEdgeLight'
 import VampMusicVideo from './VampMusicVideo'
+import CartiMusicVideo from './CartiMusicVideo'
 import LyricsControls from './LyricsControls'
 import DesktopSettings from './DesktopSettings'
 import { ls } from '../lib/persist'
@@ -408,6 +409,7 @@ export default function VampVisualizer({
       {/* Above VAMP's blurred-art background, beneath its content. */}
       <div ref={hostRef} className="absolute inset-0 pointer-events-none" aria-hidden />
       <VampMusicVideo onShow={announce} />
+      <CartiMusicVideo onShow={announce} />
       {shownEdge !== null && (
         <div className="absolute inset-0 pointer-events-none" aria-hidden>
           {/* One light whatever the look: a new one per look meant a new WebGL context and its programs built again. */}

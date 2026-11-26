@@ -125,6 +125,12 @@ function embedFor(links) {
 }
 
 /** Song identity across tabs: its title (no tags, emoji or version brackets) plus its era. */
+/** A title as a lowercase key: tracker tags (⭐ 🥉 …), [V2]/(feat. …) asides and punctuation removed. */
+function bareTitle(name) {
+  return clean(name).split('\n')[0].toLowerCase()
+    .replace(/^[^\p{L}\p{N}]+/u, '').replace(/\[.*?\]|\(.*?\)|\*/g, '').replace(/[^\p{L}\p{N}]+/gu, ' ').trim()
+}
+
 function matchKey(name, eraName) {
   const n = clean(name).split('\n')[0].toLowerCase()
     .replace(/^[^\p{L}\p{N}]+/u, '').replace(/\[.*?\]|\(.*?\)|\*/g, '').replace(/[^\p{L}\p{N}]+/gu, ' ').trim()
@@ -367,6 +373,41 @@ async function main() {
     else if (existsSync(path.join(ERA_IMG_DIR, `${slug(e.name)}.jpg`))) e.image = `/carti/eras/${slug(e.name)}.jpg`
   }
   for (const s of songs) s.image_url = s.era ? eras.get(s.era.name)?.image ?? null : null
+
+  // ─── music videos ───────────────────────────────────────────────────────
+  // The Released tab lists each video as its own row ("Sky [Music Video] [V2]").
+  // Every released song with the same title gets that video, which VAMP plays
+  // muted behind the player (CartiMusicVideo.tsx): a real video file (imgur.gg
+  // .mp4/.mov) when the row has one, else its YouTube link. The rows' pillows.su
+  // links are audio rips, so they're not used here.
+  const videoKey = (name) => bareTitle(name).replace(/\b(official\s+)?(music\s+)?video\b/gi, '').replace(/\s+/g, ' ').trim()
+  const isVideoRow = (s) => /\b(music video|official video|visuali[sz]er)\b/i.test(s.name) || /^Type: Music Video$/im.test(s.additional_information ?? '')
+  const videos = new Map()
+  for (const s of songs) {
+    if (s.category !== 'released' || !isVideoRow(s)) continue
+    const key = videoKey(s.name)
+    if (!key) continue
+    let video = null
+    for (const l of s._src.links) {
+      const i = /(?<![\w.])imgur\.gg\/f\/([A-Za-z0-9]+)/i.exec(l)
+      if (!i) continue
+      const url = await imgurAudio(i[1], imgurCache)
+      if (url && /\.(mp4|mov|m4v|webm)$/i.test(url)) { video = { kind: 'file', url }; break }
+    }
+    if (!video) {
+      const yt = embedFor(s._src.links.filter((l) => /youtu/.test(l)))
+      if (yt) video = { kind: 'youtube', id: yt.path.split(':').pop() }
+    }
+    if (video && !videos.has(key)) videos.set(key, { ...video, title: s.name })
+  }
+  let withVideo = 0
+  for (const s of songs) {
+    const v = s.category === 'released' ? videos.get(videoKey(s.name)) : null
+    s.music_video = v ?? null
+    if (v) withVideo++
+  }
+  await writeFile(IMGUR_CACHE, JSON.stringify(imgurCache, null, 1))
+  console.log(`Music videos: ${videos.size} found, on ${withVideo} released songs.`)
 
   const eraList = [...eras.values()].map(({ image, ...e }) => ({ ...e, image_url: image }))
   const stats = {
