@@ -41,10 +41,16 @@ local stats work, and are saved in your browser.
 
 ## Lyrics
 
-The sheet has no lyrics, so when a song starts the player looks it up on
-[LRCLIB](https://lrclib.net) (`src/renderer/src/lib/lrclib.ts`). A result is
-used only when the title, artist and length match, so mostly released songs get
-lyrics, usually timed. Results are cached in the browser.
+The sheet has no lyrics, so they come from two places:
+
+- **Timed lyrics** from [LRCLIB](https://lrclib.net), looked up when a song
+  starts (`src/renderer/src/lib/lrclib.ts`). Used only when title, artist and
+  (for leaks) length match; cached in the browser.
+- **Plain lyrics** from Genius, gathered at build time by
+  `scripts/genius-lyrics.mjs` into `public/carti/lyrics.json` (Genius can't be
+  read from a browser). Shown when LRCLIB has no timed lyrics, and searchable in
+  the Tracker's Lyrics tab. Lookups are cached in `scripts/genius-cache.json`
+  and the Actions cache, so each build only asks about new songs.
 
 ## Run it locally
 

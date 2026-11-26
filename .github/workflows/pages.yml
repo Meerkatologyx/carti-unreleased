@@ -34,6 +34,25 @@ jobs:
           YOUTUBE_DL_SKIP_DOWNLOAD: 'true'
       - name: Pull the latest Carti tracker data
         run: node scripts/build-carti-data.mjs
+      # Genius lookups are kept between runs (on top of the committed copy), so a
+      # build only asks about songs it hasn't seen. A blocked or slow Genius never
+      # fails the deploy: the last lyrics.json is kept.
+      - name: Restore the Genius lyrics cache
+        uses: actions/cache/restore@v4
+        with:
+          path: scripts/genius-cache.json
+          key: genius-${{ github.run_id }}
+          restore-keys: genius-
+      - name: Lyrics from Genius
+        run: node scripts/genius-lyrics.mjs --max 300
+        continue-on-error: true
+        timeout-minutes: 15
+      - name: Save the Genius lyrics cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: scripts/genius-cache.json
+          key: genius-${{ github.run_id }}
       - name: Build
         run: npm run build
         env:

@@ -24,6 +24,7 @@ import SongInfoModal from './SongInfoModal'
 import CoverEditor from './CoverEditor'
 import { AlbumArtThumbnail } from './AlbumArtThumbnail'
 import { FallbackImg, ProgressiveCover } from './ProgressiveCover'
+import CartiMusicVideo from './CartiMusicVideo'
 import { LikePop, SwapIcon, TrackSwap } from './PlayerMotion'
 import SongContextMenu from './SongContextMenu'
 import RadioChatPanel from './RadioChatPanel'
@@ -774,6 +775,8 @@ function ArtBackdrop({ artSrc, artError, isDarkSkin, radioFmActive, onError, ext
       ) : (
         <div className={`absolute inset-0 ${radioFmActive ? 'bg-gradient-to-br from-red-950/60 to-black' : 'bg-gradient-to-br from-gray-200 to-gray-100 dark:from-gray-900 dark:to-black'}`} />
       )}
+      {/* The song's music video, over the blurred art and under the dimming, as on desktop. */}
+      <CartiMusicVideo />
       <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/20 dark:from-black/40 dark:via-transparent dark:to-black/70" />
       {extraDim && <div className="absolute inset-0 bg-black/35" />}
       {/* A near-black diagonal gradient (or a 60px blur pushed to very low

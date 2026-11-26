@@ -401,8 +401,10 @@ async function main() {
     if (video && !videos.has(key)) videos.set(key, { ...video, title: s.name })
   }
   let withVideo = 0
+  // A remix, sped-up/slowed edit or acapella isn't what the video plays.
+  const variant = /\b(remix|sped|slowed|reverb|acapella|a cappella|instrumental|nightcore)\b/i
   for (const s of songs) {
-    const v = s.category === 'released' ? videos.get(videoKey(s.name)) : null
+    const v = s.category === 'released' && !variant.test(s.name) ? videos.get(videoKey(s.name)) : null
     s.music_video = v ?? null
     if (v) withVideo++
   }

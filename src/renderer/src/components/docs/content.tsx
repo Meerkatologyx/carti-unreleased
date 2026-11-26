@@ -73,9 +73,9 @@ function PlaybackTab() {
 
       <Section title="Lyrics">
         <p className="text-sm text-text-secondary leading-relaxed">
-          The tracker has no lyrics, so when a song starts the player looks it up on LRCLIB, a free public lyrics
-          database. A match needs the same title, artist and length, so mostly released songs get lyrics - usually
-          timed line by line. Unreleased songs are rarely there.
+          The tracker has no lyrics of its own. When a song starts, the player looks for timed lyrics on LRCLIB (a free
+          public lyrics database); when there are none it shows the song's lyrics from Genius instead. The Genius
+          lyrics are also what the Tracker's Lyrics tab searches.
         </p>
       </Section>
 

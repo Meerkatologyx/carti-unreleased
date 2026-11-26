@@ -37,6 +37,21 @@ function loadData() {
   return dataPromise
 }
 
+// Plain lyrics from Genius (scripts/genius-lyrics.mjs), by song id. A separate,
+// larger file, so it's only fetched when something asks for lyrics: a song's
+// own record, or the Tracker's lyric search.
+let lyricsPromise: Promise<Record<string, string>> | null = null
+function loadLyrics(): Promise<Record<string, string>> {
+  if (!lyricsPromise) {
+    lyricsPromise = origFetch(asset('carti/lyrics.json'), { cache: 'no-cache' })
+      .then((r) => (r.ok ? r.json() : {}))
+      .catch(() => ({}))
+  }
+  return lyricsPromise
+}
+const withLyrics = (s: CatalogSong, lyrics: Record<string, string>): CatalogSong =>
+  (lyrics[s.id] && !s.lyrics ? { ...s, lyrics: lyrics[s.id] } : s)
+
 const norm = (s: string): string => s.toLowerCase().replace(/['’‘`]/g, '').replace(/[^\p{L}\p{N}]+/gu, ' ').trim()
 
 function matches(song: CatalogSong, q: string, deep: boolean): boolean {
@@ -84,7 +99,14 @@ async function handle(url: URL, method: string): Promise<Response> {
     const ids = q.get('ids')
     if (ids) { const set = new Set(ids.split(',').map(Number)); rows = rows.filter((s) => set.has(s.id)) }
     const fields = (q.get('omit') ?? '').split(/[,;]/).map((s) => s.trim()).filter(Boolean)
-    if (q.get('all') === 'true') return json(rows.map((s) => omit(s, fields)))
+    if (q.get('all') === 'true') {
+      // Callers that keep `lyrics` (the lyric search) get the Genius lyrics merged in.
+      if (!fields.includes('lyrics')) {
+        const lyrics = await loadLyrics()
+        rows = rows.map((s) => withLyrics(s, lyrics))
+      }
+      return json(rows.map((s) => omit(s, fields)))
+    }
     const size = Math.max(1, Number(q.get('page_size')) || 50)
     const page = Math.max(1, Number(q.get('page')) || 1)
     const start = (page - 1) * size
@@ -99,7 +121,7 @@ async function handle(url: URL, method: string): Promise<Response> {
   if (one) {
     const { songs } = await loadData()
     const song = songs.find((s) => s.id === Number(one[1]))
-    return song ? json(song) : json({ detail: 'Not found.' }, 404)
+    return song ? json(withLyrics(song, await loadLyrics())) : json({ detail: 'Not found.' }, 404)
   }
 
   if (p === '/eras/' || p === '/eras') {

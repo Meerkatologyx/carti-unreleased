@@ -1108,10 +1108,11 @@ export default function Player(): JSX.Element {
         lyricsFetchInFlight = songId
         getSongById(songId)
           .then(async (song) => {
-            // The tracker sheet has no lyrics of its own: look the song up on LRCLIB.
-            const found = song.lyrics || song.synced_lyrics ? null : await findLyrics(song)
+            // Timed lyrics from LRCLIB win; otherwise the plain Genius lyrics the
+            // catalogue carries (song.lyrics), then LRCLIB's plain ones.
+            const found = song.synced_lyrics ? null : await findLyrics(song)
             const syncedLyrics = song.synced_lyrics || found?.syncedLyrics || null
-            const lyrics = song.lyrics || found?.lyrics || null
+            const lyrics = (found?.syncedLyrics ? found.lyrics : null) || song.lyrics || found?.lyrics || null
             lyricsCache.set(songId, { lyrics, syncedLyrics, ts: Date.now() })
             if (isStale()) return
             setCurrentTrackFull({ ...synthetic, lyrics, syncedLyrics })
