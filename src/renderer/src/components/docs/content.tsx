@@ -71,6 +71,14 @@ function PlaybackTab() {
         />
       </Section>
 
+      <Section title="Lyrics">
+        <p className="text-sm text-text-secondary leading-relaxed">
+          The tracker has no lyrics, so when a song starts the player looks it up on LRCLIB, a free public lyrics
+          database. A match needs the same title, artist and length, so mostly released songs get lyrics - usually
+          timed line by line. Unreleased songs are rarely there.
+        </p>
+      </Section>
+
       <Section title="Spotify songs">
         <p className="text-sm text-text-secondary leading-relaxed">
           Spotify's player can't be started from outside, so press play in its card. Without a Spotify login in this

@@ -818,7 +818,7 @@ export function skinToFileText(skin: Skin): string {
 /** A filesystem-safe base name for the exported file. */
 export function skinFileName(skin: Skin): string {
   const base = skin.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
-  return `${base || 'skin'}.jwskin.json`
+  return `${base || 'skin'}.cartiskin.json`
 }
 
 /**

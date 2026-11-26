@@ -394,7 +394,7 @@ export function getSongById(id: number, signal?: AbortSignal): Promise<CatalogSo
 // the normal JSON envelope, and caps `results` at a default page size - and
 // most songs in this catalogue (anything unreleased) have no `public_id` at
 // all, so the "batch" path silently resolved nothing for them. See
-// project_jwa_api_docs_drift in memory: the docs page is hand-written and
+// the API docs drift: the docs page is hand-written and
 // drifts from the live API.
 //
 // Until the API grows a real batch-by-id endpoint, this just fans out to the
@@ -715,7 +715,7 @@ export async function findSessionZips(song: CatalogSong): Promise<CatalogFileEnt
 export function buildImageUrl(imageUrl: string | null | undefined): string | undefined {
   // Songs with no cover set sometimes come back from the API with
   // `image_url` as the literal string "null" rather than JSON null (see
-  // project_jwa_api_docs_drift) - falls through the falsy check below and
+  // the docs drift from the live API) - falls through the falsy check below and
   // gets built into a real-looking but bogus "/null" URL otherwise, which the
   // API resolves to a placeholder that visibly reads "null".
   if (!imageUrl || imageUrl === 'null') return undefined

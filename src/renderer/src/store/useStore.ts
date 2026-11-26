@@ -969,7 +969,7 @@ function applyPrefToTrack(track: Track, pref: SongPreference | undefined): Track
   // Mirrors songToTrack: user cover first, then a rotated suggestion (only
   // ever set while the rotate-covers setting is on), then an era cover
   // override (unreleased songs only - track.genre holds the API category for
-  // jw- tracks), then the song's own art.
+  // pc- tracks), then the song's own art.
   const coverUrl = overrideCoverUrl(userApi.trackIdToSongId(track.id), pref?.cover_url, track.genre, track.era)
   return {
     ...track,

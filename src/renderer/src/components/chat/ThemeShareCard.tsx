@@ -5,7 +5,7 @@ import { useStore } from '../../store/useStore'
 import { clickable } from '../../lib/a11y'
 
 // Applying a shared theme always creates a fresh custom skin (same as
-// importing a .jwskin.json file) rather than trying to match it back to an
+// importing a .cartiskin.json file) rather than trying to match it back to an
 // existing one - there's no reliable identity to match on since a shared
 // built-in theme could have been re-skinned locally under the same name.
 export default function ThemeShareCard({ theme }: { theme: SharedThemePayload }): JSX.Element {

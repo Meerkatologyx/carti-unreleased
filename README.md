@@ -39,6 +39,13 @@ archive, edit proposals) aren't available. The tracker, search, filters, era
 pages, the VAMP view, player, queue, shuffle radio, playlists, favourites and
 local stats work, and are saved in your browser.
 
+## Lyrics
+
+The sheet has no lyrics, so when a song starts the player looks it up on
+[LRCLIB](https://lrclib.net) (`src/renderer/src/lib/lrclib.ts`). A result is
+used only when the title, artist and length match, so mostly released songs get
+lyrics, usually timed. Results are cached in the browser.
+
 ## Run it locally
 
 ```bash

@@ -27,6 +27,7 @@ import * as desktopActions from '../desktop/actions'
 import ContextMenu from './ContextMenu'
 import EmbedDock from './EmbedDock'
 import { isEmbedUrl, silentUrlFor } from '../lib/embedPlayback'
+import { findLyrics } from '../lib/lrclib'
 import { eventToCombo, resolveAction, registerHotkeyDispatch } from '../lib/hotkeys'
 import { formatDuration } from '../lib/format'
 import { takeEqAnchor } from '../lib/eqAnchor'
@@ -1106,9 +1107,11 @@ export default function Player(): JSX.Element {
         setCurrentTrackFull({ ...synthetic, lyricsPending: true })
         lyricsFetchInFlight = songId
         getSongById(songId)
-          .then((song) => {
-            const syncedLyrics = song.synced_lyrics || null
-            const lyrics = song.lyrics || null
+          .then(async (song) => {
+            // The tracker sheet has no lyrics of its own: look the song up on LRCLIB.
+            const found = song.lyrics || song.synced_lyrics ? null : await findLyrics(song)
+            const syncedLyrics = song.synced_lyrics || found?.syncedLyrics || null
+            const lyrics = song.lyrics || found?.lyrics || null
             lyricsCache.set(songId, { lyrics, syncedLyrics, ts: Date.now() })
             if (isStale()) return
             setCurrentTrackFull({ ...synthetic, lyrics, syncedLyrics })

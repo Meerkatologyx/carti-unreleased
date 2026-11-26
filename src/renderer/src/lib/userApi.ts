@@ -442,7 +442,7 @@ export function liteSongToTrack(song: ApiSongLite): Track {
 }
 
 export function trackIdToSongId(trackId: string): number | null {
-  const match = trackId.match(/^jw-(\d+)$/)
+  const match = trackId.match(/^pc-(\d+)$/)
   return match ? Number(match[1]) : null
 }
 
